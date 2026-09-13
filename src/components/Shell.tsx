@@ -39,7 +39,9 @@ export function Shell({ nav, children }: { nav: NavItem[]; children: ReactNode }
                 {school?.name ?? "职称评审推荐投票平台"}
               </div>
               <div className="mt-1 text-[11px] tracking-[0.18em] text-muted-foreground">
-                {school?.subtitle ?? "管理后台"}
+                {session?.isJudge && !session.isAdmin && !session.isSuper
+                  ? "评审投票"
+                  : (school?.subtitle ?? "管理后台")}
               </div>
             </div>
           </div>

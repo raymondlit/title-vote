@@ -203,7 +203,7 @@ function SuperPage() {
           {credential ? (
             <div className="mt-8 border border-foreground/30 bg-background p-6">
               <p className="text-[12px] tracking-[0.12em]">
-                管理员「{credential.username}」已创建，初始密码：
+                管理员「{credential.username}」登录密码：
                 <span className="mx-1 font-mono">{credential.password}</span>
                 （请立即复制保存，仅显示一次）
               </p>
