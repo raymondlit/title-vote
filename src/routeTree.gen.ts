@@ -20,6 +20,7 @@ import { Route as AuthenticatedAdminBrandingRouteImport } from './routes/_authen
 import { Route as AuthenticatedAdminCandidatesRouteImport } from './routes/_authenticated/admin.candidates'
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated/admin.groups'
 import { Route as AuthenticatedAdminJudgesRouteImport } from './routes/_authenticated/admin.judges'
+import { Route as AuthenticatedAdminResultsRouteImport } from './routes/_authenticated/admin.results'
 import { Route as AuthenticatedAdminRulesRouteImport } from './routes/_authenticated/admin.rules'
 import { Route as AuthenticatedAdminSessionsRouteImport } from './routes/_authenticated/admin.sessions'
 import { Route as AuthenticatedVoteIndexRouteImport } from './routes/_authenticated/vote.index'
@@ -84,6 +85,12 @@ const AuthenticatedAdminJudgesRoute =
     path: '/judges',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminResultsRoute =
+  AuthenticatedAdminResultsRouteImport.update({
+    id: '/results',
+    path: '/results',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedAdminRulesRoute = AuthenticatedAdminRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
@@ -122,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/admin/candidates': typeof AuthenticatedAdminCandidatesRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRoute
   '/admin/judges': typeof AuthenticatedAdminJudgesRoute
+  '/admin/results': typeof AuthenticatedAdminResultsRoute
   '/admin/rules': typeof AuthenticatedAdminRulesRoute
   '/admin/sessions': typeof AuthenticatedAdminSessionsRoute
   '/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
@@ -137,6 +145,7 @@ export interface FileRoutesByTo {
   '/admin/candidates': typeof AuthenticatedAdminCandidatesRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRoute
   '/admin/judges': typeof AuthenticatedAdminJudgesRoute
+  '/admin/results': typeof AuthenticatedAdminResultsRoute
   '/admin/rules': typeof AuthenticatedAdminRulesRoute
   '/admin/sessions': typeof AuthenticatedAdminSessionsRoute
   '/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
@@ -156,6 +165,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/candidates': typeof AuthenticatedAdminCandidatesRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRoute
   '/_authenticated/admin/judges': typeof AuthenticatedAdminJudgesRoute
+  '/_authenticated/admin/results': typeof AuthenticatedAdminResultsRoute
   '/_authenticated/admin/rules': typeof AuthenticatedAdminRulesRoute
   '/_authenticated/admin/sessions': typeof AuthenticatedAdminSessionsRoute
   '/_authenticated/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/admin/candidates'
     | '/admin/groups'
     | '/admin/judges'
+    | '/admin/results'
     | '/admin/rules'
     | '/admin/sessions'
     | '/vote/$sessionId'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/admin/candidates'
     | '/admin/groups'
     | '/admin/judges'
+    | '/admin/results'
     | '/admin/rules'
     | '/admin/sessions'
     | '/vote/$sessionId'
@@ -208,6 +220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/candidates'
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/judges'
+    | '/_authenticated/admin/results'
     | '/_authenticated/admin/rules'
     | '/_authenticated/admin/sessions'
     | '/_authenticated/vote/$sessionId'
@@ -302,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminJudgesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/results': {
+      id: '/_authenticated/admin/results'
+      path: '/results'
+      fullPath: '/admin/results'
+      preLoaderRoute: typeof AuthenticatedAdminResultsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/admin/rules': {
       id: '/_authenticated/admin/rules'
       path: '/rules'
@@ -345,6 +365,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminCandidatesRoute: typeof AuthenticatedAdminCandidatesRoute
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRoute
   AuthenticatedAdminJudgesRoute: typeof AuthenticatedAdminJudgesRoute
+  AuthenticatedAdminResultsRoute: typeof AuthenticatedAdminResultsRoute
   AuthenticatedAdminRulesRoute: typeof AuthenticatedAdminRulesRoute
   AuthenticatedAdminSessionsRoute: typeof AuthenticatedAdminSessionsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
@@ -355,6 +376,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminCandidatesRoute: AuthenticatedAdminCandidatesRoute,
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRoute,
   AuthenticatedAdminJudgesRoute: AuthenticatedAdminJudgesRoute,
+  AuthenticatedAdminResultsRoute: AuthenticatedAdminResultsRoute,
   AuthenticatedAdminRulesRoute: AuthenticatedAdminRulesRoute,
   AuthenticatedAdminSessionsRoute: AuthenticatedAdminSessionsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
