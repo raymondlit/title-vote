@@ -21,7 +21,9 @@ import { Route as AuthenticatedAdminCandidatesRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminGroupsRouteImport } from './routes/_authenticated/admin.groups'
 import { Route as AuthenticatedAdminJudgesRouteImport } from './routes/_authenticated/admin.judges'
 import { Route as AuthenticatedAdminRulesRouteImport } from './routes/_authenticated/admin.rules'
+import { Route as AuthenticatedAdminSessionsRouteImport } from './routes/_authenticated/admin.sessions'
 import { Route as AuthenticatedVoteIndexRouteImport } from './routes/_authenticated/vote.index'
+import { Route as AuthenticatedVoteSessionIdRouteImport } from './routes/_authenticated/vote.$sessionId'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 
 const IndexRoute = IndexRouteImport.update({
@@ -87,11 +89,23 @@ const AuthenticatedAdminRulesRoute = AuthenticatedAdminRulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedAdminSessionsRoute =
+  AuthenticatedAdminSessionsRouteImport.update({
+    id: '/sessions',
+    path: '/sessions',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const AuthenticatedVoteIndexRoute = AuthenticatedVoteIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedVoteRoute,
 } as any)
+const AuthenticatedVoteSessionIdRoute =
+  AuthenticatedVoteSessionIdRouteImport.update({
+    id: '/$sessionId',
+    path: '/$sessionId',
+    getParentRoute: () => AuthenticatedVoteRoute,
+  } as any)
 const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   id: '/api/public/bootstrap',
   path: '/api/public/bootstrap',
@@ -109,6 +123,8 @@ export interface FileRoutesByFullPath {
   '/admin/groups': typeof AuthenticatedAdminGroupsRoute
   '/admin/judges': typeof AuthenticatedAdminJudgesRoute
   '/admin/rules': typeof AuthenticatedAdminRulesRoute
+  '/admin/sessions': typeof AuthenticatedAdminSessionsRoute
+  '/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/vote/': typeof AuthenticatedVoteIndexRoute
@@ -122,6 +138,8 @@ export interface FileRoutesByTo {
   '/admin/groups': typeof AuthenticatedAdminGroupsRoute
   '/admin/judges': typeof AuthenticatedAdminJudgesRoute
   '/admin/rules': typeof AuthenticatedAdminRulesRoute
+  '/admin/sessions': typeof AuthenticatedAdminSessionsRoute
+  '/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/vote': typeof AuthenticatedVoteIndexRoute
@@ -139,6 +157,8 @@ export interface FileRoutesById {
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRoute
   '/_authenticated/admin/judges': typeof AuthenticatedAdminJudgesRoute
   '/_authenticated/admin/rules': typeof AuthenticatedAdminRulesRoute
+  '/_authenticated/admin/sessions': typeof AuthenticatedAdminSessionsRoute
+  '/_authenticated/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/vote/': typeof AuthenticatedVoteIndexRoute
@@ -156,6 +176,8 @@ export interface FileRouteTypes {
     | '/admin/groups'
     | '/admin/judges'
     | '/admin/rules'
+    | '/admin/sessions'
+    | '/vote/$sessionId'
     | '/api/public/bootstrap'
     | '/admin/'
     | '/vote/'
@@ -169,6 +191,8 @@ export interface FileRouteTypes {
     | '/admin/groups'
     | '/admin/judges'
     | '/admin/rules'
+    | '/admin/sessions'
+    | '/vote/$sessionId'
     | '/api/public/bootstrap'
     | '/admin'
     | '/vote'
@@ -185,6 +209,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/groups'
     | '/_authenticated/admin/judges'
     | '/_authenticated/admin/rules'
+    | '/_authenticated/admin/sessions'
+    | '/_authenticated/vote/$sessionId'
     | '/api/public/bootstrap'
     | '/_authenticated/admin/'
     | '/_authenticated/vote/'
@@ -283,11 +309,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRulesRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/sessions': {
+      id: '/_authenticated/admin/sessions'
+      path: '/sessions'
+      fullPath: '/admin/sessions'
+      preLoaderRoute: typeof AuthenticatedAdminSessionsRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/_authenticated/vote/': {
       id: '/_authenticated/vote/'
       path: '/'
       fullPath: '/vote/'
       preLoaderRoute: typeof AuthenticatedVoteIndexRouteImport
+      parentRoute: typeof AuthenticatedVoteRoute
+    }
+    '/_authenticated/vote/$sessionId': {
+      id: '/_authenticated/vote/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/vote/$sessionId'
+      preLoaderRoute: typeof AuthenticatedVoteSessionIdRouteImport
       parentRoute: typeof AuthenticatedVoteRoute
     }
     '/api/public/bootstrap': {
@@ -306,6 +346,7 @@ interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminGroupsRoute: typeof AuthenticatedAdminGroupsRoute
   AuthenticatedAdminJudgesRoute: typeof AuthenticatedAdminJudgesRoute
   AuthenticatedAdminRulesRoute: typeof AuthenticatedAdminRulesRoute
+  AuthenticatedAdminSessionsRoute: typeof AuthenticatedAdminSessionsRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
@@ -315,6 +356,7 @@ const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminGroupsRoute: AuthenticatedAdminGroupsRoute,
   AuthenticatedAdminJudgesRoute: AuthenticatedAdminJudgesRoute,
   AuthenticatedAdminRulesRoute: AuthenticatedAdminRulesRoute,
+  AuthenticatedAdminSessionsRoute: AuthenticatedAdminSessionsRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 
@@ -322,10 +364,12 @@ const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
 interface AuthenticatedVoteRouteChildren {
+  AuthenticatedVoteSessionIdRoute: typeof AuthenticatedVoteSessionIdRoute
   AuthenticatedVoteIndexRoute: typeof AuthenticatedVoteIndexRoute
 }
 
 const AuthenticatedVoteRouteChildren: AuthenticatedVoteRouteChildren = {
+  AuthenticatedVoteSessionIdRoute: AuthenticatedVoteSessionIdRoute,
   AuthenticatedVoteIndexRoute: AuthenticatedVoteIndexRoute,
 }
 
