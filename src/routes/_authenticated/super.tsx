@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ALL_PERMISSIONS, PERMISSION_LABELS } from "@/lib/account";
 import {
   createSchoolAdmin,
+  deleteSchool,
   resetUserPassword,
   setAdminPermissions,
   setUserActive,
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/_authenticated/super")({
 });
 
 const NAV = [{ to: "/super", label: "高校与管理员" }];
+const PAGE_SIZES = [10, 20, 40, 100];
 
 function slugify(input: string) {
   const ascii = input
@@ -40,20 +42,34 @@ function slugify(input: string) {
   return "sch" + Math.random().toString(36).slice(2, 8);
 }
 
+type Tab = "schools" | "admins";
+
 function SuperPage() {
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<Tab>("schools");
+
+  // 新增高校
   const [name, setName] = useState("");
   const [shortName, setShortName] = useState("");
   const [slug, setSlug] = useState("");
+
+  // 新增管理员
   const [selectedSchool, setSelectedSchool] = useState<string>("");
   const [adminName, setAdminName] = useState("");
   const [perms, setPerms] = useState<string[]>(ALL_PERMISSIONS);
   const [credential, setCredential] = useState<{ username: string; password: string } | null>(null);
 
+  // 分页
+  const [schoolPage, setSchoolPage] = useState(1);
+  const [schoolSize, setSchoolSize] = useState(10);
+  const [adminPage, setAdminPage] = useState(1);
+  const [adminSize, setAdminSize] = useState(10);
+
   const createAdminFn = useServerFn(createSchoolAdmin);
   const resetPwFn = useServerFn(resetUserPassword);
   const setPermsFn = useServerFn(setAdminPermissions);
   const setActiveFn = useServerFn(setUserActive);
+  const deleteSchoolFn = useServerFn(deleteSchool);
 
   const schools = useQuery({
     queryKey: ["schools"],
@@ -82,6 +98,18 @@ function SuperPage() {
         }));
     },
   });
+
+  const schoolList = schools.data ?? [];
+  const adminList = admins.data ?? [];
+
+  const pagedSchools = useMemo(
+    () => schoolList.slice((schoolPage - 1) * schoolSize, schoolPage * schoolSize),
+    [schoolList, schoolPage, schoolSize],
+  );
+  const pagedAdmins = useMemo(
+    () => adminList.slice((adminPage - 1) * adminSize, adminPage * adminSize),
+    [adminList, adminPage, adminSize],
+  );
 
   const addSchool = useMutation({
     mutationFn: async () => {
@@ -125,170 +153,313 @@ function SuperPage() {
         description="新增高校后，为其创建管理员账号并分配系统权限。同一高校可以有多个权限不同的管理员。"
       />
 
-      <div className="space-y-10">
-        <Panel>
-          <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">新增高校</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <Field label="学校名称" value={name} onChange={setName} />
-            <Field label="简称" value={shortName} onChange={setShortName} />
-            <Field label="标识（登录页地址，可留空自动生成）" value={slug} onChange={setSlug} />
-          </div>
-          <Button
-            className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
-            disabled={addSchool.isPending || !name.trim()}
-            onClick={() => addSchool.mutate()}
+      <div className="mb-10 flex gap-10 border-b border-border">
+        {(
+          [
+            ["schools", `高校（${schoolList.length}）`],
+            ["admins", `管理员（${adminList.length}）`],
+          ] as [Tab, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`-mb-px border-b pb-4 text-[13px] tracking-[0.2em] transition-colors ${
+              tab === key
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
           >
-            添加
-          </Button>
+            {label}
+          </button>
+        ))}
+      </div>
 
-          <div className="mt-10 space-y-3">
-            {(schools.data ?? []).map((s) => (
-              <div
-                key={s.id}
-                className="hairline-t flex items-center justify-between pt-3 text-[12px] tracking-[0.1em]"
-              >
-                <span>{s.name}</span>
-                <span className="text-muted-foreground">/school/{s.slug}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel>
-          <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">新增管理员</h2>
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">学校</Label>
-              <select
-                value={selectedSchool}
-                onChange={(e) => setSelectedSchool(e.target.value)}
-                className="h-10 w-full border-0 border-b bg-transparent text-[13px] focus:outline-none"
-              >
-                <option value="">请选择</option>
-                {(schools.data ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+      {tab === "schools" ? (
+        <div className="space-y-10">
+          <Panel>
+            <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">新增高校</h2>
+            <div className="grid gap-6 md:grid-cols-3">
+              <Field label="学校名称" value={name} onChange={setName} />
+              <Field label="简称" value={shortName} onChange={setShortName} />
+              <Field label="标识（登录页地址，可留空自动生成）" value={slug} onChange={setSlug} />
             </div>
-            <Field label="管理员姓名" value={adminName} onChange={setAdminName} />
-          </div>
+            <Button
+              className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+              disabled={addSchool.isPending || !name.trim()}
+              onClick={() => addSchool.mutate()}
+            >
+              添加
+            </Button>
+          </Panel>
 
-          <div className="mt-8">
-            <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">系统权限</Label>
-            <div className="mt-4 flex flex-wrap gap-6">
-              {ALL_PERMISSIONS.map((p) => (
-                <label key={p} className="flex items-center gap-2 text-[12px] tracking-[0.1em]">
-                  <Checkbox
-                    checked={perms.includes(p)}
-                    onCheckedChange={(v) =>
-                      setPerms((prev) => (v ? [...prev, p] : prev.filter((x) => x !== p)))
-                    }
-                  />
-                  {PERMISSION_LABELS[p]}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <Button
-            className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
-            disabled={addAdmin.isPending}
-            onClick={() => addAdmin.mutate()}
-          >
-            生成账号
-          </Button>
-
-          {credential ? (
-            <div className="mt-8 border border-foreground/30 bg-background p-6">
-              <p className="text-[12px] tracking-[0.12em]">
-                管理员「{credential.username}」登录密码：
-                <span className="mx-1 font-mono">{credential.password}</span>
-                （请立即复制保存，仅显示一次）
-              </p>
-              <button
-                className="mt-4 text-[11px] tracking-[0.2em] underline"
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    `账号 ${credential.username} 密码 ${credential.password}`,
-                  );
-                  toast.success("已复制");
+          <Panel>
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-[12px] tracking-[0.2em] text-muted-foreground">
+                高校列表（{schoolList.length}）
+              </h2>
+              <PageSizeSelect
+                value={schoolSize}
+                onChange={(v) => {
+                  setSchoolSize(v);
+                  setSchoolPage(1);
                 }}
-              >
-                复制
-              </button>
+              />
             </div>
-          ) : null}
-        </Panel>
+            <div className="space-y-3">
+              {pagedSchools.map((s) => (
+                <div
+                  key={s.id}
+                  className="hairline-t flex items-center justify-between gap-4 pt-3 text-[12px] tracking-[0.1em]"
+                >
+                  <span>{s.name}</span>
+                  <span className="text-muted-foreground">/school/{s.slug}</span>
+                  <button
+                    className="text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
+                    onClick={async () => {
+                      if (!window.confirm(`确定删除高校「${s.name}」？其管理员账号将一并删除。`))
+                        return;
+                      try {
+                        await deleteSchoolFn({ data: { schoolId: s.id } });
+                        toast.success("高校已删除");
+                        queryClient.invalidateQueries({ queryKey: ["schools"] });
+                        queryClient.invalidateQueries({ queryKey: ["admins"] });
+                      } catch (e) {
+                        toast.error((e as Error).message);
+                      }
+                    }}
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+              {pagedSchools.length === 0 ? (
+                <p className="hairline-t pt-4 text-[12px] text-muted-foreground">暂无高校</p>
+              ) : null}
+            </div>
+            <Pager
+              total={schoolList.length}
+              page={schoolPage}
+              size={schoolSize}
+              onPage={setSchoolPage}
+            />
+          </Panel>
+        </div>
+      ) : (
+        <div className="space-y-10">
+          <Panel>
+            <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">新增管理员</h2>
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">学校</Label>
+                <select
+                  value={selectedSchool}
+                  onChange={(e) => setSelectedSchool(e.target.value)}
+                  className="h-10 w-full border-0 border-b bg-transparent text-[13px] focus:outline-none"
+                >
+                  <option value="">请选择</option>
+                  {schoolList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Field label="管理员姓名" value={adminName} onChange={setAdminName} />
+            </div>
 
-        <Panel>
-          <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">管理员列表</h2>
-          <div className="space-y-6">
-            {(admins.data ?? []).map((a) => {
-              const school = (schools.data ?? []).find((s) => s.id === a.school_id);
-              return (
-                <div key={a.id} className="hairline-t pt-5">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="text-[13px] tracking-[0.1em]">
-                      {a.full_name}
-                      <span className="ml-4 text-[11px] text-muted-foreground">{a.username}</span>
-                      <span className="ml-4 text-[11px] text-muted-foreground">
-                        {school?.name ?? "—"}
-                      </span>
-                      {!a.is_active ? (
-                        <span className="ml-4 text-[11px] text-destructive">已停用</span>
-                      ) : null}
-                    </div>
-                    <div className="flex gap-5 text-[11px] tracking-[0.16em] text-muted-foreground">
-                      <button
-                        className="hover:text-foreground"
-                        onClick={async () => {
-                          const res = await resetPwFn({ data: { userId: a.id } });
-                          setCredential({ username: a.username ?? "", password: res.password });
-                          toast.success("新密码已生成，见上方提示框");
-                        }}
-                      >
-                        重置密码
-                      </button>
-                      <button
-                        className="hover:text-foreground"
-                        onClick={async () => {
-                          await setActiveFn({ data: { userId: a.id, isActive: !a.is_active } });
-                          queryClient.invalidateQueries({ queryKey: ["admins"] });
-                        }}
-                      >
-                        {a.is_active ? "停用" : "启用"}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-5">
-                    {ALL_PERMISSIONS.map((p) => (
-                      <label
-                        key={p}
-                        className="flex items-center gap-2 text-[11px] tracking-[0.1em] text-muted-foreground"
-                      >
-                        <Checkbox
-                          checked={a.permissions.includes(p)}
-                          onCheckedChange={async (v) => {
-                            const next = v
-                              ? [...a.permissions, p]
-                              : a.permissions.filter((x) => x !== p);
-                            await setPermsFn({ data: { userId: a.id, permissions: next } });
+            <div className="mt-8">
+              <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">系统权限</Label>
+              <div className="mt-4 flex flex-wrap gap-6">
+                {ALL_PERMISSIONS.map((p) => (
+                  <label key={p} className="flex items-center gap-2 text-[12px] tracking-[0.1em]">
+                    <Checkbox
+                      checked={perms.includes(p)}
+                      onCheckedChange={(v) =>
+                        setPerms((prev) => (v ? [...prev, p] : prev.filter((x) => x !== p)))
+                      }
+                    />
+                    {PERMISSION_LABELS[p]}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+              disabled={addAdmin.isPending}
+              onClick={() => addAdmin.mutate()}
+            >
+              生成账号
+            </Button>
+
+            {credential ? (
+              <div className="mt-8 border border-foreground/30 bg-background p-6">
+                <p className="text-[12px] tracking-[0.12em]">
+                  管理员「{credential.username}」登录密码：
+                  <span className="mx-1 font-mono">{credential.password}</span>
+                  （请立即复制保存，仅显示一次）
+                </p>
+                <button
+                  className="mt-4 text-[11px] tracking-[0.2em] underline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `账号 ${credential.username} 密码 ${credential.password}`,
+                    );
+                    toast.success("已复制");
+                  }}
+                >
+                  复制
+                </button>
+              </div>
+            ) : null}
+          </Panel>
+
+          <Panel>
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-[12px] tracking-[0.2em] text-muted-foreground">
+                管理员列表（{adminList.length}）
+              </h2>
+              <PageSizeSelect
+                value={adminSize}
+                onChange={(v) => {
+                  setAdminSize(v);
+                  setAdminPage(1);
+                }}
+              />
+            </div>
+            <div className="space-y-6">
+              {pagedAdmins.map((a) => {
+                const school = schoolList.find((s) => s.id === a.school_id);
+                return (
+                  <div key={a.id} className="hairline-t pt-5">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="text-[13px] tracking-[0.1em]">
+                        {a.full_name}
+                        <span className="ml-4 text-[11px] text-muted-foreground">
+                          {a.username}
+                        </span>
+                        <span className="ml-4 text-[11px] text-muted-foreground">
+                          {school?.name ?? "—"}
+                        </span>
+                        {!a.is_active ? (
+                          <span className="ml-4 text-[11px] text-destructive">已停用</span>
+                        ) : null}
+                      </div>
+                      <div className="flex gap-5 text-[11px] tracking-[0.16em] text-muted-foreground">
+                        <button
+                          className="hover:text-foreground"
+                          onClick={async () => {
+                            const res = await resetPwFn({ data: { userId: a.id } });
+                            setCredential({ username: a.username ?? "", password: res.password });
+                            toast.success("新密码已生成，见上方提示框");
+                          }}
+                        >
+                          重置密码
+                        </button>
+                        <button
+                          className="hover:text-foreground"
+                          onClick={async () => {
+                            await setActiveFn({ data: { userId: a.id, isActive: !a.is_active } });
                             queryClient.invalidateQueries({ queryKey: ["admins"] });
                           }}
-                        />
-                        {PERMISSION_LABELS[p]}
-                      </label>
-                    ))}
+                        >
+                          {a.is_active ? "停用" : "启用"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-5">
+                      {ALL_PERMISSIONS.map((p) => (
+                        <label
+                          key={p}
+                          className="flex items-center gap-2 text-[11px] tracking-[0.1em] text-muted-foreground"
+                        >
+                          <Checkbox
+                            checked={a.permissions.includes(p)}
+                            onCheckedChange={async (v) => {
+                              const next = v
+                                ? [...a.permissions, p]
+                                : a.permissions.filter((x) => x !== p);
+                              await setPermsFn({ data: { userId: a.id, permissions: next } });
+                              queryClient.invalidateQueries({ queryKey: ["admins"] });
+                            }}
+                          />
+                          {PERMISSION_LABELS[p]}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
-      </div>
+                );
+              })}
+              {pagedAdmins.length === 0 ? (
+                <p className="hairline-t pt-4 text-[12px] text-muted-foreground">暂无管理员</p>
+              ) : null}
+            </div>
+            <Pager
+              total={adminList.length}
+              page={adminPage}
+              size={adminSize}
+              onPage={setAdminPage}
+            />
+          </Panel>
+        </div>
+      )}
     </Shell>
+  );
+}
+
+function PageSizeSelect({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <label className="flex items-center gap-3 text-[11px] tracking-[0.16em] text-muted-foreground">
+      每页
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+      >
+        {PAGE_SIZES.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
+      条
+    </label>
+  );
+}
+
+function Pager({
+  total,
+  page,
+  size,
+  onPage,
+}: {
+  total: number;
+  page: number;
+  size: number;
+  onPage: (p: number) => void;
+}) {
+  const pages = Math.max(1, Math.ceil(total / size));
+  if (pages <= 1) return null;
+  return (
+    <div className="mt-8 flex items-center justify-end gap-6 text-[11px] tracking-[0.16em] text-muted-foreground">
+      <button
+        disabled={page <= 1}
+        onClick={() => onPage(page - 1)}
+        className="hover:text-foreground disabled:opacity-30"
+      >
+        上一页
+      </button>
+      <span>
+        {page} / {pages}
+      </span>
+      <button
+        disabled={page >= pages}
+        onClick={() => onPage(page + 1)}
+        className="hover:text-foreground disabled:opacity-30"
+      >
+        下一页
+      </button>
+    </div>
   );
 }
 
@@ -301,7 +472,7 @@ function Field({
   value: string;
   onChange: (v: string) => void;
 }) {
-  const id = `f-${label.replace(/[^\w\u4e00-\u9fa5]/g, "").slice(0, 8)}`;
+  const id = `f-${label.replace(/[^\w一-龥]/g, "").slice(0, 8)}`;
   return (
     <div className="space-y-2">
       <Label htmlFor={id} className="text-[11px] tracking-[0.2em] text-muted-foreground">
