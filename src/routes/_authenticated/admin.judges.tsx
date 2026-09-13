@@ -195,7 +195,11 @@ function JudgesPage() {
                 <span className="w-32 text-muted-foreground">{j.username}</span>
                 <select
                   value={j.committee_role}
-                  onChange={(e) => update(j.id, { committee_role: e.target.value })}
+                  onChange={(e) =>
+                    update(j.id, {
+                      committee_role: e.target.value as "chair" | "vice_chair" | "member",
+                    })
+                  }
                   className="border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
                 >
                   {Object.entries(COMMITTEE_ROLE_LABELS).map(([v, label]) => (
