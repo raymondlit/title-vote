@@ -218,7 +218,9 @@ export const importJudges = createServerFn({ method: "POST" })
 
 export const deleteSchool = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ schoolId: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ schoolId: z.string().uuid(), force: z.boolean().optional() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     await assertSuperadmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -230,12 +232,49 @@ export const deleteSchool = createServerFn({ method: "POST" })
       ["subject_groups", "学科小组"],
       ["review_categories", "评审类别"],
     ];
-    for (const [table, label] of checks) {
-      const { count } = await supabaseAdmin
-        .from(table as never)
-        .select("id", { count: "exact", head: true })
+    if (!data.force) {
+      const blocking: string[] = [];
+      for (const [table, label] of checks) {
+        const { count } = await supabaseAdmin
+          .from(table as never)
+          .select("id", { count: "exact", head: true })
+          .eq("school_id", data.schoolId);
+        if ((count ?? 0) > 0) blocking.push(label);
+      }
+      if (blocking.length > 0) return { ok: false as const, blocking };
+    } else {
+      // 先删依赖数据（投票记录 → 场次 → 其他）
+      const { data: sessions } = await supabaseAdmin
+        .from("vote_sessions")
+        .select("id")
         .eq("school_id", data.schoolId);
-      if ((count ?? 0) > 0) throw new Error(`该校已有${label}数据，请先清除后再删除高校`);
+      for (const s of sessions ?? []) {
+        const { data: ballots } = await supabaseAdmin
+          .from("ballots")
+          .select("id")
+          .eq("session_id", s.id);
+        for (const b of ballots ?? []) {
+          await supabaseAdmin.from("ballot_items").delete().eq("ballot_id", b.id);
+        }
+        await supabaseAdmin.from("ballots").delete().eq("session_id", s.id);
+      }
+      await supabaseAdmin.from("vote_sessions").delete().eq("school_id", data.schoolId);
+      await supabaseAdmin.from("candidates").delete().eq("school_id", data.schoolId);
+      await supabaseAdmin.from("voting_rules").delete().eq("school_id", data.schoolId);
+
+      const { data: judges } = await supabaseAdmin
+        .from("judges")
+        .select("id, profile_id")
+        .eq("school_id", data.schoolId);
+      await supabaseAdmin.from("judges").delete().eq("school_id", data.schoolId);
+      for (const j of judges ?? []) {
+        if (!j.profile_id) continue;
+        await supabaseAdmin.from("user_roles").delete().eq("user_id", j.profile_id);
+        await supabaseAdmin.from("profiles").delete().eq("id", j.profile_id);
+        await supabaseAdmin.auth.admin.deleteUser(j.profile_id);
+      }
+      await supabaseAdmin.from("subject_groups").delete().eq("school_id", data.schoolId);
+      await supabaseAdmin.from("review_categories").delete().eq("school_id", data.schoolId);
     }
 
     // 删除该校管理员账号
@@ -252,8 +291,9 @@ export const deleteSchool = createServerFn({ method: "POST" })
 
     const { error } = await supabaseAdmin.from("schools").delete().eq("id", data.schoolId);
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true as const, blocking: [] as string[] };
   });
+
 
 export const deleteJudge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
