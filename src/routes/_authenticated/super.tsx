@@ -219,7 +219,14 @@ function SuperPage() {
                       if (!window.confirm(`确定删除高校「${s.name}」？其管理员账号将一并删除。`))
                         return;
                       try {
-                        await deleteSchoolFn({ data: { schoolId: s.id } });
+                        const res = await deleteSchoolFn({ data: { schoolId: s.id } });
+                        if (!res.ok) {
+                          const ok = window.confirm(
+                            `该校已有${res.blocking.join("、")}数据。确定连同这些数据一起永久删除？此操作不可恢复。`,
+                          );
+                          if (!ok) return;
+                          await deleteSchoolFn({ data: { schoolId: s.id, force: true } });
+                        }
                         toast.success("高校已删除");
                         queryClient.invalidateQueries({ queryKey: ["schools"] });
                         queryClient.invalidateQueries({ queryKey: ["admins"] });
@@ -227,6 +234,7 @@ function SuperPage() {
                         toast.error((e as Error).message);
                       }
                     }}
+
                   >
                     删除
                   </button>
