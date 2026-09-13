@@ -15,6 +15,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedSuperRouteImport } from './routes/_authenticated/super'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminBrandingRouteImport } from './routes/_authenticated/admin.branding'
+import { Route as AuthenticatedAdminJudgesRouteImport } from './routes/_authenticated/admin.judges'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +48,12 @@ const AuthenticatedAdminBrandingRoute =
     path: '/branding',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminJudgesRoute =
+  AuthenticatedAdminJudgesRouteImport.update({
+    id: '/judges',
+    path: '/judges',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   id: '/api/public/bootstrap',
   path: '/api/public/bootstrap',
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/super': typeof AuthenticatedSuperRoute
   '/admin/branding': typeof AuthenticatedAdminBrandingRoute
+  '/admin/judges': typeof AuthenticatedAdminJudgesRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -65,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/super': typeof AuthenticatedSuperRoute
   '/admin/branding': typeof AuthenticatedAdminBrandingRoute
+  '/admin/judges': typeof AuthenticatedAdminJudgesRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
@@ -75,6 +84,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/super': typeof AuthenticatedSuperRoute
   '/_authenticated/admin/branding': typeof AuthenticatedAdminBrandingRoute
+  '/_authenticated/admin/judges': typeof AuthenticatedAdminJudgesRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -85,10 +95,17 @@ export interface FileRouteTypes {
     | '/admin'
     | '/super'
     | '/admin/branding'
+    | '/admin/judges'
     | '/api/public/bootstrap'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/super' | '/admin/branding' | '/api/public/bootstrap' | '/admin'
+  to:
+    | '/'
+    | '/super'
+    | '/admin/branding'
+    | '/admin/judges'
+    | '/api/public/bootstrap'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -96,6 +113,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/super'
     | '/_authenticated/admin/branding'
+    | '/_authenticated/admin/judges'
     | '/api/public/bootstrap'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
@@ -150,6 +168,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBrandingRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/judges': {
+      id: '/_authenticated/admin/judges'
+      path: '/judges'
+      fullPath: '/admin/judges'
+      preLoaderRoute: typeof AuthenticatedAdminJudgesRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/api/public/bootstrap': {
       id: '/api/public/bootstrap'
       path: '/api/public/bootstrap'
@@ -162,11 +187,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminBrandingRoute: typeof AuthenticatedAdminBrandingRoute
+  AuthenticatedAdminJudgesRoute: typeof AuthenticatedAdminJudgesRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
   AuthenticatedAdminBrandingRoute: AuthenticatedAdminBrandingRoute,
+  AuthenticatedAdminJudgesRoute: AuthenticatedAdminJudgesRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
 }
 

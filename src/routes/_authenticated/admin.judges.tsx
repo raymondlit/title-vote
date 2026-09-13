@@ -89,7 +89,14 @@ function JudgesPage() {
     setBusy(false);
   }
 
-  async function update(id: string, patch: Record<string, unknown>) {
+  async function update(
+    id: string,
+    patch: {
+      committee_role?: "chair" | "vice_chair" | "member";
+      group_id?: string | null;
+      is_group_leader?: boolean;
+    },
+  ) {
     const { error } = await supabase.from("judges").update(patch).eq("id", id);
     if (error) toast.error(error.message);
     else queryClient.invalidateQueries({ queryKey: ["judges"] });
