@@ -32,6 +32,84 @@ export type Database = {
         }
         Relationships: []
       }
+      ballot_items: {
+        Row: {
+          ballot_id: string
+          candidate_id: string
+          choice: Database["public"]["Enums"]["vote_choice"]
+          created_at: string
+          id: string
+        }
+        Insert: {
+          ballot_id: string
+          candidate_id: string
+          choice: Database["public"]["Enums"]["vote_choice"]
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          ballot_id?: string
+          candidate_id?: string
+          choice?: Database["public"]["Enums"]["vote_choice"]
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ballot_items_ballot_id_fkey"
+            columns: ["ballot_id"]
+            isOneToOne: false
+            referencedRelation: "ballots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ballot_items_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ballots: {
+        Row: {
+          created_at: string
+          id: string
+          judge_id: string
+          session_id: string
+          submitted_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          judge_id: string
+          session_id: string
+          submitted_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          judge_id?: string
+          session_id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ballots_judge_id_fkey"
+            columns: ["judge_id"]
+            isOneToOne: false
+            referencedRelation: "judges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ballots_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vote_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidates: {
         Row: {
           category_id: string | null
@@ -306,6 +384,67 @@ export type Database = {
         }
         Relationships: []
       }
+      vote_sessions: {
+        Row: {
+          category_id: string | null
+          closed_at: string | null
+          created_at: string
+          group_id: string | null
+          id: string
+          opened_at: string | null
+          school_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          opened_at?: string | null
+          school_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          opened_at?: string | null
+          school_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vote_sessions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "review_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vote_sessions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "subject_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vote_sessions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voting_rules: {
         Row: {
           allow_abstain: boolean
@@ -369,6 +508,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ballot_is_mine: { Args: { _ballot_id: string }; Returns: boolean }
+      ballot_school_id: { Args: { _ballot_id: string }; Returns: string }
       current_school_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -377,8 +518,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_my_judge: { Args: { _judge_id: string }; Returns: boolean }
       is_school_admin: { Args: { _school_id: string }; Returns: boolean }
       is_superadmin: { Args: never; Returns: boolean }
+      session_is_open: { Args: { _session_id: string }; Returns: boolean }
+      session_school_id: { Args: { _session_id: string }; Returns: string }
     }
     Enums: {
       admin_permission:
@@ -389,6 +533,7 @@ export type Database = {
         | "results"
       app_role: "superadmin" | "admin" | "judge"
       committee_role: "chair" | "vice_chair" | "member"
+      vote_choice: "recommend" | "not_recommend" | "abstain"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -525,6 +670,7 @@ export const Constants = {
       ],
       app_role: ["superadmin", "admin", "judge"],
       committee_role: ["chair", "vice_chair", "member"],
+      vote_choice: ["recommend", "not_recommend", "abstain"],
     },
   },
 } as const
