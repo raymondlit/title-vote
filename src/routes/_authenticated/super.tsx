@@ -301,10 +301,14 @@ function Field({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const id = `f-${label.replace(/[^\w\u4e00-\u9fa5]/g, "").slice(0, 8)}`;
   return (
     <div className="space-y-2">
-      <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-[11px] tracking-[0.2em] text-muted-foreground">
+        {label}
+      </Label>
       <Input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="rounded-none border-0 border-b bg-transparent px-0 shadow-none focus-visible:ring-0"
