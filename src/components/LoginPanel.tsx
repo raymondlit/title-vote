@@ -45,10 +45,8 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint }: Props) {
     setLoading(false);
     if (session?.isSuper) navigate({ to: "/super" });
     else if (session?.isAdmin) navigate({ to: "/admin" });
-    else {
-      toast.info("评委投票端将在下一阶段开放");
-      navigate({ to: "/admin" });
-    }
+    else if (session?.isJudge) navigate({ to: "/vote" });
+    else toast.error("该账号尚未分配权限，请联系管理员");
   }
 
   return (
