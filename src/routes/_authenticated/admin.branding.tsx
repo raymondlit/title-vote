@@ -45,16 +45,16 @@ function BrandingPage() {
   }, [school]);
 
   async function uploadLogo(file: File) {
-    if (!school) return;
-    const path = `${school.id}/${Date.now()}-${file.name.replace(/[^\w.-]/g, "")}`;
-    const { error } = await supabase.storage.from("branding").upload(path, file, { upsert: true });
-    if (error) {
-      toast.error("上传失败：" + error.message);
+    if (file.size > 300 * 1024) {
+      toast.error("图片请控制在 300KB 以内");
       return;
     }
-    const { data } = supabase.storage.from("branding").getPublicUrl(path);
-    setLogoUrl(data.publicUrl);
-    toast.success("校徽已上传，别忘了保存");
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoUrl(String(reader.result));
+      toast.success("校徽已载入，别忘了保存");
+    };
+    reader.readAsDataURL(file);
   }
 
   async function save() {
