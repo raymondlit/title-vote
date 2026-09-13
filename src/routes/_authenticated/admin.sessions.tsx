@@ -66,24 +66,35 @@ function SessionsPage() {
       category_id: categoryId === "all" ? null : categoryId,
       group_id: groupId === "all" ? null : groupId,
     });
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setTitle("");
     toast.success("已创建，开启后评委即可投票");
     queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
   }
 
   async function setStatus(id: string, status: string) {
-    const patch: Record<string, unknown> = { status };
-    if (status === "open") patch.opened_at = new Date().toISOString();
-    if (status === "closed") patch.closed_at = new Date().toISOString();
+    const patch = {
+      status,
+      ...(status === "open" ? { opened_at: new Date().toISOString() } : {}),
+      ...(status === "closed" ? { closed_at: new Date().toISOString() } : {}),
+    };
     const { error } = await supabase.from("vote_sessions").update(patch).eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
   }
 
   async function remove(id: string) {
     const { error } = await supabase.from("vote_sessions").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
   }
 
