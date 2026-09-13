@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedSuperRouteImport } from './routes/_authenticated/super'
+import { Route as SchoolSlugRouteImport } from './routes/school.$slug'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminBrandingRouteImport } from './routes/_authenticated/admin.branding'
 import { Route as AuthenticatedAdminCandidatesRouteImport } from './routes/_authenticated/admin.candidates'
@@ -39,6 +40,11 @@ const AuthenticatedSuperRoute = AuthenticatedSuperRouteImport.update({
   id: '/super',
   path: '/super',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const SchoolSlugRoute = SchoolSlugRouteImport.update({
+  id: '/school/$slug',
+  path: '/school/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/super': typeof AuthenticatedSuperRoute
+  '/school/$slug': typeof SchoolSlugRoute
   '/admin/branding': typeof AuthenticatedAdminBrandingRoute
   '/admin/candidates': typeof AuthenticatedAdminCandidatesRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/super': typeof AuthenticatedSuperRoute
+  '/school/$slug': typeof SchoolSlugRoute
   '/admin/branding': typeof AuthenticatedAdminBrandingRoute
   '/admin/candidates': typeof AuthenticatedAdminCandidatesRoute
   '/admin/groups': typeof AuthenticatedAdminGroupsRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/super': typeof AuthenticatedSuperRoute
+  '/school/$slug': typeof SchoolSlugRoute
   '/_authenticated/admin/branding': typeof AuthenticatedAdminBrandingRoute
   '/_authenticated/admin/candidates': typeof AuthenticatedAdminCandidatesRoute
   '/_authenticated/admin/groups': typeof AuthenticatedAdminGroupsRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/super'
+    | '/school/$slug'
     | '/admin/branding'
     | '/admin/candidates'
     | '/admin/groups'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/super'
+    | '/school/$slug'
     | '/admin/branding'
     | '/admin/candidates'
     | '/admin/groups'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/_authenticated/admin'
     | '/_authenticated/super'
+    | '/school/$slug'
     | '/_authenticated/admin/branding'
     | '/_authenticated/admin/candidates'
     | '/_authenticated/admin/groups'
@@ -159,6 +171,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  SchoolSlugRoute: typeof SchoolSlugRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
 }
 
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/super'
       preLoaderRoute: typeof AuthenticatedSuperRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/school/$slug': {
+      id: '/school/$slug'
+      path: '/school/$slug'
+      fullPath: '/school/$slug'
+      preLoaderRoute: typeof SchoolSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -281,6 +301,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  SchoolSlugRoute: SchoolSlugRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
 }
 export const routeTree = rootRouteImport
