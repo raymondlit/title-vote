@@ -23,15 +23,19 @@ function VoteList() {
     queryFn: async () => {
       const { data: judge } = await supabase
         .from("judges")
-        .select("id, full_name, committee_role, group_id")
+        .select("id, full_name, committee_role, group_id, school_id")
         .eq("profile_id", session!.userId)
         .maybeSingle();
 
-      const { data: sessions } = await supabase
-        .from("vote_sessions")
-        .select("id, title, status, opened_at, closed_at, category_id, group_id")
-        .in("status", ["open", "closed"])
-        .order("created_at", { ascending: false });
+      const { data: sessions } = judge
+        ? await supabase
+            .from("vote_sessions")
+            .select("id, title, status, opened_at, closed_at, category_id, group_id")
+            .eq("school_id", judge.school_id)
+            .in("status", ["open", "closed"])
+            .order("created_at", { ascending: false })
+        : { data: [] };
+
 
       const { data: ballots } = judge
         ? await supabase.from("ballots").select("session_id").eq("judge_id", judge.id)
