@@ -8,7 +8,13 @@ import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { Button } from "@/components/ui/button";
 import { COMMITTEE_ROLE_LABELS } from "@/lib/account";
-import { parseSheet, downloadCsv, type SheetRow } from "@/lib/sheet";
+import {
+  parseSheet,
+  downloadCsv,
+  downloadXlsx,
+  JUDGE_TEMPLATE_ROWS,
+  type SheetRow,
+} from "@/lib/sheet";
 import { importJudges, deleteJudge } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
