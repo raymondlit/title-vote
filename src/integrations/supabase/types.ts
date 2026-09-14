@@ -510,6 +510,7 @@ export type Database = {
     Functions: {
       ballot_is_mine: { Args: { _ballot_id: string }; Returns: boolean }
       ballot_school_id: { Args: { _ballot_id: string }; Returns: string }
+      candidate_school_id: { Args: { _candidate_id: string }; Returns: string }
       current_school_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -521,6 +522,7 @@ export type Database = {
       is_my_judge: { Args: { _judge_id: string }; Returns: boolean }
       is_school_admin: { Args: { _school_id: string }; Returns: boolean }
       is_superadmin: { Args: never; Returns: boolean }
+      judge_school_id: { Args: { _judge_id: string }; Returns: string }
       session_is_open: { Args: { _session_id: string }; Returns: boolean }
       session_school_id: { Args: { _session_id: string }; Returns: string }
     }
