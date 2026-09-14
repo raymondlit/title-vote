@@ -164,7 +164,31 @@ function SessionsPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">参与评委</Label>
+            <Select
+              value={groupId === "all" ? "all" : voterScope}
+              onValueChange={(v) => setVoterScope(v as "group" | "all")}
+              disabled={groupId === "all"}
+            >
+              <SelectTrigger className="rounded-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-none">
+                <SelectItem value="group">仅该学科小组评委</SelectItem>
+                <SelectItem value="all">全体评委</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] leading-loose tracking-[0.1em] text-muted-foreground">
+              {groupId === "all"
+                ? "评审对象为全部学科，全体评委均可投票。"
+                : voterScope === "group"
+                  ? "仅该学科小组的评委可对本组参评人员投票。"
+                  : "全体评委均可对该学科小组的参评人员投票。"}
+            </p>
+          </div>
         </div>
+
         <Button onClick={create} className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]">
           创建投票
         </Button>
@@ -184,8 +208,10 @@ function SessionsPage() {
                   <div className="text-[13px] tracking-[0.12em]">{s.title}</div>
                   <div className="mt-2 text-[11px] tracking-[0.16em] text-muted-foreground">
                     {STATUS_LABEL[s.status]} · 类别 {nameOf(data?.categories, s.category_id)} · 小组{" "}
-                    {nameOf(data?.groups, s.group_id)}
+                    {nameOf(data?.groups, s.group_id)} · 参与评委{" "}
+                    {!s.group_id || s.voter_scope === "all" ? "全体" : "本组"}
                   </div>
+
                 </div>
                 <div className="flex items-center gap-5 text-[11px] tracking-[0.16em]">
                   {s.status === "draft" ? (
