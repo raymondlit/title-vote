@@ -34,6 +34,8 @@ function SessionsPage() {
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [groupId, setGroupId] = useState("all");
+  const [voterScope, setVoterScope] = useState<"group" | "all">("group");
+
 
   const { data } = useQuery({
     queryKey: ["admin-sessions", schoolId],
@@ -65,7 +67,9 @@ function SessionsPage() {
       title: title.trim(),
       category_id: categoryId === "all" ? null : categoryId,
       group_id: groupId === "all" ? null : groupId,
+      voter_scope: groupId === "all" ? "all" : voterScope,
     });
+
     if (error) {
       toast.error(error.message);
       return;
