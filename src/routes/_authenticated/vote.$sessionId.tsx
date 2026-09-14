@@ -55,17 +55,22 @@ function VotePage() {
     queryFn: async () => {
       const { data: judge } = await supabase
         .from("judges")
-        .select("id, full_name, unit, title, school_id")
+        .select("id, full_name, unit, title, school_id, group_id")
         .eq("profile_id", session!.userId)
         .maybeSingle();
 
       const { data: vs } = await supabase
         .from("vote_sessions")
-        .select("id, title, status, category_id, group_id, school_id, opened_at, closed_at")
+        .select(
+          "id, title, status, category_id, group_id, school_id, opened_at, closed_at, voter_scope",
+        )
         .eq("id", sessionId)
         .maybeSingle();
-      if (!vs || !judge || vs.school_id !== judge.school_id)
+      const outOfScope =
+        !!vs?.group_id && vs.voter_scope !== "all" && vs.group_id !== judge?.group_id;
+      if (!vs || !judge || vs.school_id !== judge.school_id || outOfScope)
         return { judge, vs: null, candidates: [], rule: null, ballot: null, items: [] };
+
 
 
       let cq = supabase
