@@ -108,6 +108,27 @@ function JudgesPage() {
     else queryClient.invalidateQueries({ queryKey: ["judges"] });
   }
 
+  function exportAccountsDoc() {
+    const rows = accounts
+      .map(
+        (a, i) =>
+          `<tr><td>${i + 1}</td><td>${a.full_name}</td><td>${a.username}</td><td>${a.password}</td></tr>`,
+      )
+      .join("");
+    const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body style="font-family:'Noto Sans SC',SimSun,sans-serif">
+<h2 style="font-weight:400;letter-spacing:2px">评委账号密码对照表</h2>
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:12px">
+<tr><th>序号</th><th>姓名</th><th>账号</th><th>初始密码</th></tr>${rows}</table>
+</body></html>`;
+    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "评委账号密码对照表.doc";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <Shell nav={ADMIN_NAV}>
       <PageTitle
