@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.enforce_same_school() FROM PUBLIC, anon, authenticated;
