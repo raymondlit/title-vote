@@ -30,7 +30,9 @@ function VoteList() {
       const { data: sessions } = judge
         ? await supabase
             .from("vote_sessions")
-            .select("id, title, status, opened_at, closed_at, category_id, group_id")
+            .select(
+              "id, title, status, opened_at, closed_at, category_id, group_id, voter_scope",
+            )
             .eq("school_id", judge.school_id)
             .in("status", ["open", "closed"])
             .order("created_at", { ascending: false })
@@ -43,8 +45,9 @@ function VoteList() {
 
       const submitted = new Set((ballots ?? []).map((b) => b.session_id));
       const list = (sessions ?? []).filter(
-        (s) => !s.group_id || !judge?.group_id || s.group_id === judge.group_id,
+        (s) => !s.group_id || s.voter_scope === "all" || s.group_id === judge?.group_id,
       );
+
       return { judge, list, submitted };
     },
   });

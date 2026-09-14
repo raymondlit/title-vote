@@ -28,11 +28,19 @@ export const submitBallot = createServerFn({ method: "POST" })
 
     const { data: session } = await supabase
       .from("vote_sessions")
-      .select("id, school_id, category_id, group_id, status")
+      .select("id, school_id, category_id, group_id, status, voter_scope")
       .eq("id", data.sessionId)
       .maybeSingle();
     if (!session || session.school_id !== judge.school_id) throw new Error("投票不存在");
     if (session.status !== "open") throw new Error("该场投票尚未开始或已结束");
+    if (
+      session.group_id &&
+      session.voter_scope !== "all" &&
+      session.group_id !== judge.group_id
+    ) {
+      throw new Error("您不在本场投票的评委范围内");
+    }
+
 
     const { data: existing } = await supabase
       .from("ballots")
