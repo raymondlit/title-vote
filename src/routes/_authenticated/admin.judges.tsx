@@ -8,7 +8,13 @@ import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { Button } from "@/components/ui/button";
 import { COMMITTEE_ROLE_LABELS } from "@/lib/account";
-import { parseSheet, downloadCsv, type SheetRow } from "@/lib/sheet";
+import {
+  parseSheet,
+  downloadCsv,
+  downloadXlsx,
+  JUDGE_TEMPLATE_ROWS,
+  type SheetRow,
+} from "@/lib/sheet";
 import { importJudges, deleteJudge } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
@@ -102,6 +108,27 @@ function JudgesPage() {
     else queryClient.invalidateQueries({ queryKey: ["judges"] });
   }
 
+  function exportAccountsDoc() {
+    const rows = accounts
+      .map(
+        (a, i) =>
+          `<tr><td>${i + 1}</td><td>${a.full_name}</td><td>${a.username}</td><td>${a.password}</td></tr>`,
+      )
+      .join("");
+    const html = `<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"></head><body style="font-family:'Noto Sans SC',SimSun,sans-serif">
+<h2 style="font-weight:400;letter-spacing:2px">评委账号密码对照表</h2>
+<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:12px">
+<tr><th>序号</th><th>姓名</th><th>账号</th><th>初始密码</th></tr>${rows}</table>
+</body></html>`;
+    const blob = new Blob(["\ufeff", html], { type: "application/msword" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "评委账号密码对照表.doc";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <Shell nav={ADMIN_NAV}>
       <PageTitle
@@ -111,6 +138,21 @@ function JudgesPage() {
 
       <div className="space-y-10">
         <Panel>
+          <div className="mb-6 flex flex-wrap items-center gap-6 text-[11px] tracking-[0.2em]">
+            <button
+              className="underline"
+              onClick={() => downloadXlsx("评委名单模板.xlsx", JUDGE_TEMPLATE_ROWS, "评委名单")}
+            >
+              下载名单模板 XLSX
+            </button>
+            <button
+              className="underline"
+              onClick={() => downloadCsv("评委名单模板.csv", JUDGE_TEMPLATE_ROWS)}
+            >
+              下载名单模板 CSV
+            </button>
+            <span className="text-muted-foreground">请保留表头，删除示例行后填写</span>
+          </div>
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
@@ -146,10 +188,47 @@ function JudgesPage() {
 
           {accounts.length > 0 ? (
             <div className="mt-8 border border-foreground/30 p-6">
-              <p className="text-[12px] tracking-[0.12em]">
-                以下账号密码仅显示一次，请立即导出保存。
+              <p className="no-print text-[12px] tracking-[0.12em]">
+                以下账号密码仅显示一次，请立即导出或打印保存。
               </p>
-              <div className="mt-4 flex gap-6 text-[11px] tracking-[0.2em]">
+              <div className="print-area mt-6">
+                <h3 className="mb-6 text-[14px] tracking-[0.2em]">评委账号密码对照表</h3>
+                <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
+                  <thead>
+                    <tr>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        序号
+                      </th>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        姓名
+                      </th>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        账号
+                      </th>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        初始密码
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accounts.map((a, i) => (
+                      <tr key={a.username}>
+                        <td className="hairline-b py-2">{i + 1}</td>
+                        <td className="hairline-b py-2">{a.full_name}</td>
+                        <td className="hairline-b py-2">{a.username}</td>
+                        <td className="hairline-b py-2">{a.password}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="no-print mt-6 flex flex-wrap gap-6 text-[11px] tracking-[0.2em]">
+                <button className="underline" onClick={exportAccountsDoc}>
+                  导出 DOC
+                </button>
+                <button className="underline" onClick={() => window.print()}>
+                  打印 / 存为 PDF
+                </button>
                 <button
                   className="underline"
                   onClick={() =>
@@ -159,7 +238,7 @@ function JudgesPage() {
                     ])
                   }
                 >
-                  导出账号表
+                  导出表格
                 </button>
                 <button
                   className="underline"

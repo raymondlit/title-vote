@@ -47,6 +47,19 @@ export async function parseSheet(file: File): Promise<SheetRow[]> {
   });
 }
 
+export function downloadXlsx(filename: string, rows: string[][], sheetName = "Sheet1") {
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, filename);
+}
+
+export const JUDGE_TEMPLATE_ROWS: string[][] = [
+  ["姓名", "工号", "单位", "职称", "电话"],
+  ["张三", "20230001", "机械工程学院", "教授", "13800000000"],
+  ["李四", "20230002", "外国语学院", "副教授", "13900000000"],
+];
+
 export function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
