@@ -117,6 +117,21 @@ function JudgesPage() {
 
       <div className="space-y-10">
         <Panel>
+          <div className="mb-6 flex flex-wrap items-center gap-6 text-[11px] tracking-[0.2em]">
+            <button
+              className="underline"
+              onClick={() => downloadXlsx("评委名单模板.xlsx", JUDGE_TEMPLATE_ROWS, "评委名单")}
+            >
+              下载名单模板 XLSX
+            </button>
+            <button
+              className="underline"
+              onClick={() => downloadCsv("评委名单模板.csv", JUDGE_TEMPLATE_ROWS)}
+            >
+              下载名单模板 CSV
+            </button>
+            <span className="text-muted-foreground">请保留表头，删除示例行后填写</span>
+          </div>
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
