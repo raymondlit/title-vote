@@ -81,7 +81,11 @@ function SessionsPage() {
       ...(status === "open" ? { opened_at: new Date().toISOString() } : {}),
       ...(status === "closed" ? { closed_at: new Date().toISOString() } : {}),
     };
-    const { error } = await supabase.from("vote_sessions").update(patch).eq("id", id);
+    const { error } = await supabase
+      .from("vote_sessions")
+      .update(patch)
+      .eq("id", id)
+      .eq("school_id", schoolId!);
     if (error) {
       toast.error(error.message);
       return;
@@ -90,7 +94,12 @@ function SessionsPage() {
   }
 
   async function remove(id: string) {
-    const { error } = await supabase.from("vote_sessions").delete().eq("id", id);
+    const { error } = await supabase
+      .from("vote_sessions")
+      .delete()
+      .eq("id", id)
+      .eq("school_id", schoolId!);
+
     if (error) {
       toast.error(error.message);
       return;
