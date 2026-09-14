@@ -396,6 +396,7 @@ export type Database = {
           status: string
           title: string
           updated_at: string
+          voter_scope: string
         }
         Insert: {
           category_id?: string | null
@@ -408,6 +409,7 @@ export type Database = {
           status?: string
           title: string
           updated_at?: string
+          voter_scope?: string
         }
         Update: {
           category_id?: string | null
@@ -420,6 +422,7 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string
+          voter_scope?: string
         }
         Relationships: [
           {
