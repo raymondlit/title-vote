@@ -152,10 +152,47 @@ function JudgesPage() {
 
           {accounts.length > 0 ? (
             <div className="mt-8 border border-foreground/30 p-6">
-              <p className="text-[12px] tracking-[0.12em]">
-                以下账号密码仅显示一次，请立即导出保存。
+              <p className="no-print text-[12px] tracking-[0.12em]">
+                以下账号密码仅显示一次，请立即导出或打印保存。
               </p>
-              <div className="mt-4 flex gap-6 text-[11px] tracking-[0.2em]">
+              <div className="print-area mt-6">
+                <h3 className="mb-6 text-[14px] tracking-[0.2em]">评委账号密码对照表</h3>
+                <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
+                  <thead>
+                    <tr>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        序号
+                      </th>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        姓名
+                      </th>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        账号
+                      </th>
+                      <th className="hairline-b py-2 text-left font-normal text-muted-foreground">
+                        初始密码
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accounts.map((a, i) => (
+                      <tr key={a.username}>
+                        <td className="hairline-b py-2">{i + 1}</td>
+                        <td className="hairline-b py-2">{a.full_name}</td>
+                        <td className="hairline-b py-2">{a.username}</td>
+                        <td className="hairline-b py-2">{a.password}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="no-print mt-6 flex flex-wrap gap-6 text-[11px] tracking-[0.2em]">
+                <button className="underline" onClick={exportAccountsDoc}>
+                  导出 DOC
+                </button>
+                <button className="underline" onClick={() => window.print()}>
+                  打印 / 存为 PDF
+                </button>
                 <button
                   className="underline"
                   onClick={() =>
@@ -165,7 +202,7 @@ function JudgesPage() {
                     ])
                   }
                 >
-                  导出账号表
+                  导出表格
                 </button>
                 <button
                   className="underline"
