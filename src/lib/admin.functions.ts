@@ -217,6 +217,64 @@ export const importJudges = createServerFn({ method: "POST" })
     return { accounts, imported: accounts.length };
   });
 
+export const createJudge = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        schoolId: z.string().uuid().optional(),
+        full_name: z.string().trim().min(1).max(50),
+        staff_no: z.string().trim().max(50).optional().nullable(),
+        unit: z.string().trim().max(100).optional().nullable(),
+        title: z.string().trim().max(50).optional().nullable(),
+        phone: z.string().trim().max(30).optional().nullable(),
+        group_id: z.string().uuid().optional().nullable(),
+        committee_role: z.enum(["chair", "vice_chair", "member"]).default("member"),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const schoolId = await resolveSchool(context, data.schoolId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: school } = await supabaseAdmin
+      .from("schools")
+      .select("slug")
+      .eq("id", schoolId)
+      .single();
+    const slug = school?.slug ?? "school";
+
+    const username = `${slug}_p${randomSuffix(5)}`;
+    const password = randomPassword(8);
+    const email = `${username}@${ACCOUNT_EMAIL_DOMAIN}`;
+    const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: data.full_name, username },
+    });
+    if (error || !created.user) throw new Error(error?.message ?? "创建账号失败");
+    const uid = created.user.id;
+    await supabaseAdmin
+      .from("profiles")
+      .insert({ id: uid, school_id: schoolId, full_name: data.full_name, username });
+    await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: "judge" });
+    await supabaseAdmin.from("judges").insert({
+      school_id: schoolId,
+      profile_id: uid,
+      full_name: data.full_name,
+      staff_no: data.staff_no ?? null,
+      unit: data.unit ?? null,
+      title: data.title ?? null,
+      phone: data.phone ?? null,
+      username,
+      initial_password: password,
+      group_id: data.group_id ?? null,
+      committee_role: data.committee_role,
+    });
+    return { username, password, full_name: data.full_name };
+  });
+
 export const deleteSchool = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>

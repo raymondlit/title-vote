@@ -17,7 +17,7 @@ import {
   DEFAULT_TEMPLATE_KEYS,
   type SheetRow,
 } from "@/lib/sheet";
-import { importJudges, deleteJudge, getJudgePasswordBook } from "@/lib/admin.functions";
+import { importJudges, deleteJudge, getJudgePasswordBook, createJudge } from "@/lib/admin.functions";
 import { useSession, useSchool } from "@/lib/session";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
@@ -48,6 +48,16 @@ function JudgesPage() {
   const [book, setBook] = useState<
     { full_name: string; username: string; password: string | null }[]
   >([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "",
+    staff_no: "",
+    unit: "",
+    title: "",
+    phone: "",
+    group_id: "",
+    committee_role: "member" as "chair" | "vice_chair" | "member",
+  });
 
   // 载入管理员上次保存的模板设置
   useEffect(() => {
@@ -81,6 +91,47 @@ function JudgesPage() {
   const importFn = useServerFn(importJudges);
   const deleteFn = useServerFn(deleteJudge);
   const bookFn = useServerFn(getJudgePasswordBook);
+  const createFn = useServerFn(createJudge);
+
+  async function doCreate() {
+    if (!form.full_name.trim()) {
+      toast.error("请填写姓名");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await createFn({
+        data: {
+          full_name: form.full_name.trim(),
+          staff_no: form.staff_no.trim() || null,
+          unit: form.unit.trim() || null,
+          title: form.title.trim() || null,
+          phone: form.phone.trim() || null,
+          group_id: form.group_id || null,
+          committee_role: form.committee_role,
+        },
+      });
+      setAccounts((prev) => [
+        ...prev,
+        { full_name: res.full_name, username: res.username, password: res.password },
+      ]);
+      toast.success(`已新增评委 ${res.full_name}`);
+      setForm({
+        full_name: "",
+        staff_no: "",
+        unit: "",
+        title: "",
+        phone: "",
+        group_id: "",
+        committee_role: "member",
+      });
+      setShowAdd(false);
+      queryClient.invalidateQueries({ queryKey: ["judges"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+    setBusy(false);
+  }
 
   const judges = useQuery({
     queryKey: ["judges"],
@@ -341,7 +392,87 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
               下载名单模板 CSV
             </button>
             <span className="text-muted-foreground">请保留表头，删除示例行后填写</span>
+            <button
+              className="underline"
+              onClick={() => setShowAdd((v) => !v)}
+            >
+              {showAdd ? "收起手动新增" : "手动新增评委"}
+            </button>
           </div>
+          {showAdd ? (
+            <div className="mb-8 border border-foreground/20 p-6">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {(
+                  [
+                    ["full_name", "姓名（必填）"],
+                    ["staff_no", "工号"],
+                    ["unit", "单位 / 部门"],
+                    ["title", "职称"],
+                    ["phone", "电话"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="block">
+                    <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                      {label}
+                    </span>
+                    <input
+                      value={form[key]}
+                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                      className="w-full border-0 border-b bg-transparent py-1 text-[12px] tracking-[0.1em] focus:outline-none"
+                    />
+                  </label>
+                ))}
+                <label className="block">
+                  <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                    学科小组
+                  </span>
+                  <select
+                    value={form.group_id}
+                    onChange={(e) => setForm({ ...form, group_id: e.target.value })}
+                    className="w-full border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                  >
+                    <option value="">未分组</option>
+                    {(groups.data ?? []).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                    评委会职务
+                  </span>
+                  <select
+                    value={form.committee_role}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        committee_role: e.target.value as "chair" | "vice_chair" | "member",
+                      })
+                    }
+                    className="w-full border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                  >
+                    {Object.entries(COMMITTEE_ROLE_LABELS).map(([v, label]) => (
+                      <option key={v} value={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <Button
+                onClick={doCreate}
+                disabled={busy}
+                className="mt-6 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+              >
+                新增评委
+              </Button>
+              <p className="mt-3 text-[11px] tracking-[0.14em] text-muted-foreground">
+                提交后自动生成账号与一次性密码，显示在下方对照表中
+              </p>
+            </div>
+          ) : null}
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
@@ -535,8 +666,15 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
                 <button
                   className="ml-auto text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
                   onClick={async () => {
-                    await deleteFn({ data: { judgeId: j.id } });
-                    queryClient.invalidateQueries({ queryKey: ["judges"] });
+                    if (!window.confirm(`确定删除评委「${j.full_name}」？其登录账号将一并删除。`))
+                      return;
+                    try {
+                      await deleteFn({ data: { judgeId: j.id } });
+                      toast.success("已删除");
+                      queryClient.invalidateQueries({ queryKey: ["judges"] });
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    }
                   }}
                 >
                 删除
