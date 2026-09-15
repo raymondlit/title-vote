@@ -1,0 +1,1 @@
+ALTER TABLE public.schools ADD COLUMN IF NOT EXISTS allow_judge_password_change boolean NOT NULL DEFAULT false;
