@@ -73,6 +73,25 @@ export const JUDGE_TEMPLATE_FIELDS: TemplateField[] = [
 
 export const DEFAULT_TEMPLATE_KEYS = ["full_name", "staff_no", "unit", "title", "phone"];
 
+/** 参评人员（评审对象）名单基础框架 */
+export const CANDIDATE_TEMPLATE_FIELDS: TemplateField[] = [
+  { key: "full_name", label: "姓名", required: true, sample: ["张三", "李四"] },
+  { key: "unit", label: "单位", sample: ["机械工程学院", "外国语学院"] },
+  { key: "current_title", label: "现职称", sample: ["讲师", "副教授"] },
+  { key: "category", label: "评审类别", sample: ["教授", "副教授"] },
+  { key: "group", label: "学科小组", sample: ["工科组", "文科组"] },
+  { key: "staff_no", label: "工号", sample: ["20230001", "20230002"] },
+  { key: "notes", label: "备注", sample: ["", ""] },
+];
+
+export const CANDIDATE_DEFAULT_KEYS = [
+  "full_name",
+  "unit",
+  "current_title",
+  "category",
+  "group",
+];
+
 export function buildTemplateRows(labels: string[], samples: string[][]): string[][] {
   return [labels, ...samples];
 }

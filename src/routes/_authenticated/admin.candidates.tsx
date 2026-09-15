@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,7 +7,15 @@ import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { useSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
-import { parseSheet, type SheetRow } from "@/lib/sheet";
+import {
+  parseSheet,
+  downloadCsv,
+  downloadXlsx,
+  templateRowsFor,
+  CANDIDATE_TEMPLATE_FIELDS,
+  CANDIDATE_DEFAULT_KEYS,
+  type SheetRow,
+} from "@/lib/sheet";
 
 export const Route = createFileRoute("/_authenticated/admin/candidates")({
   head: () => ({
@@ -29,6 +37,37 @@ function CandidatesPage() {
   const queryClient = useQueryClient();
   const [preview, setPreview] = useState<SheetRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [enabledKeys, setEnabledKeys] = useState<string[]>(CANDIDATE_DEFAULT_KEYS);
+  const [extraCols, setExtraCols] = useState<string[]>([]);
+  const [newCol, setNewCol] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [printing, setPrinting] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("candidate_template");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { keys?: string[]; extra?: string[] };
+      if (Array.isArray(parsed.keys)) setEnabledKeys(parsed.keys);
+      if (Array.isArray(parsed.extra)) setExtraCols(parsed.extra);
+    } catch {
+      /* 忽略损坏的本地设置 */
+    }
+  }, []);
+
+  function persist(keys: string[], extra: string[]) {
+    setEnabledKeys(keys);
+    setExtraCols(extra);
+    localStorage.setItem("candidate_template", JSON.stringify({ keys, extra }));
+  }
+
+  const activeFields = CANDIDATE_TEMPLATE_FIELDS.filter(
+    (f) => f.required || enabledKeys.includes(f.key),
+  );
+  const templateRows = templateRowsFor([
+    ...activeFields.map((f) => ({ label: f.label, sample: f.sample })),
+    ...extraCols.map((label) => ({ label })),
+  ]);
 
   const categories = useQuery({
     queryKey: ["review_categories"],
@@ -120,6 +159,32 @@ function CandidatesPage() {
   const nameOf = (list: { id: string; name: string }[] | undefined, id: string | null) =>
     list?.find((x) => x.id === id)?.name ?? "—";
 
+  type Candidate = NonNullable<typeof candidates.data>[number];
+
+  function valueOf(c: Candidate, key: string) {
+    if (key === "full_name") return c.full_name;
+    if (key === "unit") return c.unit ?? "—";
+    if (key === "current_title") return c.current_title ?? "—";
+    if (key === "category") return nameOf(categories.data, c.category_id);
+    if (key === "group") return nameOf(groups.data, c.group_id);
+    if (key === "notes") return c.notes ?? "—";
+    return "—";
+  }
+
+  const printRows = (candidates.data ?? []).filter((c) => selected.has(c.id));
+
+  function printList() {
+    if (selected.size === 0) {
+      toast.error("请先勾选需要打印的参评人员");
+      return;
+    }
+    setPrinting(true);
+    setTimeout(() => {
+      window.print();
+      setPrinting(false);
+    }, 100);
+  }
+
   return (
     <Shell nav={ADMIN_NAV}>
       <PageTitle
@@ -129,6 +194,95 @@ function CandidatesPage() {
 
       <div className="space-y-10">
         <Panel>
+          <div className="mb-8 no-print">
+            <h2 className="mb-4 text-[12px] tracking-[0.2em] text-muted-foreground">
+              名单模板栏目（可勾选、可增删）
+            </h2>
+            <div className="flex flex-wrap gap-x-8 gap-y-3 text-[12px] tracking-[0.1em]">
+              {CANDIDATE_TEMPLATE_FIELDS.map((f) => (
+                <label key={f.key} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    disabled={f.required}
+                    checked={f.required || enabledKeys.includes(f.key)}
+                    onChange={(e) =>
+                      persist(
+                        e.target.checked
+                          ? [...enabledKeys, f.key]
+                          : enabledKeys.filter((k) => k !== f.key),
+                        extraCols,
+                      )
+                    }
+                  />
+                  {f.label}
+                  {f.required ? <span className="text-muted-foreground">（必填）</span> : null}
+                </label>
+              ))}
+              {extraCols.map((c) => (
+                <span key={c} className="flex items-center gap-2">
+                  {c}
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-destructive"
+                    onClick={() =>
+                      persist(
+                        enabledKeys,
+                        extraCols.filter((x) => x !== c),
+                      )
+                    }
+                  >
+                    删除
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <input
+                value={newCol}
+                onChange={(e) => setNewCol(e.target.value)}
+                placeholder="新增自定义栏目，如 最高学历"
+                className="w-56 border-0 border-b bg-transparent py-1 text-[12px] tracking-[0.1em] focus:outline-none"
+              />
+              <button
+                className="text-[11px] tracking-[0.2em] underline"
+                onClick={() => {
+                  const name = newCol.trim();
+                  if (!name) return;
+                  const exists = [
+                    ...CANDIDATE_TEMPLATE_FIELDS.map((f) => f.label),
+                    ...extraCols,
+                  ].includes(name);
+                  if (exists) {
+                    toast.error("该栏目已存在");
+                    return;
+                  }
+                  persist(enabledKeys, [...extraCols, name]);
+                  setNewCol("");
+                }}
+              >
+                增加栏目
+              </button>
+              <span className="text-[11px] tracking-[0.16em] text-muted-foreground">
+                自定义栏目仅用于线下收集信息，导入时按基础栏目入库
+              </span>
+            </div>
+          </div>
+
+          <div className="no-print mb-6 flex flex-wrap items-center gap-6 text-[11px] tracking-[0.2em]">
+            <button
+              className="underline"
+              onClick={() => downloadXlsx("参评人员名单模板.xlsx", templateRows, "参评人员名单")}
+            >
+              下载名单模板 XLSX
+            </button>
+            <button
+              className="underline"
+              onClick={() => downloadCsv("参评人员名单模板.csv", templateRows)}
+            >
+              下载名单模板 CSV
+            </button>
+            <span className="text-muted-foreground">请保留表头，删除示例行后填写</span>
+          </div>
+
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
@@ -136,10 +290,10 @@ function CandidatesPage() {
               const f = e.target.files?.[0];
               if (f) handleFile(f);
             }}
-            className="block text-[12px] text-muted-foreground"
+            className="no-print block text-[12px] text-muted-foreground"
           />
           {preview.length > 0 ? (
-            <div className="mt-8">
+            <div className="mt-8 no-print">
               <div className="mb-4 text-[12px] tracking-[0.16em] text-muted-foreground">
                 待导入 {preview.length} 人
               </div>
@@ -165,15 +319,56 @@ function CandidatesPage() {
         </Panel>
 
         <Panel>
-          <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">
-            评审对象（{candidates.data?.length ?? 0}）
-          </h2>
-          <div className="space-y-3">
+          <div className="no-print mb-6 flex flex-wrap items-center gap-6">
+            <h2 className="text-[12px] tracking-[0.2em] text-muted-foreground">
+              评审对象（{candidates.data?.length ?? 0}）
+            </h2>
+            <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={
+                  (candidates.data?.length ?? 0) > 0 &&
+                  selected.size === (candidates.data?.length ?? 0)
+                }
+                onChange={(e) =>
+                  setSelected(
+                    e.target.checked
+                      ? new Set((candidates.data ?? []).map((c) => c.id))
+                      : new Set(),
+                  )
+                }
+              />
+              全选
+            </label>
+            <button
+              className="text-[11px] tracking-[0.2em] underline disabled:text-muted-foreground"
+              onClick={printList}
+              disabled={selected.size === 0}
+            >
+              打印名单（已选 {selected.size} 人）
+            </button>
+            <span className="text-[11px] tracking-[0.16em] text-muted-foreground">
+              打印内容按上方勾选的栏目生成
+            </span>
+          </div>
+          <div className="no-print space-y-3">
             {(candidates.data ?? []).map((c) => (
               <div
                 key={c.id}
                 className="hairline-t flex flex-wrap items-center gap-6 pt-3 text-[12px] tracking-[0.1em]"
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(c.id)}
+                  onChange={(e) =>
+                    setSelected((prev) => {
+                      const next = new Set(prev);
+                      if (e.target.checked) next.add(c.id);
+                      else next.delete(c.id);
+                      return next;
+                    })
+                  }
+                />
                 <span className="w-20">{c.full_name}</span>
                 <span className="w-40 text-muted-foreground">{c.unit ?? "—"}</span>
                 <span className="w-24 text-muted-foreground">{c.current_title ?? "—"}</span>
@@ -191,6 +386,36 @@ function CandidatesPage() {
               </div>
             ))}
           </div>
+
+          {printing && printRows.length > 0 ? (
+            <div className="print-area print-only">
+              <h3 className="mb-6 text-[14px] tracking-[0.2em]">参评人员名单</h3>
+              <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
+                <thead>
+                  <tr>
+                    <th className="hairline-b py-2 text-left font-normal">序号</th>
+                    {activeFields.map((f) => (
+                      <th key={f.key} className="hairline-b py-2 text-left font-normal">
+                        {f.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {printRows.map((c, i) => (
+                    <tr key={c.id}>
+                      <td className="hairline-b py-2">{i + 1}</td>
+                      {activeFields.map((f) => (
+                        <td key={f.key} className="hairline-b py-2">
+                          {valueOf(c, f.key)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </Panel>
       </div>
     </Shell>
