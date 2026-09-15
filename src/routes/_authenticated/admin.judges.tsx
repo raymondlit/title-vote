@@ -12,7 +12,9 @@ import {
   parseSheet,
   downloadCsv,
   downloadXlsx,
-  JUDGE_TEMPLATE_ROWS,
+  templateRowsFor,
+  JUDGE_TEMPLATE_FIELDS,
+  DEFAULT_TEMPLATE_KEYS,
   type SheetRow,
 } from "@/lib/sheet";
 import { importJudges, deleteJudge } from "@/lib/admin.functions";
