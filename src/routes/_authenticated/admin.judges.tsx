@@ -392,7 +392,87 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
               下载名单模板 CSV
             </button>
             <span className="text-muted-foreground">请保留表头，删除示例行后填写</span>
+            <button
+              className="underline"
+              onClick={() => setShowAdd((v) => !v)}
+            >
+              {showAdd ? "收起手动新增" : "手动新增评委"}
+            </button>
           </div>
+          {showAdd ? (
+            <div className="mb-8 border border-foreground/20 p-6">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {(
+                  [
+                    ["full_name", "姓名（必填）"],
+                    ["staff_no", "工号"],
+                    ["unit", "单位 / 部门"],
+                    ["title", "职称"],
+                    ["phone", "电话"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="block">
+                    <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                      {label}
+                    </span>
+                    <input
+                      value={form[key]}
+                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                      className="w-full border-0 border-b bg-transparent py-1 text-[12px] tracking-[0.1em] focus:outline-none"
+                    />
+                  </label>
+                ))}
+                <label className="block">
+                  <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                    学科小组
+                  </span>
+                  <select
+                    value={form.group_id}
+                    onChange={(e) => setForm({ ...form, group_id: e.target.value })}
+                    className="w-full border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                  >
+                    <option value="">未分组</option>
+                    {(groups.data ?? []).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                    评委会职务
+                  </span>
+                  <select
+                    value={form.committee_role}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        committee_role: e.target.value as "chair" | "vice_chair" | "member",
+                      })
+                    }
+                    className="w-full border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                  >
+                    {Object.entries(COMMITTEE_ROLE_LABELS).map(([v, label]) => (
+                      <option key={v} value={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <Button
+                onClick={doCreate}
+                disabled={busy}
+                className="mt-6 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+              >
+                新增评委
+              </Button>
+              <p className="mt-3 text-[11px] tracking-[0.14em] text-muted-foreground">
+                提交后自动生成账号与一次性密码，显示在下方对照表中
+              </p>
+            </div>
+          ) : null}
           <input
             type="file"
             accept=".xlsx,.xls,.csv"
