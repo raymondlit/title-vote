@@ -17,7 +17,7 @@ import {
   DEFAULT_TEMPLATE_KEYS,
   type SheetRow,
 } from "@/lib/sheet";
-import { importJudges, deleteJudge, getJudgePasswordBook } from "@/lib/admin.functions";
+import { importJudges, deleteJudge, getJudgePasswordBook, createJudge } from "@/lib/admin.functions";
 import { useSession, useSchool } from "@/lib/session";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
@@ -48,6 +48,16 @@ function JudgesPage() {
   const [book, setBook] = useState<
     { full_name: string; username: string; password: string | null }[]
   >([]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "",
+    staff_no: "",
+    unit: "",
+    title: "",
+    phone: "",
+    group_id: "",
+    committee_role: "member" as "chair" | "vice_chair" | "member",
+  });
 
   // 载入管理员上次保存的模板设置
   useEffect(() => {
@@ -81,6 +91,47 @@ function JudgesPage() {
   const importFn = useServerFn(importJudges);
   const deleteFn = useServerFn(deleteJudge);
   const bookFn = useServerFn(getJudgePasswordBook);
+  const createFn = useServerFn(createJudge);
+
+  async function doCreate() {
+    if (!form.full_name.trim()) {
+      toast.error("请填写姓名");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await createFn({
+        data: {
+          full_name: form.full_name.trim(),
+          staff_no: form.staff_no.trim() || null,
+          unit: form.unit.trim() || null,
+          title: form.title.trim() || null,
+          phone: form.phone.trim() || null,
+          group_id: form.group_id || null,
+          committee_role: form.committee_role,
+        },
+      });
+      setAccounts((prev) => [
+        ...prev,
+        { full_name: res.full_name, username: res.username, password: res.password },
+      ]);
+      toast.success(`已新增评委 ${res.full_name}`);
+      setForm({
+        full_name: "",
+        staff_no: "",
+        unit: "",
+        title: "",
+        phone: "",
+        group_id: "",
+        committee_role: "member",
+      });
+      setShowAdd(false);
+      queryClient.invalidateQueries({ queryKey: ["judges"] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+    setBusy(false);
+  }
 
   const judges = useQuery({
     queryKey: ["judges"],
