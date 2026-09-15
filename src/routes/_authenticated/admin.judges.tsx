@@ -77,6 +77,7 @@ function JudgesPage() {
 
   const importFn = useServerFn(importJudges);
   const deleteFn = useServerFn(deleteJudge);
+  const bookFn = useServerFn(getJudgePasswordBook);
 
   const judges = useQuery({
     queryKey: ["judges"],
@@ -144,6 +145,32 @@ function JudgesPage() {
     const { error } = await supabase.from("judges").update(patch).eq("id", id);
     if (error) toast.error(error.message);
     else queryClient.invalidateQueries({ queryKey: ["judges"] });
+  }
+
+  function toggleSelect(id: string, on: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function printPasswordBook() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) {
+      toast.error("请先勾选需要打印的评委");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await bookFn({ data: { judgeIds: ids } });
+      setBook(res.entries);
+      setTimeout(() => window.print(), 100);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+    setBusy(false);
   }
 
   function exportAccountsDoc() {
