@@ -25,6 +25,7 @@ import { Route as AuthenticatedAdminRulesRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAdminSessionsRouteImport } from './routes/_authenticated/admin.sessions'
 import { Route as AuthenticatedVoteIndexRouteImport } from './routes/_authenticated/vote.index'
 import { Route as AuthenticatedVoteSessionIdRouteImport } from './routes/_authenticated/vote.$sessionId'
+import { Route as AuthenticatedVotePasswordRouteImport } from './routes/_authenticated/vote.password'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
 
 const IndexRoute = IndexRouteImport.update({
@@ -113,6 +114,12 @@ const AuthenticatedVoteSessionIdRoute =
     path: '/$sessionId',
     getParentRoute: () => AuthenticatedVoteRoute,
   } as any)
+const AuthenticatedVotePasswordRoute =
+  AuthenticatedVotePasswordRouteImport.update({
+    id: '/password',
+    path: '/password',
+    getParentRoute: () => AuthenticatedVoteRoute,
+  } as any)
 const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   id: '/api/public/bootstrap',
   path: '/api/public/bootstrap',
@@ -133,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/admin/rules': typeof AuthenticatedAdminRulesRoute
   '/admin/sessions': typeof AuthenticatedAdminSessionsRoute
   '/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
+  '/vote/password': typeof AuthenticatedVotePasswordRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/vote/': typeof AuthenticatedVoteIndexRoute
@@ -149,6 +157,7 @@ export interface FileRoutesByTo {
   '/admin/rules': typeof AuthenticatedAdminRulesRoute
   '/admin/sessions': typeof AuthenticatedAdminSessionsRoute
   '/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
+  '/vote/password': typeof AuthenticatedVotePasswordRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/vote': typeof AuthenticatedVoteIndexRoute
@@ -169,6 +178,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/rules': typeof AuthenticatedAdminRulesRoute
   '/_authenticated/admin/sessions': typeof AuthenticatedAdminSessionsRoute
   '/_authenticated/vote/$sessionId': typeof AuthenticatedVoteSessionIdRoute
+  '/_authenticated/vote/password': typeof AuthenticatedVotePasswordRoute
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/vote/': typeof AuthenticatedVoteIndexRoute
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/admin/rules'
     | '/admin/sessions'
     | '/vote/$sessionId'
+    | '/vote/password'
     | '/api/public/bootstrap'
     | '/admin/'
     | '/vote/'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/admin/rules'
     | '/admin/sessions'
     | '/vote/$sessionId'
+    | '/vote/password'
     | '/api/public/bootstrap'
     | '/admin'
     | '/vote'
@@ -224,6 +236,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/rules'
     | '/_authenticated/admin/sessions'
     | '/_authenticated/vote/$sessionId'
+    | '/_authenticated/vote/password'
     | '/api/public/bootstrap'
     | '/_authenticated/admin/'
     | '/_authenticated/vote/'
@@ -350,6 +363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedVoteSessionIdRouteImport
       parentRoute: typeof AuthenticatedVoteRoute
     }
+    '/_authenticated/vote/password': {
+      id: '/_authenticated/vote/password'
+      path: '/password'
+      fullPath: '/vote/password'
+      preLoaderRoute: typeof AuthenticatedVotePasswordRouteImport
+      parentRoute: typeof AuthenticatedVoteRoute
+    }
     '/api/public/bootstrap': {
       id: '/api/public/bootstrap'
       path: '/api/public/bootstrap'
@@ -387,11 +407,13 @@ const AuthenticatedAdminRouteWithChildren =
 
 interface AuthenticatedVoteRouteChildren {
   AuthenticatedVoteSessionIdRoute: typeof AuthenticatedVoteSessionIdRoute
+  AuthenticatedVotePasswordRoute: typeof AuthenticatedVotePasswordRoute
   AuthenticatedVoteIndexRoute: typeof AuthenticatedVoteIndexRoute
 }
 
 const AuthenticatedVoteRouteChildren: AuthenticatedVoteRouteChildren = {
   AuthenticatedVoteSessionIdRoute: AuthenticatedVoteSessionIdRoute,
+  AuthenticatedVotePasswordRoute: AuthenticatedVotePasswordRoute,
   AuthenticatedVoteIndexRoute: AuthenticatedVoteIndexRoute,
 }
 

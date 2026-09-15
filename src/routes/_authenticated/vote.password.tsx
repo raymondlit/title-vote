@@ -55,7 +55,7 @@ function PasswordPage() {
 
   return (
     <div className="space-y-10">
-      <PageTitle title="修改密码" subtitle="更换本人登录密码" />
+      <PageTitle title="修改密码" description="更换本人登录密码" />
       <Panel>
         {!allowed ? (
           <p className="text-[12px] tracking-[0.12em] text-muted-foreground">
