@@ -480,11 +480,37 @@ function JudgesPage() {
                     queryClient.invalidateQueries({ queryKey: ["judges"] });
                   }}
                 >
-                  删除
+                删除
                 </button>
               </div>
             ))}
           </div>
+
+          {book.length > 0 ? (
+            <div className="print-area">
+              <h3 className="mb-6 text-[14px] tracking-[0.2em]">评委密码本</h3>
+              <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
+                <thead>
+                  <tr>
+                    <th className="hairline-b py-2 text-left font-normal">序号</th>
+                    <th className="hairline-b py-2 text-left font-normal">姓名</th>
+                    <th className="hairline-b py-2 text-left font-normal">用户名</th>
+                    <th className="hairline-b py-2 text-left font-normal">密码</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {book.map((e, i) => (
+                    <tr key={e.username}>
+                      <td className="hairline-b py-2">{i + 1}</td>
+                      <td className="hairline-b py-2">{e.full_name}</td>
+                      <td className="hairline-b py-2">{e.username}</td>
+                      <td className="hairline-b py-2">{e.password ?? "（已修改，未记录）"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </Panel>
       </div>
     </Shell>
