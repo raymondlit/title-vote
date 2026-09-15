@@ -398,15 +398,43 @@ function JudgesPage() {
         </Panel>
 
         <Panel>
-          <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">
-            评委名单（{judges.data?.length ?? 0}）
-          </h2>
-          <div className="space-y-4">
+          <div className="no-print mb-6 flex flex-wrap items-center gap-6">
+            <h2 className="text-[12px] tracking-[0.2em] text-muted-foreground">
+              评委名单（{judges.data?.length ?? 0}）
+            </h2>
+            <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={
+                  (judges.data?.length ?? 0) > 0 && selected.size === (judges.data?.length ?? 0)
+                }
+                onChange={(e) =>
+                  setSelected(
+                    e.target.checked ? new Set((judges.data ?? []).map((j) => j.id)) : new Set(),
+                  )
+                }
+              />
+              全选
+            </label>
+            <button
+              className="text-[11px] tracking-[0.2em] underline disabled:text-muted-foreground"
+              onClick={printPasswordBook}
+              disabled={busy || selected.size === 0}
+            >
+              打印密码本（已选 {selected.size} 人）
+            </button>
+          </div>
+          <div className="no-print space-y-4">
             {(judges.data ?? []).map((j) => (
               <div
                 key={j.id}
                 className="hairline-t flex flex-wrap items-center gap-6 pt-4 text-[12px] tracking-[0.1em]"
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(j.id)}
+                  onChange={(e) => toggleSelect(j.id, e.target.checked)}
+                />
                 <span className="w-20">{j.full_name}</span>
                 <span className="w-40 text-muted-foreground">{j.unit ?? "—"}</span>
                 <span className="w-32 text-muted-foreground">{j.username}</span>
