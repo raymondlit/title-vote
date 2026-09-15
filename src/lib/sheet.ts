@@ -54,11 +54,41 @@ export function downloadXlsx(filename: string, rows: string[][], sheetName = "Sh
   XLSX.writeFile(wb, filename);
 }
 
-export const JUDGE_TEMPLATE_ROWS: string[][] = [
-  ["姓名", "工号", "单位", "职称", "电话"],
-  ["张三", "20230001", "机械工程学院", "教授", "13800000000"],
-  ["李四", "20230002", "外国语学院", "副教授", "13900000000"],
+export type TemplateField = {
+  key: string;
+  label: string;
+  required?: boolean;
+  sample: [string, string];
+};
+
+/** 基础框架字段：管理员可勾选启用，姓名为必填不可取消 */
+export const JUDGE_TEMPLATE_FIELDS: TemplateField[] = [
+  { key: "full_name", label: "姓名", required: true, sample: ["张三", "李四"] },
+  { key: "staff_no", label: "工号", sample: ["20230001", "20230002"] },
+  { key: "unit", label: "单位", sample: ["机械工程学院", "外国语学院"] },
+  { key: "title", label: "职称", sample: ["教授", "副教授"] },
+  { key: "phone", label: "电话", sample: ["13800000000", "13900000000"] },
+  { key: "notes", label: "备注", sample: ["", ""] },
 ];
+
+export const DEFAULT_TEMPLATE_KEYS = ["full_name", "staff_no", "unit", "title", "phone"];
+
+export function buildTemplateRows(labels: string[], samples: string[][]): string[][] {
+  return [labels, ...samples];
+}
+
+export function templateRowsFor(
+  fields: { label: string; sample?: [string, string] }[],
+): string[][] {
+  const header = fields.map((f) => f.label);
+  const r1 = fields.map((f) => f.sample?.[0] ?? "");
+  const r2 = fields.map((f) => f.sample?.[1] ?? "");
+  return [header, r1, r2];
+}
+
+export const JUDGE_TEMPLATE_ROWS: string[][] = templateRowsFor(
+  JUDGE_TEMPLATE_FIELDS.filter((f) => DEFAULT_TEMPLATE_KEYS.includes(f.key)),
+);
 
 export function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
