@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -12,7 +12,9 @@ import {
   parseSheet,
   downloadCsv,
   downloadXlsx,
-  JUDGE_TEMPLATE_ROWS,
+  templateRowsFor,
+  JUDGE_TEMPLATE_FIELDS,
+  DEFAULT_TEMPLATE_KEYS,
   type SheetRow,
 } from "@/lib/sheet";
 import { importJudges, deleteJudge } from "@/lib/admin.functions";
@@ -36,6 +38,38 @@ function JudgesPage() {
     { full_name: string; username: string; password: string }[]
   >([]);
   const [busy, setBusy] = useState(false);
+  const [enabledKeys, setEnabledKeys] = useState<string[]>(DEFAULT_TEMPLATE_KEYS);
+  const [extraCols, setExtraCols] = useState<string[]>([]);
+  const [newCol, setNewCol] = useState("");
+
+  // 载入管理员上次保存的模板设置
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("judge_template");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { keys?: string[]; extra?: string[] };
+      if (Array.isArray(parsed.keys)) setEnabledKeys(parsed.keys);
+      if (Array.isArray(parsed.extra)) setExtraCols(parsed.extra);
+    } catch {
+      /* 忽略损坏的本地设置 */
+    }
+  }, []);
+
+  function persist(keys: string[], extra: string[]) {
+    setEnabledKeys(keys);
+    setExtraCols(extra);
+    localStorage.setItem("judge_template", JSON.stringify({ keys, extra }));
+  }
+
+  const templateFields = [
+    ...JUDGE_TEMPLATE_FIELDS.filter((f) => f.required || enabledKeys.includes(f.key)).map((f) => ({
+      label: f.label,
+      sample: f.sample,
+    })),
+    ...extraCols.map((label) => ({ label })),
+  ];
+  const templateRows = templateRowsFor(templateFields);
+
 
   const importFn = useServerFn(importJudges);
   const deleteFn = useServerFn(deleteJudge);
@@ -138,16 +172,89 @@ function JudgesPage() {
 
       <div className="space-y-10">
         <Panel>
+          <div className="mb-8">
+            <h2 className="mb-4 text-[12px] tracking-[0.2em] text-muted-foreground">
+              名单模板栏目（可勾选、可增删）
+            </h2>
+            <div className="flex flex-wrap gap-x-8 gap-y-3 text-[12px] tracking-[0.1em]">
+              {JUDGE_TEMPLATE_FIELDS.map((f) => (
+                <label key={f.key} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    disabled={f.required}
+                    checked={f.required || enabledKeys.includes(f.key)}
+                    onChange={(e) =>
+                      persist(
+                        e.target.checked
+                          ? [...enabledKeys, f.key]
+                          : enabledKeys.filter((k) => k !== f.key),
+                        extraCols,
+                      )
+                    }
+                  />
+                  {f.label}
+                  {f.required ? <span className="text-muted-foreground">（必填）</span> : null}
+                </label>
+              ))}
+              {extraCols.map((c) => (
+                <span key={c} className="flex items-center gap-2">
+                  {c}
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-destructive"
+                    onClick={() =>
+                      persist(
+                        enabledKeys,
+                        extraCols.filter((x) => x !== c),
+                      )
+                    }
+                  >
+                    删除
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-4">
+              <input
+                value={newCol}
+                onChange={(e) => setNewCol(e.target.value)}
+                placeholder="新增自定义栏目，如 邮箱"
+                className="w-56 border-0 border-b bg-transparent py-1 text-[12px] tracking-[0.1em] focus:outline-none"
+              />
+              <button
+                className="text-[11px] tracking-[0.2em] underline"
+                onClick={() => {
+                  const name = newCol.trim();
+                  if (!name) return;
+                  const exists = [
+                    ...JUDGE_TEMPLATE_FIELDS.map((f) => f.label),
+                    ...extraCols,
+                  ].includes(name);
+                  if (exists) {
+                    toast.error("该栏目已存在");
+                    return;
+                  }
+                  persist(enabledKeys, [...extraCols, name]);
+                  setNewCol("");
+                }}
+              >
+                增加栏目
+              </button>
+              <span className="text-[11px] tracking-[0.16em] text-muted-foreground">
+                自定义栏目仅用于线下收集信息，导入时按基础栏目建账号
+              </span>
+            </div>
+          </div>
+
           <div className="mb-6 flex flex-wrap items-center gap-6 text-[11px] tracking-[0.2em]">
             <button
               className="underline"
-              onClick={() => downloadXlsx("评委名单模板.xlsx", JUDGE_TEMPLATE_ROWS, "评委名单")}
+              onClick={() => downloadXlsx("评委名单模板.xlsx", templateRows, "评委名单")}
             >
               下载名单模板 XLSX
             </button>
             <button
               className="underline"
-              onClick={() => downloadCsv("评委名单模板.csv", JUDGE_TEMPLATE_ROWS)}
+              onClick={() => downloadCsv("评委名单模板.csv", templateRows)}
             >
               下载名单模板 CSV
             </button>
