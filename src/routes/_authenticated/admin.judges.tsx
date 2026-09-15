@@ -487,7 +487,7 @@ function JudgesPage() {
           </div>
 
           {book.length > 0 ? (
-            <div className="print-area">
+            <div className="print-area print-only">
               <h3 className="mb-6 text-[14px] tracking-[0.2em]">评委密码本</h3>
               <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
                 <thead>

@@ -153,8 +153,11 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.print-only { display: none; }
+
 @media print {
   .no-print { display: none !important; }
+  .print-only { display: block !important; }
   body { background: #fff; }
   .print-area { border: none !important; padding: 0 !important; }
 }
