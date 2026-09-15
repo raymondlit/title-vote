@@ -38,6 +38,38 @@ function JudgesPage() {
     { full_name: string; username: string; password: string }[]
   >([]);
   const [busy, setBusy] = useState(false);
+  const [enabledKeys, setEnabledKeys] = useState<string[]>(DEFAULT_TEMPLATE_KEYS);
+  const [extraCols, setExtraCols] = useState<string[]>([]);
+  const [newCol, setNewCol] = useState("");
+
+  // 载入管理员上次保存的模板设置
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("judge_template");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { keys?: string[]; extra?: string[] };
+      if (Array.isArray(parsed.keys)) setEnabledKeys(parsed.keys);
+      if (Array.isArray(parsed.extra)) setExtraCols(parsed.extra);
+    } catch {
+      /* 忽略损坏的本地设置 */
+    }
+  }, []);
+
+  function persist(keys: string[], extra: string[]) {
+    setEnabledKeys(keys);
+    setExtraCols(extra);
+    localStorage.setItem("judge_template", JSON.stringify({ keys, extra }));
+  }
+
+  const templateFields = [
+    ...JUDGE_TEMPLATE_FIELDS.filter((f) => f.required || enabledKeys.includes(f.key)).map((f) => ({
+      label: f.label,
+      sample: f.sample,
+    })),
+    ...extraCols.map((label) => ({ label })),
+  ];
+  const templateRows = templateRowsFor(templateFields);
+
 
   const importFn = useServerFn(importJudges);
   const deleteFn = useServerFn(deleteJudge);
