@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-
-declare function confirm(message?: string): boolean;
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
