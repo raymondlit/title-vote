@@ -209,6 +209,7 @@ export const importJudges = createServerFn({ method: "POST" })
         title: row.title ?? null,
         phone: row.phone ?? null,
         username,
+        initial_password: password,
       });
       accounts.push({ full_name: row.full_name, username, password });
     }
@@ -294,6 +295,31 @@ export const deleteSchool = createServerFn({ method: "POST" })
     return { ok: true as const, blocking: [] as string[] };
   });
 
+
+export const getJudgePasswordBook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ judgeIds: z.array(z.string().uuid()).min(1).max(300) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const schoolId = await resolveSchool(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("judges")
+      .select("id, full_name, username, initial_password")
+      .eq("school_id", schoolId)
+      .in("id", data.judgeIds)
+      .order("created_at");
+    if (error) throw new Error(error.message);
+    return {
+      entries: (rows ?? []).map((r: any) => ({
+        id: r.id as string,
+        full_name: r.full_name as string,
+        username: r.username as string,
+        password: (r.initial_password as string | null) ?? null,
+      })),
+    };
+  });
 
 export const deleteJudge = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

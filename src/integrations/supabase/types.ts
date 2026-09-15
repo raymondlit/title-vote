@@ -175,6 +175,7 @@ export type Database = {
           full_name: string
           group_id: string | null
           id: string
+          initial_password: string | null
           is_group_leader: boolean
           phone: string | null
           profile_id: string | null
@@ -190,6 +191,7 @@ export type Database = {
           full_name: string
           group_id?: string | null
           id?: string
+          initial_password?: string | null
           is_group_leader?: boolean
           phone?: string | null
           profile_id?: string | null
@@ -205,6 +207,7 @@ export type Database = {
           full_name?: string
           group_id?: string | null
           id?: string
+          initial_password?: string | null
           is_group_leader?: boolean
           phone?: string | null
           profile_id?: string | null

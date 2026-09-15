@@ -17,7 +17,7 @@ import {
   DEFAULT_TEMPLATE_KEYS,
   type SheetRow,
 } from "@/lib/sheet";
-import { importJudges, deleteJudge } from "@/lib/admin.functions";
+import { importJudges, deleteJudge, getJudgePasswordBook } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
   head: () => ({
@@ -41,6 +41,10 @@ function JudgesPage() {
   const [enabledKeys, setEnabledKeys] = useState<string[]>(DEFAULT_TEMPLATE_KEYS);
   const [extraCols, setExtraCols] = useState<string[]>([]);
   const [newCol, setNewCol] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [book, setBook] = useState<
+    { full_name: string; username: string; password: string | null }[]
+  >([]);
 
   // 载入管理员上次保存的模板设置
   useEffect(() => {
@@ -73,6 +77,7 @@ function JudgesPage() {
 
   const importFn = useServerFn(importJudges);
   const deleteFn = useServerFn(deleteJudge);
+  const bookFn = useServerFn(getJudgePasswordBook);
 
   const judges = useQuery({
     queryKey: ["judges"],
@@ -140,6 +145,32 @@ function JudgesPage() {
     const { error } = await supabase.from("judges").update(patch).eq("id", id);
     if (error) toast.error(error.message);
     else queryClient.invalidateQueries({ queryKey: ["judges"] });
+  }
+
+  function toggleSelect(id: string, on: boolean) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function printPasswordBook() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) {
+      toast.error("请先勾选需要打印的评委");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await bookFn({ data: { judgeIds: ids } });
+      setBook(res.entries);
+      setTimeout(() => window.print(), 100);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+    setBusy(false);
   }
 
   function exportAccountsDoc() {
@@ -367,15 +398,43 @@ function JudgesPage() {
         </Panel>
 
         <Panel>
-          <h2 className="mb-6 text-[12px] tracking-[0.2em] text-muted-foreground">
-            评委名单（{judges.data?.length ?? 0}）
-          </h2>
-          <div className="space-y-4">
+          <div className="no-print mb-6 flex flex-wrap items-center gap-6">
+            <h2 className="text-[12px] tracking-[0.2em] text-muted-foreground">
+              评委名单（{judges.data?.length ?? 0}）
+            </h2>
+            <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={
+                  (judges.data?.length ?? 0) > 0 && selected.size === (judges.data?.length ?? 0)
+                }
+                onChange={(e) =>
+                  setSelected(
+                    e.target.checked ? new Set((judges.data ?? []).map((j) => j.id)) : new Set(),
+                  )
+                }
+              />
+              全选
+            </label>
+            <button
+              className="text-[11px] tracking-[0.2em] underline disabled:text-muted-foreground"
+              onClick={printPasswordBook}
+              disabled={busy || selected.size === 0}
+            >
+              打印密码本（已选 {selected.size} 人）
+            </button>
+          </div>
+          <div className="no-print space-y-4">
             {(judges.data ?? []).map((j) => (
               <div
                 key={j.id}
                 className="hairline-t flex flex-wrap items-center gap-6 pt-4 text-[12px] tracking-[0.1em]"
               >
+                <input
+                  type="checkbox"
+                  checked={selected.has(j.id)}
+                  onChange={(e) => toggleSelect(j.id, e.target.checked)}
+                />
                 <span className="w-20">{j.full_name}</span>
                 <span className="w-40 text-muted-foreground">{j.unit ?? "—"}</span>
                 <span className="w-32 text-muted-foreground">{j.username}</span>
@@ -421,11 +480,37 @@ function JudgesPage() {
                     queryClient.invalidateQueries({ queryKey: ["judges"] });
                   }}
                 >
-                  删除
+                删除
                 </button>
               </div>
             ))}
           </div>
+
+          {book.length > 0 ? (
+            <div className="print-area print-only">
+              <h3 className="mb-6 text-[14px] tracking-[0.2em]">评委密码本</h3>
+              <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
+                <thead>
+                  <tr>
+                    <th className="hairline-b py-2 text-left font-normal">序号</th>
+                    <th className="hairline-b py-2 text-left font-normal">姓名</th>
+                    <th className="hairline-b py-2 text-left font-normal">用户名</th>
+                    <th className="hairline-b py-2 text-left font-normal">密码</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {book.map((e, i) => (
+                    <tr key={e.username}>
+                      <td className="hairline-b py-2">{i + 1}</td>
+                      <td className="hairline-b py-2">{e.full_name}</td>
+                      <td className="hairline-b py-2">{e.username}</td>
+                      <td className="hairline-b py-2">{e.password ?? "（已修改，未记录）"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </Panel>
       </div>
     </Shell>
