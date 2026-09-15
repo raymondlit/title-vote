@@ -1,0 +1,1 @@
+ALTER TABLE public.judges ADD COLUMN IF NOT EXISTS initial_password text;
