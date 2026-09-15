@@ -666,8 +666,15 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
                 <button
                   className="ml-auto text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
                   onClick={async () => {
-                    await deleteFn({ data: { judgeId: j.id } });
-                    queryClient.invalidateQueries({ queryKey: ["judges"] });
+                    if (!window.confirm(`确定删除评委「${j.full_name}」？其登录账号将一并删除。`))
+                      return;
+                    try {
+                      await deleteFn({ data: { judgeId: j.id } });
+                      toast.success("已删除");
+                      queryClient.invalidateQueries({ queryKey: ["judges"] });
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    }
                   }}
                 >
                 删除
