@@ -18,6 +18,7 @@ import {
   type SheetRow,
 } from "@/lib/sheet";
 import { importJudges, deleteJudge, getJudgePasswordBook } from "@/lib/admin.functions";
+import { useSession, useSchool } from "@/lib/session";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
   head: () => ({
@@ -33,6 +34,8 @@ export const Route = createFileRoute("/_authenticated/admin/judges")({
 
 function JudgesPage() {
   const queryClient = useQueryClient();
+  const session = useSession();
+  const school = useSchool(session.data?.schoolId);
   const [preview, setPreview] = useState<SheetRow[]>([]);
   const [accounts, setAccounts] = useState<
     { full_name: string; username: string; password: string }[]
@@ -156,6 +159,29 @@ function JudgesPage() {
     });
   }
 
+  function passwordBookHtml(
+    entries: { full_name: string; username: string; password: string | null }[],
+  ) {
+    const rows = entries
+      .map(
+        (e, i) =>
+          `<tr><td>${i + 1}</td><td>${e.full_name}</td><td>${e.username}</td><td>${e.password ?? "（未记录）"}</td></tr>`,
+      )
+      .join("");
+    return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>评委密码本</title>
+<style>
+body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;color:#2b2b2b;margin:32px;}
+h1{font-size:16px;font-weight:400;letter-spacing:.2em;margin:0 0 24px;}
+table{width:100%;border-collapse:collapse;font-size:12px;letter-spacing:.06em;}
+th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weight:400;}
+@page{margin:16mm;}
+</style></head><body>
+<h1>评委密码本</h1>
+<table><thead><tr><th style="width:48px">序号</th><th style="width:96px">姓名</th><th>用户名</th><th>密码</th></tr></thead>
+<tbody>${rows}</tbody></table>
+</body></html>`;
+  }
+
   async function printPasswordBook() {
     const ids = Array.from(selected);
     if (ids.length === 0) {
@@ -166,11 +192,36 @@ function JudgesPage() {
     try {
       const res = await bookFn({ data: { judgeIds: ids } });
       setBook(res.entries);
-      setTimeout(() => window.print(), 100);
+      const win = window.open("", "_blank", "width=900,height=700");
+      if (!win) {
+        toast.error("浏览器拦截了打印窗口，请允许弹出窗口后重试");
+      } else {
+        win.document.write(passwordBookHtml(res.entries));
+        win.document.close();
+        win.focus();
+        setTimeout(() => {
+          win.print();
+          win.close();
+        }, 300);
+      }
     } catch (e) {
       toast.error((e as Error).message);
     }
     setBusy(false);
+  }
+
+  async function togglePasswordPolicy(on: boolean) {
+    const id = session.data?.schoolId;
+    if (!id) return;
+    const { error } = await supabase
+      .from("schools")
+      .update({ allow_judge_password_change: on })
+      .eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      queryClient.invalidateQueries({ queryKey: ["school", id] });
+      toast.success(on ? "已允许评委自行修改密码" : "已关闭评委自行修改密码");
+    }
   }
 
   function exportAccountsDoc() {
@@ -423,6 +474,14 @@ function JudgesPage() {
             >
               打印密码本（已选 {selected.size} 人）
             </button>
+            <label className="ml-auto flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={!!school.data?.allow_judge_password_change}
+                onChange={(e) => togglePasswordPolicy(e.target.checked)}
+              />
+              允许评委自行修改密码
+            </label>
           </div>
           <div className="no-print space-y-4">
             {(judges.data ?? []).map((j) => (
@@ -487,8 +546,16 @@ function JudgesPage() {
           </div>
 
           {book.length > 0 ? (
-            <div className="print-area print-only">
-              <h3 className="mb-6 text-[14px] tracking-[0.2em]">评委密码本</h3>
+            <div className="no-print mt-10">
+              <div className="mb-6 flex items-center gap-6">
+                <h3 className="text-[14px] tracking-[0.2em]">评委密码本预览</h3>
+                <button
+                  className="text-[11px] tracking-[0.2em] underline"
+                  onClick={() => setBook([])}
+                >
+                  关闭
+                </button>
+              </div>
               <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
                 <thead>
                   <tr>
@@ -504,7 +571,7 @@ function JudgesPage() {
                       <td className="hairline-b py-2">{i + 1}</td>
                       <td className="hairline-b py-2">{e.full_name}</td>
                       <td className="hairline-b py-2">{e.username}</td>
-                      <td className="hairline-b py-2">{e.password ?? "（已修改，未记录）"}</td>
+                      <td className="hairline-b py-2">{e.password ?? "（未记录）"}</td>
                     </tr>
                   ))}
                 </tbody>

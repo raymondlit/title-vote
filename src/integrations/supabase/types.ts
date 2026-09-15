@@ -304,6 +304,7 @@ export type Database = {
       schools: {
         Row: {
           accent_color: string
+          allow_judge_password_change: boolean
           created_at: string
           id: string
           logo_url: string | null
@@ -314,6 +315,7 @@ export type Database = {
         }
         Insert: {
           accent_color?: string
+          allow_judge_password_change?: boolean
           created_at?: string
           id?: string
           logo_url?: string | null
@@ -324,6 +326,7 @@ export type Database = {
         }
         Update: {
           accent_color?: string
+          allow_judge_password_change?: boolean
           created_at?: string
           id?: string
           logo_url?: string | null
