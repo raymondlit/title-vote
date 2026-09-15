@@ -17,7 +17,7 @@ import {
   DEFAULT_TEMPLATE_KEYS,
   type SheetRow,
 } from "@/lib/sheet";
-import { importJudges, deleteJudge } from "@/lib/admin.functions";
+import { importJudges, deleteJudge, getJudgePasswordBook } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
   head: () => ({
@@ -41,6 +41,10 @@ function JudgesPage() {
   const [enabledKeys, setEnabledKeys] = useState<string[]>(DEFAULT_TEMPLATE_KEYS);
   const [extraCols, setExtraCols] = useState<string[]>([]);
   const [newCol, setNewCol] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [book, setBook] = useState<
+    { full_name: string; username: string; password: string | null }[]
+  >([]);
 
   // 载入管理员上次保存的模板设置
   useEffect(() => {
