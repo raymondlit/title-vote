@@ -546,8 +546,16 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
           </div>
 
           {book.length > 0 ? (
-            <div className="print-area print-only">
-              <h3 className="mb-6 text-[14px] tracking-[0.2em]">评委密码本</h3>
+            <div className="no-print mt-10">
+              <div className="mb-6 flex items-center gap-6">
+                <h3 className="text-[14px] tracking-[0.2em]">评委密码本预览</h3>
+                <button
+                  className="text-[11px] tracking-[0.2em] underline"
+                  onClick={() => setBook([])}
+                >
+                  关闭
+                </button>
+              </div>
               <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
                 <thead>
                   <tr>
@@ -563,7 +571,7 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
                       <td className="hairline-b py-2">{i + 1}</td>
                       <td className="hairline-b py-2">{e.full_name}</td>
                       <td className="hairline-b py-2">{e.username}</td>
-                      <td className="hairline-b py-2">{e.password ?? "（已修改，未记录）"}</td>
+                      <td className="hairline-b py-2">{e.password ?? "（未记录）"}</td>
                     </tr>
                   ))}
                 </tbody>
