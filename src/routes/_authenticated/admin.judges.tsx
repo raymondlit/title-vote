@@ -474,6 +474,14 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
             >
               打印密码本（已选 {selected.size} 人）
             </button>
+            <label className="ml-auto flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={!!school.data?.allow_judge_password_change}
+                onChange={(e) => togglePasswordPolicy(e.target.checked)}
+              />
+              允许评委自行修改密码
+            </label>
           </div>
           <div className="no-print space-y-4">
             {(judges.data ?? []).map((j) => (
