@@ -18,6 +18,7 @@ import {
   type SheetRow,
 } from "@/lib/sheet";
 import { importJudges, deleteJudge, getJudgePasswordBook } from "@/lib/admin.functions";
+import { useSession, useSchool } from "@/lib/session";
 
 export const Route = createFileRoute("/_authenticated/admin/judges")({
   head: () => ({
@@ -33,6 +34,8 @@ export const Route = createFileRoute("/_authenticated/admin/judges")({
 
 function JudgesPage() {
   const queryClient = useQueryClient();
+  const session = useSession();
+  const school = useSchool(session.data?.schoolId);
   const [preview, setPreview] = useState<SheetRow[]>([]);
   const [accounts, setAccounts] = useState<
     { full_name: string; username: string; password: string }[]
