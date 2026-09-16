@@ -126,6 +126,17 @@ export const resetUserPassword = createServerFn({ method: "POST" })
     const password = randomPassword(10);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
     if (error) throw new Error(error.message);
+    const { data: judge } = await supabaseAdmin
+      .from("judges")
+      .select("id")
+      .eq("profile_id", data.userId)
+      .maybeSingle();
+    if (judge) {
+      const { error: credentialError } = await supabaseAdmin
+        .from("judge_credentials")
+        .upsert({ judge_id: judge.id, current_password: password, updated_at: new Date().toISOString() });
+      if (credentialError) throw new Error("保存新密码失败");
+    }
     return { password };
   });
 
