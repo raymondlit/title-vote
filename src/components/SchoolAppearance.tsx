@@ -49,11 +49,11 @@ export function SchoolAppearance({
     if (preview) return;
     const root = document.documentElement;
     const previous = {
-      colorScheme: root.dataset.colorScheme,
-      displayMode: root.dataset.displayMode,
-      fontFamily: root.dataset.fontFamily,
-      fontScale: root.dataset.fontScale,
-      layoutDensity: root.dataset.layoutDensity,
+      colorScheme: root.dataset["colorScheme"],
+      displayMode: root.dataset["displayMode"],
+      fontFamily: root.dataset["fontFamily"],
+      fontScale: root.dataset["fontScale"],
+      layoutDensity: root.dataset["layoutDensity"],
       accent: root.style.getPropertyValue("--school-accent"),
     };
     Object.entries(attributes).forEach(([key, value]) => root.setAttribute(key, value));
