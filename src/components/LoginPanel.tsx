@@ -16,7 +16,7 @@ type Props = {
   logoUrl?: string | null;
   accent?: string | null;
   hint?: string;
-  appearance?: SchoolAppearanceSettings | null;
+  appearance?: SchoolAppearanceSettings | null | undefined;
 };
 
 export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance }: Props) {
