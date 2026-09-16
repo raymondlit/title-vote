@@ -309,6 +309,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          result_sheet_config: Json
           short_name: string | null
           slug: string
           subtitle: string | null
@@ -320,6 +321,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          result_sheet_config?: Json
           short_name?: string | null
           slug: string
           subtitle?: string | null
@@ -331,6 +333,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          result_sheet_config?: Json
           short_name?: string | null
           slug?: string
           subtitle?: string | null
