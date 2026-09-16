@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useSchool } from "@/lib/session";
+import { SchoolAppearance } from "@/components/SchoolAppearance";
 
 export type NavItem = { to: string; label: string; permission?: string };
 
@@ -27,9 +28,9 @@ export function Shell({ nav, children }: { nav: NavItem[]; children: ReactNode }
   }
 
   return (
-    <div className="min-h-screen">
+    <SchoolAppearance settings={school}>
       <header className="hairline-b bg-card">
-        <div className="mx-auto flex max-w-[1180px] items-center justify-between px-8 py-6">
+        <div className="ui-header mx-auto flex max-w-[1180px] items-center justify-between px-8 py-6">
           <div className="flex items-center gap-4">
             {school?.logo_url ? (
               <img src={school.logo_url} alt="校徽" className="h-8 w-auto object-contain" />
@@ -54,7 +55,7 @@ export function Shell({ nav, children }: { nav: NavItem[]; children: ReactNode }
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-[1180px] gap-12 px-8 py-12">
+      <div className="ui-shell mx-auto flex max-w-[1180px] gap-12 px-8 py-12">
         <nav className="w-40 shrink-0 space-y-1">
           {visible.map((item) => (
             <Link
@@ -70,7 +71,7 @@ export function Shell({ nav, children }: { nav: NavItem[]; children: ReactNode }
         </nav>
         <main className="min-w-0 flex-1">{children}</main>
       </div>
-    </div>
+    </SchoolAppearance>
   );
 }
 
@@ -88,5 +89,5 @@ export function PageTitle({ title, description }: { title: string; description?:
 }
 
 export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`border bg-card p-8 ${className}`}>{children}</section>;
+  return <section className={`ui-panel border bg-card p-8 ${className}`}>{children}</section>;
 }

@@ -8,6 +8,7 @@ import { fetchSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SchoolAppearance, type SchoolAppearanceSettings } from "@/components/SchoolAppearance";
 
 type Props = {
   title: string;
@@ -15,9 +16,10 @@ type Props = {
   logoUrl?: string | null;
   accent?: string | null;
   hint?: string;
+  appearance?: SchoolAppearanceSettings | null;
 };
 
-export function LoginPanel({ title, subtitle, logoUrl, accent, hint }: Props) {
+export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance }: Props) {
   const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,7 +52,10 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint }: Props) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6 py-16">
+    <SchoolAppearance
+      settings={appearance}
+      className="flex flex-col items-center justify-center px-6 py-16"
+    >
       <div className="w-full max-w-[380px]">
         <div className="mb-14 flex flex-col items-center text-center">
           {logoUrl ? (
@@ -111,6 +116,6 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint }: Props) {
           </p>
         ) : null}
       </div>
-    </div>
+    </SchoolAppearance>
   );
 }
