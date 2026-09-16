@@ -1,5 +1,3 @@
-- [x] 增加全校确认单模板存储
-- [x] 增加确认单配置界面与实时预览
-- [x] 统一打印/PDF与Word输出
-- [x] 验证签字区和桌面、手机版式
-- [ ] 验证管理员保存配置（测试账户当前无学校归属）
+# Roadmap
+
+- [ ] Add configurable system font, font size, color scheme, display mode, and layout style to school interface settings.
