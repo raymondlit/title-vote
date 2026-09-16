@@ -168,6 +168,32 @@ export type Database = {
           },
         ]
       }
+      judge_credentials: {
+        Row: {
+          current_password: string
+          judge_id: string
+          updated_at: string
+        }
+        Insert: {
+          current_password: string
+          judge_id: string
+          updated_at?: string
+        }
+        Update: {
+          current_password?: string
+          judge_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "judge_credentials_judge_id_fkey"
+            columns: ["judge_id"]
+            isOneToOne: true
+            referencedRelation: "judges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       judges: {
         Row: {
           committee_role: Database["public"]["Enums"]["committee_role"]
@@ -175,7 +201,6 @@ export type Database = {
           full_name: string
           group_id: string | null
           id: string
-          initial_password: string | null
           is_group_leader: boolean
           phone: string | null
           profile_id: string | null
@@ -191,7 +216,6 @@ export type Database = {
           full_name: string
           group_id?: string | null
           id?: string
-          initial_password?: string | null
           is_group_leader?: boolean
           phone?: string | null
           profile_id?: string | null
@@ -207,7 +231,6 @@ export type Database = {
           full_name?: string
           group_id?: string | null
           id?: string
-          initial_password?: string | null
           is_group_leader?: boolean
           phone?: string | null
           profile_id?: string | null

@@ -18,31 +18,37 @@ function randomSuffix(len = 4) {
 }
 
 async function assertSuperadmin(context: { supabase: any; userId: string }) {
-  const { data } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "superadmin",
-  });
+  const { data } = await context.supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", context.userId)
+    .eq("role", "superadmin")
+    .maybeSingle();
   if (!data) throw new Error("没有权限执行该操作");
   return true;
 }
 
 /** 返回调用者可管理的学校 id（超级用户需显式传入 schoolId） */
 async function resolveSchool(context: { supabase: any; userId: string }, schoolId?: string) {
-  const { data: isSuper } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "superadmin",
-  });
-  if (isSuper && schoolId) return schoolId;
+  const { data: superRole } = await context.supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", context.userId)
+    .eq("role", "superadmin")
+    .maybeSingle();
+  if (superRole && schoolId) return schoolId;
   const { data: profile } = await context.supabase
     .from("profiles")
     .select("school_id")
     .eq("id", context.userId)
     .maybeSingle();
-  const { data: isAdmin } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (!isAdmin || !profile?.school_id) throw new Error("没有权限执行该操作");
+  const { data: adminRole } = await context.supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("user_id", context.userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (!adminRole || !profile?.school_id) throw new Error("没有权限执行该操作");
   return profile.school_id as string;
 }
 
@@ -98,13 +104,15 @@ export const resetUserPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { data: isSuper } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "superadmin",
-    });
+    const { data: superRole } = await context.supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("user_id", context.userId)
+      .eq("role", "superadmin")
+      .maybeSingle();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (!isSuper) {
+    if (!superRole) {
       // 管理员只能重置本校用户
       const schoolId = await resolveSchool(context);
       const { data: target } = await supabaseAdmin
@@ -118,6 +126,17 @@ export const resetUserPassword = createServerFn({ method: "POST" })
     const password = randomPassword(10);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
     if (error) throw new Error(error.message);
+    const { data: judge } = await supabaseAdmin
+      .from("judges")
+      .select("id")
+      .eq("profile_id", data.userId)
+      .maybeSingle();
+    if (judge) {
+      const { error: credentialError } = await supabaseAdmin
+        .from("judge_credentials")
+        .upsert({ judge_id: judge.id, current_password: password, updated_at: new Date().toISOString() });
+      if (credentialError) throw new Error("保存新密码失败");
+    }
     return { password };
   });
 
@@ -200,7 +219,7 @@ export const importJudges = createServerFn({ method: "POST" })
         .from("profiles")
         .insert({ id: uid, school_id: schoolId, full_name: row.full_name, username });
       await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: "judge" });
-      await supabaseAdmin.from("judges").insert({
+      const { data: judge, error: judgeError } = await supabaseAdmin.from("judges").insert({
         school_id: schoolId,
         profile_id: uid,
         full_name: row.full_name,
@@ -209,8 +228,20 @@ export const importJudges = createServerFn({ method: "POST" })
         title: row.title ?? null,
         phone: row.phone ?? null,
         username,
-        initial_password: password,
+      }).select("id").single();
+      if (judgeError || !judge) {
+        await supabaseAdmin.auth.admin.deleteUser(uid);
+        continue;
+      }
+      const { error: credentialError } = await supabaseAdmin.from("judge_credentials").insert({
+        judge_id: judge.id,
+        current_password: password,
       });
+      if (credentialError) {
+        await supabaseAdmin.from("judges").delete().eq("id", judge.id);
+        await supabaseAdmin.auth.admin.deleteUser(uid);
+        continue;
+      }
       accounts.push({ full_name: row.full_name, username, password });
     }
 
@@ -259,7 +290,7 @@ export const createJudge = createServerFn({ method: "POST" })
       .from("profiles")
       .insert({ id: uid, school_id: schoolId, full_name: data.full_name, username });
     await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: "judge" });
-    await supabaseAdmin.from("judges").insert({
+    const { data: judge, error: judgeError } = await supabaseAdmin.from("judges").insert({
       school_id: schoolId,
       profile_id: uid,
       full_name: data.full_name,
@@ -268,10 +299,15 @@ export const createJudge = createServerFn({ method: "POST" })
       title: data.title ?? null,
       phone: data.phone ?? null,
       username,
-      initial_password: password,
       group_id: data.group_id ?? null,
       committee_role: data.committee_role,
+    }).select("id").single();
+    if (judgeError || !judge) throw new Error(judgeError?.message ?? "创建评委失败");
+    const { error: credentialError } = await supabaseAdmin.from("judge_credentials").insert({
+      judge_id: judge.id,
+      current_password: password,
     });
+    if (credentialError) throw new Error("保存评委凭证失败");
     return { username, password, full_name: data.full_name };
   });
 
@@ -364,17 +400,23 @@ export const getJudgePasswordBook = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows, error } = await supabaseAdmin
       .from("judges")
-      .select("id, full_name, username, initial_password")
+      .select("id, full_name, username")
       .eq("school_id", schoolId)
       .in("id", data.judgeIds)
       .order("created_at");
     if (error) throw new Error(error.message);
+    const { data: credentials, error: credentialError } = await supabaseAdmin
+      .from("judge_credentials")
+      .select("judge_id, current_password")
+      .in("judge_id", (rows ?? []).map((row) => row.id));
+    if (credentialError) throw new Error("读取评委凭证失败");
+    const passwords = new Map((credentials ?? []).map((row) => [row.judge_id, row.current_password]));
     return {
       entries: (rows ?? []).map((r: any) => ({
         id: r.id as string,
         full_name: r.full_name as string,
         username: r.username as string,
-        password: (r.initial_password as string | null) ?? null,
+        password: passwords.get(r.id) ?? null,
       })),
     };
   });

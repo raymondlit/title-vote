@@ -30,10 +30,10 @@ export const changeMyPassword = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
 
-    await supabaseAdmin
-      .from("judges")
-      .update({ initial_password: data.newPassword })
-      .eq("id", judge.id);
+    const { error: credentialError } = await supabaseAdmin
+      .from("judge_credentials")
+      .upsert({ judge_id: judge.id, current_password: data.newPassword, updated_at: new Date().toISOString() });
+    if (credentialError) throw new Error("保存新密码失败");
 
     return { ok: true };
   });
