@@ -160,4 +160,6 @@
   .print-only { display: block !important; }
   body { background: #fff; }
   .print-area { border: none !important; padding: 0 !important; }
+  .result-sheet { max-width: none !important; color: #222 !important; }
+  .result-sheet * { border-color: #777 !important; }
 }
