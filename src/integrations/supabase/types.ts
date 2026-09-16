@@ -328,8 +328,13 @@ export type Database = {
         Row: {
           accent_color: string
           allow_judge_password_change: boolean
+          color_scheme: string
           created_at: string
+          display_mode: string
+          font_family: string
+          font_scale: string
           id: string
+          layout_density: string
           logo_url: string | null
           name: string
           result_sheet_config: Json
@@ -340,8 +345,13 @@ export type Database = {
         Insert: {
           accent_color?: string
           allow_judge_password_change?: boolean
+          color_scheme?: string
           created_at?: string
+          display_mode?: string
+          font_family?: string
+          font_scale?: string
           id?: string
+          layout_density?: string
           logo_url?: string | null
           name: string
           result_sheet_config?: Json
@@ -352,8 +362,13 @@ export type Database = {
         Update: {
           accent_color?: string
           allow_judge_password_change?: boolean
+          color_scheme?: string
           created_at?: string
+          display_mode?: string
+          font_family?: string
+          font_scale?: string
           id?: string
+          layout_density?: string
           logo_url?: string | null
           name?: string
           result_sheet_config?: Json

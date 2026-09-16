@@ -22,7 +22,9 @@ function SchoolLogin() {
     queryFn: async () => {
       const { data } = await supabase
         .from("schools")
-        .select("name, subtitle, logo_url, accent_color")
+        .select(
+          "name, subtitle, logo_url, accent_color, font_family, font_scale, color_scheme, display_mode, layout_density",
+        )
         .eq("slug", slug)
         .maybeSingle();
       return data;
@@ -37,6 +39,7 @@ function SchoolLogin() {
       subtitle={school?.subtitle ?? "职称评审推荐投票"}
       logoUrl={school?.logo_url ?? null}
       accent={school?.accent_color ?? null}
+      appearance={school}
       hint="账号由本校管理员发放。如忘记密码，请联系管理员重置。"
     />
   );

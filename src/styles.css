@@ -85,6 +85,101 @@
   --sidebar-ring: oklch(0.62 0.01 210);
 }
 
+.school-theme,
+:root[data-font-family] {
+  font-family: var(--font-body);
+}
+
+[data-font-family="system"] {
+  --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+[data-font-family="serif"] {
+  --font-body: "Songti SC", SimSun, "Noto Serif CJK SC", serif;
+}
+
+[data-color-scheme="ocean"] {
+  --primary: oklch(0.43 0.08 230);
+  --ring: oklch(0.58 0.08 215);
+  --chart-1: oklch(0.48 0.09 230);
+}
+
+[data-color-scheme="forest"] {
+  --primary: oklch(0.4 0.07 150);
+  --ring: oklch(0.55 0.07 145);
+  --chart-1: oklch(0.48 0.08 150);
+}
+
+[data-color-scheme="burgundy"] {
+  --primary: oklch(0.4 0.09 20);
+  --ring: oklch(0.56 0.08 24);
+  --chart-1: oklch(0.48 0.1 20);
+}
+
+[data-color-scheme="custom"] {
+  --primary: var(--school-accent);
+  --ring: var(--school-accent);
+  --chart-1: var(--school-accent);
+}
+
+[data-display-mode="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.2 0.005 75);
+  --foreground: oklch(0.95 0.003 91);
+  --card: oklch(0.24 0.005 75);
+  --card-foreground: oklch(0.95 0.003 91);
+  --popover: oklch(0.24 0.005 75);
+  --popover-foreground: oklch(0.95 0.003 91);
+  --primary-foreground: oklch(0.98 0.003 91);
+  --secondary: oklch(0.3 0.005 75);
+  --secondary-foreground: oklch(0.95 0.003 91);
+  --muted: oklch(0.3 0.005 75);
+  --muted-foreground: oklch(0.72 0.005 91);
+  --accent: oklch(0.32 0.005 75);
+  --accent-foreground: oklch(0.95 0.003 91);
+  --border: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 18%);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-display-mode="system"] {
+    color-scheme: dark;
+    --background: oklch(0.2 0.005 75);
+    --foreground: oklch(0.95 0.003 91);
+    --card: oklch(0.24 0.005 75);
+    --card-foreground: oklch(0.95 0.003 91);
+    --popover: oklch(0.24 0.005 75);
+    --popover-foreground: oklch(0.95 0.003 91);
+    --primary-foreground: oklch(0.98 0.003 91);
+    --secondary: oklch(0.3 0.005 75);
+    --secondary-foreground: oklch(0.95 0.003 91);
+    --muted: oklch(0.3 0.005 75);
+    --muted-foreground: oklch(0.72 0.005 91);
+    --accent: oklch(0.32 0.005 75);
+    --accent-foreground: oklch(0.95 0.003 91);
+    --border: oklch(1 0 0 / 14%);
+    --input: oklch(1 0 0 / 18%);
+  }
+}
+
+[data-font-scale="small"] { --ui-font-multiplier: 0.92; }
+[data-font-scale="standard"] { --ui-font-multiplier: 1; }
+[data-font-scale="large"] { --ui-font-multiplier: 1.12; }
+
+[data-font-scale] :is(.text-\[11px\], .text-xs) { font-size: calc(11px * var(--ui-font-multiplier)); }
+[data-font-scale] .text-\[12px\] { font-size: calc(12px * var(--ui-font-multiplier)); }
+[data-font-scale] :is(.text-\[13px\], .text-sm) { font-size: calc(13px * var(--ui-font-multiplier)); }
+[data-font-scale] .text-\[14px\] { font-size: calc(14px * var(--ui-font-multiplier)); }
+[data-font-scale] .text-\[16px\] { font-size: calc(16px * var(--ui-font-multiplier)); }
+[data-font-scale] .text-\[17px\] { font-size: calc(17px * var(--ui-font-multiplier)); }
+
+[data-layout-density="compact"] .ui-header { padding-block: 1rem; }
+[data-layout-density="compact"] .ui-shell { gap: 2rem; padding-block: 2rem; }
+[data-layout-density="compact"] .ui-panel { padding: 1.25rem; }
+[data-layout-density="spacious"] .ui-header { padding-block: 2rem; }
+[data-layout-density="spacious"] .ui-shell { gap: 4rem; padding-block: 4rem; }
+[data-layout-density="spacious"] .ui-panel { padding: 2.5rem; }
+
 .dark {
   --background: oklch(0.2 0.005 75);
   --foreground: oklch(0.95 0.003 91);
