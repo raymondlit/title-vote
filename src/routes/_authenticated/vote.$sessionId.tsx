@@ -126,7 +126,20 @@ function VotePage() {
   const rule = data.rule;
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
+  const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
   const missing = data.candidates.filter((c) => !choices[c.id]).length;
+  const mustVoteAll = rule ? rule.require_all || !rule.allow_abstain : true;
+  const blockReason = !rule
+    ? missing > 0
+      ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
+      : null
+    : overLimit
+      ? `${labels.recommend}人数超过上限，最多${labels.recommend} ${maxRecommend} 人`
+      : underLimit
+        ? `${labels.recommend}人数不足，须恰好${labels.recommend} ${maxRecommend} 人，当前仅 ${recommendCount} 人`
+        : mustVoteAll && missing > 0
+          ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
+          : null;
 
   // 已提交：确认单
   if (data.ballot) {
@@ -234,10 +247,40 @@ function VotePage() {
         title={data.vs.title}
         description={
           rule
-            ? `本场参评 ${data.candidates.length} 人，最多可${labels.recommend} ${maxRecommend} 人。${rule.require_all ? "须对每人表态。" : ""}`
-            : `本场参评 ${data.candidates.length} 人，请逐一表态。`
+            ? `本场参评 ${data.candidates.length} 人，须恰好${labels.recommend} ${maxRecommend} 人，多选或少选均无法提交。${mustVoteAll ? "须对每位评审对象表态。" : ""}`
+            : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`
         }
       />
+
+      <Panel className="mb-6 border-primary/40 bg-primary/5">
+        <div className="text-[12px] leading-loose tracking-[0.1em]">
+          <span className="mr-4 text-muted-foreground">投票规则提醒</span>
+          {rule ? (
+            <>
+              <span>
+                须恰好{labels.recommend} <span className="text-primary">{maxRecommend}</span> 人
+              </span>
+              <span className="ml-6 text-muted-foreground">
+                当前已{labels.recommend} {recommendCount} 人
+                {overLimit
+                  ? `，超出 ${recommendCount - maxRecommend} 人`
+                  : underLimit
+                    ? `，还差 ${maxRecommend - recommendCount} 人`
+                    : "，人数符合要求"}
+              </span>
+              {mustVoteAll ? (
+                <span className="ml-6 text-muted-foreground">
+                  {missing > 0 ? `尚有 ${missing} 人未表态` : "已全部表态"}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              请对每位评审对象逐一表态，未全部表态无法提交
+            </span>
+          )}
+        </div>
+      </Panel>
 
       <Panel className="p-0">
         <table className="w-full text-[12px]">
@@ -284,16 +327,15 @@ function VotePage() {
           {missing > 0 ? (
             <span className="ml-6 text-muted-foreground">未表态 {missing} 人</span>
           ) : null}
+          {blockReason ? (
+            <span className="ml-6 text-destructive">{blockReason}</span>
+          ) : null}
         </div>
         <Button
-          disabled={overLimit || saving || data.candidates.length === 0}
+          disabled={!!blockReason || saving || data.candidates.length === 0}
           onClick={() => {
-            if (overLimit) {
-              toast.error(`最多可${labels.recommend} ${maxRecommend} 人，请先调整`);
-              return;
-            }
-            if (rule?.require_all && missing > 0) {
-              toast.error("本场投票要求对每位评审对象表态");
+            if (blockReason) {
+              toast.error(blockReason);
               return;
             }
             setConfirmOpen(true);
