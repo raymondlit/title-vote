@@ -344,6 +344,24 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
     }
   }
 
+  async function savePasswordPolicy(patch: {
+    judge_password_length?: number;
+    judge_password_charset?: string;
+  }) {
+    const id = session.data?.schoolId;
+    if (!id) return;
+    const { error } = await supabase
+      .from("schools")
+      .update(patch as never)
+      .eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      queryClient.invalidateQueries({ queryKey: ["school", id] });
+      toast.success("已更新密码生成规则");
+    }
+  }
+
+
   function exportAccountsDoc() {
     const rows = accounts
       .map(
