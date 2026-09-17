@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { pickVotingRule } from "@/lib/voteRules";
 
 const choiceEnum = z.enum(["recommend", "not_recommend", "abstain"]);
 
@@ -62,17 +63,11 @@ export const submitBallot = createServerFn({ method: "POST" })
     const seen = new Set(data.choices.map((c) => c.candidateId));
     if (seen.size !== data.choices.length) throw new Error("同一评审对象重复提交");
 
-    let ruleQuery = supabase
+    const { data: rules } = await supabase
       .from("voting_rules")
-      .select("max_recommend, allow_abstain, require_all")
+      .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
       .eq("school_id", session.school_id);
-    ruleQuery = session.category_id
-      ? ruleQuery.eq("category_id", session.category_id)
-      : ruleQuery.is("category_id", null);
-    ruleQuery = session.group_id
-      ? ruleQuery.eq("group_id", session.group_id)
-      : ruleQuery.is("group_id", null);
-    const { data: rule } = await ruleQuery.maybeSingle();
+    const rule = pickVotingRule(rules, session.category_id, session.group_id);
 
     if (rule) {
       const recommends = data.choices.filter((c) => c.choice === "recommend").length;

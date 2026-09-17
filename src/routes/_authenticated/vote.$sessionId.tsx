@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { submitBallot } from "@/lib/vote.functions";
+import { pickVotingRule } from "@/lib/voteRules";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -82,13 +83,11 @@ function VotePage() {
       if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
       const { data: candidates } = await cq;
 
-      let rq = supabase
+      const { data: rules } = await supabase
         .from("voting_rules")
-        .select("total_count, max_recommend, allow_abstain, require_all")
+        .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
         .eq("school_id", vs.school_id);
-      rq = vs.category_id ? rq.eq("category_id", vs.category_id) : rq.is("category_id", null);
-      rq = vs.group_id ? rq.eq("group_id", vs.group_id) : rq.is("group_id", null);
-      const { data: rule } = await rq.maybeSingle();
+      const rule = pickVotingRule(rules, vs.category_id, vs.group_id);
 
       const { data: ballot } = judge
         ? await supabase
@@ -228,6 +227,7 @@ function VotePage() {
     } finally {
       setSaving(false);
       setConfirmOpen(false);
+      await queryClient.refetchQueries({ queryKey: ["vote-session", sessionId] });
     }
   }
 
@@ -237,8 +237,8 @@ function VotePage() {
         title={data.vs.title}
         description={
           rule
-            ? `参评 ${rule.total_count || data.candidates.length} 人，最多可推荐 ${maxRecommend} 人。${rule.allow_abstain ? "允许弃权。" : "不允许弃权。"}${rule.require_all ? "须对每人表态。" : ""}`
-            : "请对以下评审对象逐一表态。"
+            ? `本场参评 ${data.candidates.length} 人，最多可推荐 ${maxRecommend} 人。${rule.allow_abstain ? "允许弃权。" : "不允许弃权。"}${rule.require_all ? "须对每人表态。" : ""}`
+            : `本场参评 ${data.candidates.length} 人，请逐一表态。`
         }
       />
 
