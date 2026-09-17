@@ -236,10 +236,12 @@ export const importJudges = createServerFn({ method: "POST" })
     const slug = school?.slug ?? "school";
 
     const accounts: { full_name: string; username: string; password: string }[] = [];
+    const policy = await getPasswordPolicy(supabaseAdmin, schoolId);
 
     for (const row of data.rows) {
       const username = `${slug}_p${randomSuffix(5)}`;
-      const password = randomPassword(8);
+      const password = policyPassword(policy);
+
       const email = `${username}@${ACCOUNT_EMAIL_DOMAIN}`;
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
         email,
