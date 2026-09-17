@@ -44,7 +44,10 @@ function CandidatesPage() {
   const [extraCols, setExtraCols] = useState<string[]>([]);
   const [newCol, setNewCol] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
   const [printing, setPrinting] = useState(false);
+
 
   useEffect(() => {
     try {
@@ -56,7 +59,10 @@ function CandidatesPage() {
     } catch {
       /* 忽略损坏的本地设置 */
     }
+    const stored = Number(localStorage.getItem("candidate_list_page_size"));
+    if (CANDIDATE_PAGE_SIZES.some((size) => size === stored)) setPageSize(stored);
   }, []);
+
 
   function persist(keys: string[], extra: string[]) {
     setEnabledKeys(keys);
