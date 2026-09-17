@@ -377,7 +377,77 @@ function CandidatesPage() {
               下载名单模板 CSV
             </button>
             <span className="text-muted-foreground">请保留表头，删除示例行后填写</span>
+            <button className="underline" onClick={() => setShowAdd((v) => !v)}>
+              {showAdd ? "收起手动新增" : "手动新增评审对象"}
+            </button>
           </div>
+
+          {showAdd ? (
+            <div className="no-print mb-8 border border-foreground/20 p-6">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {(
+                  [
+                    ["full_name", "姓名（必填）"],
+                    ["unit", "单位 / 部门"],
+                    ["current_title", "现职称"],
+                    ["notes", "备注"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="block">
+                    <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                      {label}
+                    </span>
+                    <input
+                      value={form[key]}
+                      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                      className="w-full border-0 border-b bg-transparent py-1 text-[12px] tracking-[0.1em] focus:outline-none"
+                    />
+                  </label>
+                ))}
+                <label className="block">
+                  <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                    评审类别
+                  </span>
+                  <select
+                    value={form.category_id}
+                    onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                    className="w-full border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                  >
+                    <option value="">未指定</option>
+                    {(categories.data ?? []).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] tracking-[0.16em] text-muted-foreground">
+                    学科小组
+                  </span>
+                  <select
+                    value={form.group_id}
+                    onChange={(e) => setForm({ ...form, group_id: e.target.value })}
+                    className="w-full border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                  >
+                    <option value="">未分组</option>
+                    {(groups.data ?? []).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <Button
+                onClick={doCreate}
+                disabled={busy}
+                className="mt-6 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+              >
+                新增评审对象
+              </Button>
+            </div>
+          ) : null}
 
           <input
             type="file"
