@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
-import { useSession } from "@/lib/session";
+import { useSession, useSchool } from "@/lib/session";
+import { voteLabels } from "@/lib/voteLabels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,11 +15,11 @@ export const Route = createFileRoute("/_authenticated/admin/rules")({
   head: () => ({
     meta: [
       { title: "投票规则 — 职称评审推荐投票平台" },
-      { name: "description", content: "设定每项评审的推荐上限、是否允许弃权与必须逐项表态。" },
+      { name: "description", content: "设定投票选项名称、每项评审的推荐上限与是否必须逐项表态。" },
       { property: "og:title", content: "投票规则 — 职称评审推荐投票平台" },
       {
         property: "og:description",
-        content: "设定每项评审的推荐上限、是否允许弃权与必须逐项表态。",
+        content: "设定投票选项名称、每项评审的推荐上限与是否必须逐项表态。",
       },
     ],
   }),
@@ -32,8 +33,42 @@ function RulesPage() {
   const [groupId, setGroupId] = useState("");
   const [total, setTotal] = useState("30");
   const [maxRecommend, setMaxRecommend] = useState("11");
-  const [allowAbstain, setAllowAbstain] = useState(true);
+  const [allowAbstain] = useState(false);
   const [requireAll, setRequireAll] = useState(true);
+
+  const { data: school } = useSchool(session?.schoolId);
+  const [labelRecommend, setLabelRecommend] = useState("推荐");
+  const [labelNotRecommend, setLabelNotRecommend] = useState("不推荐");
+  const [savingLabels, setSavingLabels] = useState(false);
+
+  useEffect(() => {
+    if (!school) return;
+    const l = voteLabels(school);
+    setLabelRecommend(l.recommend);
+    setLabelNotRecommend(l.not_recommend);
+  }, [school]);
+
+  async function saveLabels() {
+    if (!session?.schoolId) return;
+    const a = labelRecommend.trim();
+    const b = labelNotRecommend.trim();
+    if (!a || !b) {
+      toast.error("两个选项名称都不能为空");
+      return;
+    }
+    setSavingLabels(true);
+    const { error } = await supabase
+      .from("schools")
+      .update({ vote_label_recommend: a, vote_label_not_recommend: b })
+      .eq("id", session.schoolId);
+    setSavingLabels(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["school", session.schoolId] });
+    toast.success("投票选项名称已保存");
+  }
 
   const categories = useQuery({
     queryKey: ["review_categories"],
@@ -92,6 +127,42 @@ function RulesPage() {
       />
 
       <div className="space-y-10">
+        <Panel>
+          <h2 className="mb-2 text-[12px] tracking-[0.2em] text-muted-foreground">投票选项名称</h2>
+          <p className="mb-6 text-[11px] leading-loose tracking-[0.1em] text-muted-foreground">
+            评委端仅保留两个表决选项，名称可按本校习惯修改（如「同意 / 不同意」），确认单与结果统计同步更新。
+          </p>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">
+                选项一（计入推荐名额）
+              </Label>
+              <Input
+                value={labelRecommend}
+                onChange={(e) => setLabelRecommend(e.target.value)}
+                maxLength={10}
+                className="h-10 rounded-none border-0 border-b px-0 text-[13px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">选项二</Label>
+              <Input
+                value={labelNotRecommend}
+                onChange={(e) => setLabelNotRecommend(e.target.value)}
+                maxLength={10}
+                className="h-10 rounded-none border-0 border-b px-0 text-[13px]"
+              />
+            </div>
+          </div>
+          <Button
+            onClick={saveLabels}
+            disabled={savingLabels}
+            className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+          >
+            保存选项名称
+          </Button>
+        </Panel>
+
         <Panel>
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
@@ -154,14 +225,6 @@ function RulesPage() {
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={allowAbstain}
-                onChange={(e) => setAllowAbstain(e.target.checked)}
-              />
-              允许弃权
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
                 checked={requireAll}
                 onChange={(e) => setRequireAll(e.target.checked)}
               />
@@ -191,7 +254,6 @@ function RulesPage() {
                   参评 {r.total_count} 人 · 最多推荐 {r.max_recommend} 人
                 </span>
                 <span className="text-muted-foreground">
-                  {r.allow_abstain ? "可弃权" : "不可弃权"} ·{" "}
                   {r.require_all ? "须逐项表态" : "可留空"}
                 </span>
                 <button

@@ -14,14 +14,31 @@ export type JudgeSheetData = {
   rows: JudgeSheetRow[];
 };
 
+import { DEFAULT_VOTE_LABELS, type VoteLabels } from "@/lib/voteLabels";
+
 export const CHOICE_LABEL: Record<string, string> = {
   recommend: "推荐",
   not_recommend: "不推荐",
   abstain: "弃权",
 };
 
-export function choiceText(choice: JudgeSheetRow["choice"]): string {
-  return (choice ? CHOICE_LABEL[choice] : undefined) ?? "—";
+export function choiceText(
+  choice: JudgeSheetRow["choice"],
+  labels: VoteLabels = DEFAULT_VOTE_LABELS,
+): string {
+  return (choice ? labels[choice] : undefined) ?? "—";
+}
+
+function totalsText(
+  counts: { recommend: number; not_recommend: number; abstain: number },
+  labels: VoteLabels,
+) {
+  const parts = [
+    `${labels.recommend} ${counts.recommend} 人`,
+    `${labels.not_recommend} ${counts.not_recommend} 人`,
+  ];
+  if (counts.abstain > 0) parts.push(`${labels.abstain} ${counts.abstain} 人`);
+  return `合计：${parts.join(" · ")}`;
 }
 
 export function formatTime(value: string | null) {
@@ -34,9 +51,15 @@ type Props = {
   schoolName: string;
   sessionTitle: string;
   data: JudgeSheetData;
+  labels?: VoteLabels;
 };
 
-export function JudgeBallotSheet({ schoolName, sessionTitle, data }: Props) {
+export function JudgeBallotSheet({
+  schoolName,
+  sessionTitle,
+  data,
+  labels = DEFAULT_VOTE_LABELS,
+}: Props) {
   const counts = data.rows.reduce(
     (acc, row) => {
       if (row.choice) acc[row.choice] += 1;
@@ -80,7 +103,7 @@ export function JudgeBallotSheet({ schoolName, sessionTitle, data }: Props) {
       </table>
 
       <p className="mt-6 text-[11px] tracking-[0.14em] text-muted-foreground">
-        合计：推荐 {counts.recommend} 人 · 不推荐 {counts.not_recommend} 人 · 弃权 {counts.abstain} 人
+        {totalsText(counts, labels)}
       </p>
 
       <div className="mt-10 flex items-end gap-2 tracking-[0.12em]">
@@ -105,6 +128,7 @@ export function judgeBallotSheetHtml(
   schoolName: string,
   sessionTitle: string,
   sheets: JudgeSheetData[],
+  labels: VoteLabels = DEFAULT_VOTE_LABELS,
 ) {
   const body = sheets
     .map((data) => {
@@ -118,10 +142,10 @@ export function judgeBallotSheetHtml(
       const rows = data.rows
         .map(
           (row, index) =>
-            `<tr><td>${index + 1}</td><td>${esc(row.name)}</td><td>${esc(row.unit ?? "—")}</td><td>${esc(row.title ?? "—")}</td><td>${esc(choiceText(row.choice))}</td></tr>`,
+            `<tr><td>${index + 1}</td><td>${esc(row.name)}</td><td>${esc(row.unit ?? "—")}</td><td>${esc(row.title ?? "—")}</td><td>${esc(choiceText(row.choice, labels))}</td></tr>`,
         )
         .join("");
-      return `<section class="sheet"><h2>${esc(schoolName)}</h2><h3>${esc(sessionTitle)} 评委投票情况确认单</h3><p class="meta">评委：${esc(data.judgeName)}${data.judgeUnit ? ` · ${esc(data.judgeUnit)}` : ""} · 提交时间：${esc(formatTime(data.submittedAt))}</p><table><tr><th>序号</th><th>姓名</th><th>单位</th><th>现职称</th><th>本人表决</th></tr>${rows}</table><p class="meta">合计：推荐 ${counts.recommend} 人 · 不推荐 ${counts.not_recommend} 人 · 弃权 ${counts.abstain} 人</p><div class="sign">评委本人签字：<span class="line"></span> 日期：<span class="line short"></span></div></section>`;
+      return `<section class="sheet"><h2>${esc(schoolName)}</h2><h3>${esc(sessionTitle)} 评委投票情况确认单</h3><p class="meta">评委：${esc(data.judgeName)}${data.judgeUnit ? ` · ${esc(data.judgeUnit)}` : ""} · 提交时间：${esc(formatTime(data.submittedAt))}</p><table><tr><th>序号</th><th>姓名</th><th>单位</th><th>现职称</th><th>本人表决</th></tr>${rows}</table><p class="meta">${esc(totalsText(counts, labels))}</p><div class="sign">评委本人签字：<span class="line"></span> 日期：<span class="line short"></span></div></section>`;
     })
     .join("");
 

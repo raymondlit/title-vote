@@ -8,6 +8,7 @@ import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { submitBallot } from "@/lib/vote.functions";
 import { pickVotingRule } from "@/lib/voteRules";
+import { voteLabels } from "@/lib/voteLabels";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -33,18 +34,14 @@ export const Route = createFileRoute("/_authenticated/vote/$sessionId")({
 
 type Choice = "recommend" | "not_recommend" | "abstain";
 
-const CHOICE_LABEL: Record<Choice, string> = {
-  recommend: "推荐",
-  not_recommend: "不推荐",
-  abstain: "弃权",
-};
-
 function VotePage() {
   const { sessionId } = Route.useParams();
   const { data: session } = useSession();
   const { data: school } = useSchool(session?.schoolId);
   const queryClient = useQueryClient();
   const submit = useServerFn(submitBallot);
+  const labels = voteLabels(school);
+  const choiceLabel = (choice: Choice) => labels[choice];
 
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -168,7 +165,7 @@ function VotePage() {
                   <td className="py-3 text-muted-foreground">{c.unit ?? "—"}</td>
                   <td className="py-3 text-muted-foreground">{c.current_title ?? "—"}</td>
                   <td className="py-3 tracking-[0.12em]">
-                    {map.get(c.id) ? CHOICE_LABEL[map.get(c.id)!] : "未表态"}
+                    {map.get(c.id) ? choiceLabel(map.get(c.id)!) : "未表态"}
                   </td>
                 </tr>
               ))}
@@ -237,7 +234,7 @@ function VotePage() {
         title={data.vs.title}
         description={
           rule
-            ? `本场参评 ${data.candidates.length} 人，最多可推荐 ${maxRecommend} 人。${rule.allow_abstain ? "允许弃权。" : "不允许弃权。"}${rule.require_all ? "须对每人表态。" : ""}`
+            ? `本场参评 ${data.candidates.length} 人，最多可${labels.recommend} ${maxRecommend} 人。${rule.require_all ? "须对每人表态。" : ""}`
             : `本场参评 ${data.candidates.length} 人，请逐一表态。`
         }
       />
@@ -267,11 +264,8 @@ function VotePage() {
                       <SelectValue placeholder="请选择" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none">
-                      <SelectItem value="recommend">推荐</SelectItem>
-                      <SelectItem value="not_recommend">不推荐</SelectItem>
-                      {rule?.allow_abstain !== false ? (
-                        <SelectItem value="abstain">弃权</SelectItem>
-                      ) : null}
+                      <SelectItem value="recommend">{labels.recommend}</SelectItem>
+                      <SelectItem value="not_recommend">{labels.not_recommend}</SelectItem>
                     </SelectContent>
                   </Select>
                 </td>
@@ -284,7 +278,7 @@ function VotePage() {
       <div className="mt-8 flex items-center justify-between">
         <div className="text-[12px] tracking-[0.14em]">
           <span className={overLimit ? "text-destructive" : "text-muted-foreground"}>
-            已推荐 {recommendCount}
+            已{labels.recommend} {recommendCount}
             {maxRecommend > 0 ? ` / ${maxRecommend}` : ""} 人
           </span>
           {missing > 0 ? (
@@ -295,7 +289,7 @@ function VotePage() {
           disabled={overLimit || saving || data.candidates.length === 0}
           onClick={() => {
             if (overLimit) {
-              toast.error(`最多可推荐 ${maxRecommend} 人，请先调整`);
+              toast.error(`最多可${labels.recommend} ${maxRecommend} 人，请先调整`);
               return;
             }
             if (rule?.require_all && missing > 0) {
@@ -315,7 +309,7 @@ function VotePage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[14px] tracking-[0.16em]">确认提交</AlertDialogTitle>
             <AlertDialogDescription className="text-[12px] leading-loose tracking-[0.1em]">
-              本次共推荐 {recommendCount} 人
+              本次共{labels.recommend} {recommendCount} 人
               {missing > 0 ? `，未表态 ${missing} 人` : ""}。提交后不可修改，是否确认？
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -324,7 +318,7 @@ function VotePage() {
               .filter((c) => choices[c.id] === "recommend")
               .map((c) => (
                 <div key={c.id} className="tracking-[0.1em]">
-                  推荐 · {c.full_name}
+                  {labels.recommend} · {c.full_name}
                 </div>
               ))}
           </div>
