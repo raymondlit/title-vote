@@ -366,20 +366,12 @@ function CandidatesPage() {
             <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
               <input
                 type="checkbox"
-                checked={
-                  (candidates.data?.length ?? 0) > 0 &&
-                  selected.size === (candidates.data?.length ?? 0)
-                }
-                onChange={(e) =>
-                  setSelected(
-                    e.target.checked
-                      ? new Set((candidates.data ?? []).map((c) => c.id))
-                      : new Set(),
-                  )
-                }
+                checked={allVisibleSelected}
+                onChange={(e) => toggleVisible(e.target.checked)}
               />
-              全选
+              全选本页
             </label>
+
             <button
               className="text-[11px] tracking-[0.2em] underline disabled:text-muted-foreground"
               onClick={printList}
@@ -392,7 +384,8 @@ function CandidatesPage() {
             </span>
           </div>
           <div className="no-print space-y-3">
-            {(candidates.data ?? []).map((c) => (
+            {visibleCandidates.map((c) => (
+
               <div
                 key={c.id}
                 className="hairline-t flex flex-wrap items-center gap-6 pt-3 text-[12px] tracking-[0.1em]"
