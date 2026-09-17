@@ -72,9 +72,14 @@ export function SchoolAppearance({
       fontScale: root.dataset["fontScale"],
       layoutDensity: root.dataset["layoutDensity"],
       accent: root.style.getPropertyValue("--school-accent"),
+      fontMultiplier: root.style.getPropertyValue("--ui-font-multiplier"),
     };
     Object.entries(attributes).forEach(([key, value]) => root.setAttribute(key, value));
     const style = appearanceStyle(settings);
+    root.style.setProperty(
+      "--ui-font-multiplier",
+      String(fontScalePercent(settings?.font_scale) / 100),
+    );
     if (style["--school-accent" as keyof CSSProperties]) {
       root.style.setProperty("--school-accent", settings?.accent_color ?? "#3f4a52");
     } else {
@@ -90,6 +95,9 @@ export function SchoolAppearance({
       restore("data-layout-density", previous["layoutDensity"]);
       if (previous["accent"]) root.style.setProperty("--school-accent", previous["accent"]);
       else root.style.removeProperty("--school-accent");
+      if (previous["fontMultiplier"])
+        root.style.setProperty("--ui-font-multiplier", previous["fontMultiplier"]);
+      else root.style.removeProperty("--ui-font-multiplier");
     };
   }, [settings, preview]);
 
