@@ -26,6 +26,7 @@ import {
   type ResultSheetRow,
 } from "@/components/ResultSheet";
 import { ResultSheetConfigEditor } from "@/components/ResultSheetConfigEditor";
+import { voteLabels } from "@/lib/voteLabels";
 import {
   JudgeBallotSheet,
   judgeBallotSheetHtml,
@@ -236,7 +237,7 @@ function ResultsPage() {
 
   function printJudgeSheets(sheets: JudgeSheetData[]) {
     if (!current || sheets.length === 0) return;
-    const html = judgeBallotSheetHtml(school?.name ?? "", current.title, sheets);
+    const html = judgeBallotSheetHtml(school?.name ?? "", current.title, sheets, voteLabels(school));
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) {
       toast.error("浏览器阻止了打印窗口，请允许弹出窗口后重试");
@@ -384,6 +385,7 @@ function ResultsPage() {
                         schoolName={school?.name ?? ""}
                         sessionTitle={current.title}
                         data={sheet}
+                        labels={voteLabels(school)}
                       />
                       <div className="mt-3">
                         <Button
