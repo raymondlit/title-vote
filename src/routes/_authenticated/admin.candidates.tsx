@@ -180,7 +180,38 @@ function CandidatesPage() {
     return "—";
   }
 
-  const printRows = (candidates.data ?? []).filter((c) => selected.has(c.id));
+  const candidateList = candidates.data ?? [];
+  const totalPages = Math.max(1, Math.ceil(candidateList.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const visibleCandidates = candidateList.slice(pageStart, pageStart + pageSize);
+  const visibleCandidateIds = visibleCandidates.map((c) => c.id);
+  const allVisibleSelected =
+    visibleCandidateIds.length > 0 && visibleCandidateIds.every((id) => selected.has(id));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function changePageSize(value: number) {
+    setPageSize(value);
+    setPage(1);
+    localStorage.setItem("candidate_list_page_size", String(value));
+  }
+
+  function toggleVisible(on: boolean) {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      visibleCandidateIds.forEach((id) => {
+        if (on) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  }
+
+  const printRows = candidateList.filter((c) => selected.has(c.id));
+
 
   function printList() {
     if (selected.size === 0) {
