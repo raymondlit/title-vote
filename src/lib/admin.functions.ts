@@ -312,7 +312,7 @@ export const createJudge = createServerFn({ method: "POST" })
     const slug = school?.slug ?? "school";
 
     const username = `${slug}_p${randomSuffix(5)}`;
-    const password = randomPassword(8);
+    const password = policyPassword(await getPasswordPolicy(supabaseAdmin, schoolId));
     const email = `${username}@${ACCOUNT_EMAIL_DOMAIN}`;
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email,
