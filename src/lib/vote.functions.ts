@@ -33,6 +33,13 @@ export const submitBallot = createServerFn({ method: "POST" })
       .eq("id", data.sessionId)
       .maybeSingle();
     if (!session || session.school_id !== judge.school_id) throw new Error("投票不存在");
+
+    const { data: school } = await supabase
+      .from("schools")
+      .select("vote_label_recommend")
+      .eq("id", session.school_id)
+      .maybeSingle();
+    const labelRecommend = school?.vote_label_recommend?.trim() || "推荐";
     if (session.status !== "open") throw new Error("该场投票尚未开始或已结束");
     if (
       session.group_id &&
