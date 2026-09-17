@@ -5,17 +5,48 @@ import { ACCOUNT_EMAIL_DOMAIN } from "./account";
 
 const PASSWORD_CHARS = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-function randomPassword(len = 8) {
+const CHARSETS: Record<string, string> = {
+  digits: "23456789",
+  letters: "abcdefghijkmnpqrstuvwxyz",
+  letters_mixed: "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ",
+  alnum: "abcdefghijkmnpqrstuvwxyz23456789",
+  alnum_mixed: PASSWORD_CHARS,
+  full: PASSWORD_CHARS + "!@#$%*?",
+};
+
+function pick(chars: string, len: number) {
   let out = "";
   const bytes = new Uint32Array(len);
   crypto.getRandomValues(bytes);
-  for (let i = 0; i < len; i++) out += PASSWORD_CHARS[bytes[i]! % PASSWORD_CHARS.length];
+  for (let i = 0; i < len; i++) out += chars[bytes[i]! % chars.length];
   return out;
+}
+
+function randomPassword(len = 8) {
+  return pick(PASSWORD_CHARS, len);
+}
+
+type PasswordPolicy = { length: number; charset: string };
+
+async function getPasswordPolicy(admin: any, schoolId: string): Promise<PasswordPolicy> {
+  const { data } = await admin
+    .from("schools")
+    .select("judge_password_length, judge_password_charset")
+    .eq("id", schoolId)
+    .maybeSingle();
+  const length = Math.min(32, Math.max(4, Number(data?.judge_password_length ?? 8)));
+  const charset = CHARSETS[data?.judge_password_charset as string] ? data.judge_password_charset : "alnum_mixed";
+  return { length, charset };
+}
+
+function policyPassword(policy: PasswordPolicy) {
+  return pick(CHARSETS[policy.charset] ?? PASSWORD_CHARS, policy.length);
 }
 
 function randomSuffix(len = 4) {
   return randomPassword(len).toLowerCase();
 }
+
 
 async function assertSuperadmin(context: { supabase: any; userId: string }) {
   const { data } = await context.supabase
@@ -123,20 +154,23 @@ export const resetUserPassword = createServerFn({ method: "POST" })
       if (!target || target.school_id !== schoolId) throw new Error("没有权限执行该操作");
     }
 
-    const password = randomPassword(10);
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
-    if (error) throw new Error(error.message);
     const { data: judge } = await supabaseAdmin
       .from("judges")
-      .select("id")
+      .select("id, school_id")
       .eq("profile_id", data.userId)
       .maybeSingle();
+    const password = judge
+      ? policyPassword(await getPasswordPolicy(supabaseAdmin, judge.school_id))
+      : randomPassword(10);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
+    if (error) throw new Error(error.message);
     if (judge) {
       const { error: credentialError } = await supabaseAdmin
         .from("judge_credentials")
         .upsert({ judge_id: judge.id, current_password: password, updated_at: new Date().toISOString() });
       if (credentialError) throw new Error("保存新密码失败");
     }
+
     return { password };
   });
 
@@ -202,10 +236,12 @@ export const importJudges = createServerFn({ method: "POST" })
     const slug = school?.slug ?? "school";
 
     const accounts: { full_name: string; username: string; password: string }[] = [];
+    const policy = await getPasswordPolicy(supabaseAdmin, schoolId);
 
     for (const row of data.rows) {
       const username = `${slug}_p${randomSuffix(5)}`;
-      const password = randomPassword(8);
+      const password = policyPassword(policy);
+
       const email = `${username}@${ACCOUNT_EMAIL_DOMAIN}`;
       const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -276,7 +312,7 @@ export const createJudge = createServerFn({ method: "POST" })
     const slug = school?.slug ?? "school";
 
     const username = `${slug}_p${randomSuffix(5)}`;
-    const password = randomPassword(8);
+    const password = policyPassword(await getPasswordPolicy(supabaseAdmin, schoolId));
     const email = `${username}@${ACCOUNT_EMAIL_DOMAIN}`;
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email,
