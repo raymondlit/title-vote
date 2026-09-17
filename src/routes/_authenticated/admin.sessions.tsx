@@ -41,18 +41,74 @@ function SessionsPage() {
     queryKey: ["admin-sessions", schoolId],
     enabled: !!schoolId,
     queryFn: async () => {
-      const [{ data: sessions }, { data: categories }, { data: groups }] = await Promise.all([
-        supabase
-          .from("vote_sessions")
-          .select("*")
-          .eq("school_id", schoolId!)
-          .order("created_at", { ascending: false }),
-        supabase.from("review_categories").select("id, name").eq("school_id", schoolId!),
-        supabase.from("subject_groups").select("id, name").eq("school_id", schoolId!),
-      ]);
-      return { sessions: sessions ?? [], categories: categories ?? [], groups: groups ?? [] };
+      const [{ data: sessions }, { data: categories }, { data: groups }, { data: candidates }] =
+        await Promise.all([
+          supabase
+            .from("vote_sessions")
+            .select("*")
+            .eq("school_id", schoolId!)
+            .order("created_at", { ascending: false }),
+          supabase.from("review_categories").select("id, name").eq("school_id", schoolId!),
+          supabase.from("subject_groups").select("id, name").eq("school_id", schoolId!),
+          supabase
+            .from("candidates")
+            .select("id, category_id, group_id")
+            .eq("school_id", schoolId!),
+        ]);
+      return {
+        sessions: sessions ?? [],
+        categories: categories ?? [],
+        groups: groups ?? [],
+        candidates: candidates ?? [],
+      };
     },
   });
+
+  const countFor = (categoryId: string | null, groupId: string | null) =>
+    (data?.candidates ?? []).filter(
+      (c) =>
+        (!categoryId || c.category_id === categoryId) && (!groupId || c.group_id === groupId),
+    ).length;
+
+  async function loadByGroups() {
+    if (!schoolId) return;
+    const cands = (data?.candidates ?? []).filter(
+      (c) => categoryId === "all" || c.category_id === categoryId,
+    );
+    const groupIds = Array.from(
+      new Set(cands.map((c) => c.group_id).filter((g): g is string => !!g)),
+    );
+    if (groupIds.length === 0) {
+      toast.error("所选类别下的评审对象尚未分配学科小组");
+      return;
+    }
+    const catName =
+      categoryId === "all" ? "" : nameOf(data?.categories, categoryId);
+    const base = title.trim() || catName || "评审投票";
+    const existing = new Set(
+      (data?.sessions ?? []).map((s) => `${s.category_id ?? ""}|${s.group_id ?? ""}`),
+    );
+    const rows = groupIds
+      .filter((g) => !existing.has(`${categoryId === "all" ? "" : categoryId}|${g}`))
+      .map((g) => ({
+        school_id: schoolId,
+        title: `${base} · ${nameOf(data?.groups, g)}`,
+        category_id: categoryId === "all" ? null : categoryId,
+        group_id: g,
+        voter_scope: voterScope,
+      }));
+    if (rows.length === 0) {
+      toast.info("各学科小组的投票场次已存在");
+      return;
+    }
+    const { error } = await supabase.from("vote_sessions").insert(rows);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`已按学科分组生成 ${rows.length} 个投票场次`);
+    queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
+  }
 
   const nameOf = (list: { id: string; name: string }[] | undefined, id: string | null) =>
     id ? (list ?? []).find((x) => x.id === id)?.name ?? "—" : "全部";
@@ -189,9 +245,22 @@ function SessionsPage() {
           </div>
         </div>
 
-        <Button onClick={create} className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]">
-          创建投票
-        </Button>
+        <div className="mt-8 flex flex-wrap items-center gap-4">
+          <Button onClick={create} className="h-10 rounded-none px-8 text-[12px] tracking-[0.2em]">
+            创建投票
+          </Button>
+          <Button
+            variant="outline"
+            onClick={loadByGroups}
+            className="h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+          >
+            加载评审对象
+          </Button>
+          <span className="text-[11px] tracking-[0.12em] text-muted-foreground">
+            按学科小组把评审对象分别载入对应投票场次（当前所选类别共{" "}
+            {countFor(categoryId === "all" ? null : categoryId, null)} 人）。
+          </span>
+        </div>
       </Panel>
 
       <Panel className="p-0">
@@ -209,7 +278,8 @@ function SessionsPage() {
                   <div className="mt-2 text-[11px] tracking-[0.16em] text-muted-foreground">
                     {STATUS_LABEL[s.status]} · 类别 {nameOf(data?.categories, s.category_id)} · 小组{" "}
                     {nameOf(data?.groups, s.group_id)} · 参与评委{" "}
-                    {!s.group_id || s.voter_scope === "all" ? "全体" : "本组"}
+                    {!s.group_id || s.voter_scope === "all" ? "全体" : "本组"} · 评审对象{" "}
+                    {countFor(s.category_id, s.group_id)} 人
                   </div>
 
                 </div>
