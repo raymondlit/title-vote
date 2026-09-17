@@ -117,6 +117,8 @@ function BrandingPage() {
   const [displayMode, setDisplayMode] = useState("light");
   const [layoutDensity, setLayoutDensity] = useState("standard");
   const [saving, setSaving] = useState(false);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
 
   useEffect(() => {
     if (!school) return;
