@@ -227,6 +227,7 @@ function VotePage() {
     } finally {
       setSaving(false);
       setConfirmOpen(false);
+      await queryClient.refetchQueries({ queryKey: ["vote-session", sessionId] });
     }
   }
 
@@ -236,8 +237,8 @@ function VotePage() {
         title={data.vs.title}
         description={
           rule
-            ? `参评 ${rule.total_count || data.candidates.length} 人，最多可推荐 ${maxRecommend} 人。${rule.allow_abstain ? "允许弃权。" : "不允许弃权。"}${rule.require_all ? "须对每人表态。" : ""}`
-            : "请对以下评审对象逐一表态。"
+            ? `本场参评 ${data.candidates.length} 人，最多可推荐 ${maxRecommend} 人。${rule.allow_abstain ? "允许弃权。" : "不允许弃权。"}${rule.require_all ? "须对每人表态。" : ""}`
+            : `本场参评 ${data.candidates.length} 人，请逐一表态。`
         }
       />
 
