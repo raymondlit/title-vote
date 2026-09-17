@@ -20,8 +20,8 @@ export const CHOICE_LABEL: Record<string, string> = {
   abstain: "弃权",
 };
 
-export function choiceText(choice: JudgeSheetRow["choice"]) {
-  return choice ? CHOICE_LABEL[choice] : "—";
+export function choiceText(choice: JudgeSheetRow["choice"]): string {
+  return (choice ? CHOICE_LABEL[choice] : undefined) ?? "—";
 }
 
 export function formatTime(value: string | null) {
