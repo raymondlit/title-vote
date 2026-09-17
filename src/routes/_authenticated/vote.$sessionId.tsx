@@ -319,9 +319,11 @@ function VotePage() {
                          maxRecommend > 0 &&
                          recommendCount >= maxRecommend
                        ) {
-                         toast.warning(
-                           `本轮${labels.recommend}名额已用完（共 ${maxRecommend} 人），如需改选请先取消其他人的${labels.recommend}`,
-                         );
+                         setOverPick({
+                           candidateId: c.id,
+                           nextCount: recommendCount + 1,
+                         });
+                         return;
                        }
                        setChoices((p) => ({ ...p, [c.id]: v as Choice }));
                      }}
