@@ -5,17 +5,48 @@ import { ACCOUNT_EMAIL_DOMAIN } from "./account";
 
 const PASSWORD_CHARS = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-function randomPassword(len = 8) {
+const CHARSETS: Record<string, string> = {
+  digits: "23456789",
+  letters: "abcdefghijkmnpqrstuvwxyz",
+  letters_mixed: "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ",
+  alnum: "abcdefghijkmnpqrstuvwxyz23456789",
+  alnum_mixed: PASSWORD_CHARS,
+  full: PASSWORD_CHARS + "!@#$%*?",
+};
+
+function pick(chars: string, len: number) {
   let out = "";
   const bytes = new Uint32Array(len);
   crypto.getRandomValues(bytes);
-  for (let i = 0; i < len; i++) out += PASSWORD_CHARS[bytes[i]! % PASSWORD_CHARS.length];
+  for (let i = 0; i < len; i++) out += chars[bytes[i]! % chars.length];
   return out;
+}
+
+function randomPassword(len = 8) {
+  return pick(PASSWORD_CHARS, len);
+}
+
+type PasswordPolicy = { length: number; charset: string };
+
+async function getPasswordPolicy(admin: any, schoolId: string): Promise<PasswordPolicy> {
+  const { data } = await admin
+    .from("schools")
+    .select("judge_password_length, judge_password_charset")
+    .eq("id", schoolId)
+    .maybeSingle();
+  const length = Math.min(32, Math.max(4, Number(data?.judge_password_length ?? 8)));
+  const charset = CHARSETS[data?.judge_password_charset as string] ? data.judge_password_charset : "alnum_mixed";
+  return { length, charset };
+}
+
+function policyPassword(policy: PasswordPolicy) {
+  return pick(CHARSETS[policy.charset] ?? PASSWORD_CHARS, policy.length);
 }
 
 function randomSuffix(len = 4) {
   return randomPassword(len).toLowerCase();
 }
+
 
 async function assertSuperadmin(context: { supabase: any; userId: string }) {
   const { data } = await context.supabase
