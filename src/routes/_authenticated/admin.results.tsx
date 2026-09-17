@@ -296,10 +296,11 @@ function ResultsPage() {
 
       {current && result ? (
         <>
-          <div className="no-print mb-10">
+          <div className="no-print mb-10 grid gap-6 lg:grid-cols-[1fr_280px]">
             <Panel>
               <div className="mb-8 text-[12px] tracking-[0.16em] text-muted-foreground">
-                应到评委 {result.judgeCount} 人 · 已提交 {result.submitted} 人
+                应到评委 {result.judgeCount} 人 · 已提交 {result.submitted} 人 · 未提交{" "}
+                {result.pendingJudges.length} 人
               </div>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -325,7 +326,81 @@ function ResultsPage() {
                 </ResponsiveContainer>
               </div>
             </Panel>
+
+            <Panel>
+              <div className="text-[12px] tracking-[0.16em]">提交情况（每 15 秒刷新）</div>
+              <div className="mt-6 text-[11px] tracking-[0.14em] text-muted-foreground">
+                未提交 {result.pendingJudges.length} 人
+              </div>
+              <ul className="mt-3 space-y-2 text-[12px]">
+                {result.pendingJudges.length === 0 ? (
+                  <li className="text-muted-foreground">全部评委已提交</li>
+                ) : (
+                  result.pendingJudges.map((judge) => (
+                    <li key={judge.id} className="hairline-b pb-2 tracking-[0.1em]">
+                      {judge.full_name}
+                      {judge.unit ? (
+                        <span className="ml-2 text-muted-foreground">{judge.unit}</span>
+                      ) : null}
+                    </li>
+                  ))
+                )}
+              </ul>
+              <div className="mt-8 text-[11px] tracking-[0.14em] text-muted-foreground">
+                已提交 {result.sheets.length} 人
+              </div>
+              <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground">
+                {result.sheets.map((sheet) => (
+                  <li key={sheet.judgeId} className="tracking-[0.1em]">
+                    {sheet.judgeName}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
           </div>
+
+          <div className="no-print mb-12">
+            <Panel>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="text-[12px] tracking-[0.16em]">
+                  评委投票情况确认单（{result.sheets.length} 份）
+                </div>
+                <Button
+                  variant="outline"
+                  className="rounded-none"
+                  disabled={result.sheets.length === 0}
+                  onClick={() => printJudgeSheets(result.sheets)}
+                >
+                  <Printer /> 打印全部评委确认单
+                </Button>
+              </div>
+              {result.sheets.length === 0 ? (
+                <p className="mt-6 text-[12px] text-muted-foreground">暂无评委提交。</p>
+              ) : (
+                <div className="mt-8 space-y-8">
+                  {result.sheets.map((sheet) => (
+                    <div key={sheet.judgeId}>
+                      <JudgeBallotSheet
+                        schoolName={school?.name ?? ""}
+                        sessionTitle={current.title}
+                        data={sheet}
+                      />
+                      <div className="mt-3">
+                        <Button
+                          variant="outline"
+                          className="rounded-none"
+                          onClick={() => printJudgeSheets([sheet])}
+                        >
+                          <Printer /> 打印本人确认单
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+          </div>
+
 
           <ResultSheet
             config={config}
