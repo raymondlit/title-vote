@@ -27,6 +27,12 @@ import {
 } from "@/components/ResultSheet";
 import { ResultSheetConfigEditor } from "@/components/ResultSheetConfigEditor";
 import {
+  JudgeBallotSheet,
+  judgeBallotSheetHtml,
+  type JudgeSheetData,
+  type JudgeSheetRow,
+} from "@/components/JudgeBallotSheet";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -70,7 +76,7 @@ function ResultsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("vote_sessions")
-        .select("id, title, status, category_id, group_id, school_id")
+        .select("id, title, status, category_id, group_id, school_id, voter_scope")
         .eq("school_id", schoolId!)
         .order("created_at", { ascending: false });
       return data ?? [];
@@ -82,6 +88,7 @@ function ResultsPage() {
   const { data: result } = useQuery({
     queryKey: ["result", sessionId],
     enabled: !!current,
+    refetchInterval: 15000,
     queryFn: async () => {
       let cq = supabase
         .from("candidates")
@@ -90,18 +97,33 @@ function ResultsPage() {
       if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
       if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
 
-      const [{ data: candidates }, { data: ballots }] = await Promise.all([
+      const [{ data: candidates }, { data: ballots }, { data: judges }] = await Promise.all([
         cq,
-        supabase.from("ballots").select("id, judge_id").eq("session_id", current!.id),
+        supabase
+          .from("ballots")
+          .select("id, judge_id, submitted_at")
+          .eq("session_id", current!.id),
+        supabase
+          .from("judges")
+          .select("id, full_name, unit, group_id")
+          .eq("school_id", current!.school_id)
+          .order("full_name"),
       ]);
+
+      const eligibleJudges = (judges ?? []).filter(
+        (j) =>
+          !current!.group_id ||
+          current!.voter_scope === "all" ||
+          j.group_id === current!.group_id,
+      );
 
       const ballotIds = (ballots ?? []).map((b) => b.id);
       const { data: items } = ballotIds.length
         ? await supabase
             .from("ballot_items")
-            .select("candidate_id, choice")
+            .select("ballot_id, candidate_id, choice")
             .in("ballot_id", ballotIds)
-        : { data: [] as { candidate_id: string; choice: string }[] };
+        : { data: [] as { ballot_id: string; candidate_id: string; choice: string }[] };
 
       const rows: ResultSheetRow[] = (candidates ?? []).map((c) => ({
         id: c.id,
@@ -120,14 +142,56 @@ function ResultsPage() {
         else if (it.choice === "not_recommend") r.not_recommend += 1;
         else r.abstain += 1;
       }
+
+      const choiceByBallot = new Map<string, Map<string, string>>();
+      for (const it of items ?? []) {
+        let m = choiceByBallot.get(it.ballot_id);
+        if (!m) {
+          m = new Map();
+          choiceByBallot.set(it.ballot_id, m);
+        }
+        m.set(it.candidate_id, it.choice);
+      }
+      const judgeById = new Map(eligibleJudges.map((j) => [j.id, j]));
+      const candidateOrder = (candidates ?? []).map((c) => ({
+        id: c.id,
+        name: c.full_name,
+        unit: c.unit,
+        title: c.current_title,
+      }));
+      const sheets: JudgeSheetData[] = (ballots ?? [])
+        .filter((b) => judgeById.has(b.judge_id))
+        .map((b) => {
+          const judge = judgeById.get(b.judge_id)!;
+          const choices = choiceByBallot.get(b.id);
+          return {
+            judgeId: judge.id,
+            judgeName: judge.full_name,
+            judgeUnit: judge.unit,
+            submittedAt: b.submitted_at,
+            rows: candidateOrder.map((c) => ({
+              id: c.id,
+              name: c.name,
+              unit: c.unit,
+              title: c.title,
+              choice: (choices?.get(c.id) as JudgeSheetRow["choice"]) ?? null,
+            })),
+          };
+        })
+        .sort((a, b) => a.judgeName.localeCompare(b.judgeName, "zh-Hans-CN"));
+
+      const submittedIds = new Set((ballots ?? []).map((b) => b.judge_id));
+      const pendingJudges = eligibleJudges.filter((j) => !submittedIds.has(j.id));
+
       rows.sort((a, b) => b.recommend - a.recommend);
 
-      const { count: judgeCount } = await supabase
-        .from("judges")
-        .select("id", { count: "exact", head: true })
-        .eq("school_id", current!.school_id);
-
-      return { rows, submitted: ballotIds.length, judgeCount: judgeCount ?? 0 };
+      return {
+        rows,
+        submitted: sheets.length,
+        judgeCount: eligibleJudges.length,
+        sheets,
+        pendingJudges,
+      };
     },
   });
 
@@ -168,6 +232,20 @@ function ResultsPage() {
     a.download = `${current?.title ?? "投票结果"}-确认单.doc`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function printJudgeSheets(sheets: JudgeSheetData[]) {
+    if (!current || sheets.length === 0) return;
+    const html = judgeBallotSheetHtml(school?.name ?? "", current.title, sheets);
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) {
+      toast.error("浏览器阻止了打印窗口，请允许弹出窗口后重试");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
   }
 
   const chartData = (result?.rows ?? []).map((r) => ({ name: r.name, 推荐: r.recommend }));
@@ -218,10 +296,11 @@ function ResultsPage() {
 
       {current && result ? (
         <>
-          <div className="no-print mb-10">
+          <div className="no-print mb-10 grid gap-6 lg:grid-cols-[1fr_280px]">
             <Panel>
               <div className="mb-8 text-[12px] tracking-[0.16em] text-muted-foreground">
-                应到评委 {result.judgeCount} 人 · 已提交 {result.submitted} 人
+                应到评委 {result.judgeCount} 人 · 已提交 {result.submitted} 人 · 未提交{" "}
+                {result.pendingJudges.length} 人
               </div>
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -247,7 +326,81 @@ function ResultsPage() {
                 </ResponsiveContainer>
               </div>
             </Panel>
+
+            <Panel>
+              <div className="text-[12px] tracking-[0.16em]">提交情况（每 15 秒刷新）</div>
+              <div className="mt-6 text-[11px] tracking-[0.14em] text-muted-foreground">
+                未提交 {result.pendingJudges.length} 人
+              </div>
+              <ul className="mt-3 space-y-2 text-[12px]">
+                {result.pendingJudges.length === 0 ? (
+                  <li className="text-muted-foreground">全部评委已提交</li>
+                ) : (
+                  result.pendingJudges.map((judge) => (
+                    <li key={judge.id} className="hairline-b pb-2 tracking-[0.1em]">
+                      {judge.full_name}
+                      {judge.unit ? (
+                        <span className="ml-2 text-muted-foreground">{judge.unit}</span>
+                      ) : null}
+                    </li>
+                  ))
+                )}
+              </ul>
+              <div className="mt-8 text-[11px] tracking-[0.14em] text-muted-foreground">
+                已提交 {result.sheets.length} 人
+              </div>
+              <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground">
+                {result.sheets.map((sheet) => (
+                  <li key={sheet.judgeId} className="tracking-[0.1em]">
+                    {sheet.judgeName}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
           </div>
+
+          <div className="no-print mb-12">
+            <Panel>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="text-[12px] tracking-[0.16em]">
+                  评委投票情况确认单（{result.sheets.length} 份）
+                </div>
+                <Button
+                  variant="outline"
+                  className="rounded-none"
+                  disabled={result.sheets.length === 0}
+                  onClick={() => printJudgeSheets(result.sheets)}
+                >
+                  <Printer /> 打印全部评委确认单
+                </Button>
+              </div>
+              {result.sheets.length === 0 ? (
+                <p className="mt-6 text-[12px] text-muted-foreground">暂无评委提交。</p>
+              ) : (
+                <div className="mt-8 space-y-8">
+                  {result.sheets.map((sheet) => (
+                    <div key={sheet.judgeId}>
+                      <JudgeBallotSheet
+                        schoolName={school?.name ?? ""}
+                        sessionTitle={current.title}
+                        data={sheet}
+                      />
+                      <div className="mt-3">
+                        <Button
+                          variant="outline"
+                          className="rounded-none"
+                          onClick={() => printJudgeSheets([sheet])}
+                        >
+                          <Printer /> 打印本人确认单
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Panel>
+          </div>
+
 
           <ResultSheet
             config={config}
