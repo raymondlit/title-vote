@@ -17,6 +17,9 @@ import {
   type SheetRow,
 } from "@/lib/sheet";
 
+const CANDIDATE_PAGE_SIZES = [10, 20, 40, 100] as const;
+
+
 export const Route = createFileRoute("/_authenticated/admin/candidates")({
   head: () => ({
     meta: [
