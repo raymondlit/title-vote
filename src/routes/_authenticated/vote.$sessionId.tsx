@@ -327,16 +327,15 @@ function VotePage() {
           {missing > 0 ? (
             <span className="ml-6 text-muted-foreground">未表态 {missing} 人</span>
           ) : null}
+          {blockReason ? (
+            <span className="ml-6 text-destructive">{blockReason}</span>
+          ) : null}
         </div>
         <Button
-          disabled={overLimit || saving || data.candidates.length === 0}
+          disabled={!!blockReason || saving || data.candidates.length === 0}
           onClick={() => {
-            if (overLimit) {
-              toast.error(`最多可${labels.recommend} ${maxRecommend} 人，请先调整`);
-              return;
-            }
-            if (rule?.require_all && missing > 0) {
-              toast.error("本场投票要求对每位评审对象表态");
+            if (blockReason) {
+              toast.error(blockReason);
               return;
             }
             setConfirmOpen(true);
