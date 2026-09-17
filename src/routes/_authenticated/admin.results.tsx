@@ -234,6 +234,20 @@ function ResultsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function printJudgeSheets(sheets: JudgeSheetData[]) {
+    if (!current || sheets.length === 0) return;
+    const html = judgeBallotSheetHtml(school?.name ?? "", current.title, sheets);
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) {
+      toast.error("浏览器阻止了打印窗口，请允许弹出窗口后重试");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   const chartData = (result?.rows ?? []).map((r) => ({ name: r.name, 推荐: r.recommend }));
 
   return (
