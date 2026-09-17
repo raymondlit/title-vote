@@ -76,7 +76,7 @@ function ResultsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("vote_sessions")
-        .select("id, title, status, category_id, group_id, school_id")
+        .select("id, title, status, category_id, group_id, school_id, voter_scope")
         .eq("school_id", schoolId!)
         .order("created_at", { ascending: false });
       return data ?? [];
