@@ -17,6 +17,9 @@ import {
   type SheetRow,
 } from "@/lib/sheet";
 
+const CANDIDATE_PAGE_SIZES = [10, 20, 40, 100] as const;
+
+
 export const Route = createFileRoute("/_authenticated/admin/candidates")({
   head: () => ({
     meta: [
@@ -41,7 +44,10 @@ function CandidatesPage() {
   const [extraCols, setExtraCols] = useState<string[]>([]);
   const [newCol, setNewCol] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
   const [printing, setPrinting] = useState(false);
+
 
   useEffect(() => {
     try {
@@ -53,7 +59,10 @@ function CandidatesPage() {
     } catch {
       /* 忽略损坏的本地设置 */
     }
+    const stored = Number(localStorage.getItem("candidate_list_page_size"));
+    if (CANDIDATE_PAGE_SIZES.some((size) => size === stored)) setPageSize(stored);
   }, []);
+
 
   function persist(keys: string[], extra: string[]) {
     setEnabledKeys(keys);
@@ -171,7 +180,38 @@ function CandidatesPage() {
     return "—";
   }
 
-  const printRows = (candidates.data ?? []).filter((c) => selected.has(c.id));
+  const candidateList = candidates.data ?? [];
+  const totalPages = Math.max(1, Math.ceil(candidateList.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageStart = (currentPage - 1) * pageSize;
+  const visibleCandidates = candidateList.slice(pageStart, pageStart + pageSize);
+  const visibleCandidateIds = visibleCandidates.map((c) => c.id);
+  const allVisibleSelected =
+    visibleCandidateIds.length > 0 && visibleCandidateIds.every((id) => selected.has(id));
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  function changePageSize(value: number) {
+    setPageSize(value);
+    setPage(1);
+    localStorage.setItem("candidate_list_page_size", String(value));
+  }
+
+  function toggleVisible(on: boolean) {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      visibleCandidateIds.forEach((id) => {
+        if (on) next.add(id);
+        else next.delete(id);
+      });
+      return next;
+    });
+  }
+
+  const printRows = candidateList.filter((c) => selected.has(c.id));
+
 
   function printList() {
     if (selected.size === 0) {
@@ -326,20 +366,12 @@ function CandidatesPage() {
             <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
               <input
                 type="checkbox"
-                checked={
-                  (candidates.data?.length ?? 0) > 0 &&
-                  selected.size === (candidates.data?.length ?? 0)
-                }
-                onChange={(e) =>
-                  setSelected(
-                    e.target.checked
-                      ? new Set((candidates.data ?? []).map((c) => c.id))
-                      : new Set(),
-                  )
-                }
+                checked={allVisibleSelected}
+                onChange={(e) => toggleVisible(e.target.checked)}
               />
-              全选
+              全选本页
             </label>
+
             <button
               className="text-[11px] tracking-[0.2em] underline disabled:text-muted-foreground"
               onClick={printList}
@@ -352,7 +384,8 @@ function CandidatesPage() {
             </span>
           </div>
           <div className="no-print space-y-3">
-            {(candidates.data ?? []).map((c) => (
+            {visibleCandidates.map((c) => (
+
               <div
                 key={c.id}
                 className="hairline-t flex flex-wrap items-center gap-6 pt-3 text-[12px] tracking-[0.1em]"
@@ -387,7 +420,51 @@ function CandidatesPage() {
             ))}
           </div>
 
+          {candidateList.length > 0 ? (
+            <div className="no-print mt-8 flex flex-wrap items-center justify-between gap-4 border-t pt-5 text-[11px] tracking-[0.12em] text-muted-foreground">
+              <span>
+                显示第 {pageStart + 1}–{Math.min(pageStart + pageSize, candidateList.length)} 人，共 {candidateList.length} 人
+              </span>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none px-4 text-[11px]"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                >
+                  上一页
+                </Button>
+                <span className="tabular-nums">第 {currentPage} / {totalPages} 页</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none px-4 text-[11px]"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                >
+                  下一页
+                </Button>
+                <label className="ml-4 flex items-center gap-2 text-[11px] tracking-[0.16em]">
+                  每页
+                  <select
+                    aria-label="每页显示评审对象数量"
+                    value={pageSize}
+                    onChange={(event) => changePageSize(Number(event.target.value))}
+                    className="border-0 border-b bg-transparent px-1 py-1 text-[11px] text-foreground focus:outline-none"
+                  >
+                    {CANDIDATE_PAGE_SIZES.map((size) => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                  人
+                </label>
+              </div>
+            </div>
+          ) : null}
+
           {printing && printRows.length > 0 ? (
+
             <div className="print-area print-only">
               <h3 className="mb-6 text-[14px] tracking-[0.2em]">参评人员名单</h3>
               <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
