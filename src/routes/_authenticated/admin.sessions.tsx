@@ -278,7 +278,8 @@ function SessionsPage() {
                   <div className="mt-2 text-[11px] tracking-[0.16em] text-muted-foreground">
                     {STATUS_LABEL[s.status]} · 类别 {nameOf(data?.categories, s.category_id)} · 小组{" "}
                     {nameOf(data?.groups, s.group_id)} · 参与评委{" "}
-                    {!s.group_id || s.voter_scope === "all" ? "全体" : "本组"}
+                    {!s.group_id || s.voter_scope === "all" ? "全体" : "本组"} · 评审对象{" "}
+                    {countFor(s.category_id, s.group_id)} 人
                   </div>
 
                 </div>
