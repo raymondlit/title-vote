@@ -95,6 +95,8 @@ export const Route = createFileRoute("/_authenticated/admin/branding")({
         property: "og:description",
         content: "设置学校名称、校徽与强调色，登录页与评委端同步生效。",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: BrandingPage,
