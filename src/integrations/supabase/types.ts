@@ -341,6 +341,8 @@ export type Database = {
           short_name: string | null
           slug: string
           subtitle: string | null
+          vote_label_not_recommend: string
+          vote_label_recommend: string
         }
         Insert: {
           accent_color?: string
@@ -358,6 +360,8 @@ export type Database = {
           short_name?: string | null
           slug: string
           subtitle?: string | null
+          vote_label_not_recommend?: string
+          vote_label_recommend?: string
         }
         Update: {
           accent_color?: string
@@ -375,6 +379,8 @@ export type Database = {
           short_name?: string | null
           slug?: string
           subtitle?: string | null
+          vote_label_not_recommend?: string
+          vote_label_recommend?: string
         }
         Relationships: []
       }
