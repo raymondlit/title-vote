@@ -27,6 +27,12 @@ import {
 } from "@/components/ResultSheet";
 import { ResultSheetConfigEditor } from "@/components/ResultSheetConfigEditor";
 import {
+  JudgeBallotSheet,
+  judgeBallotSheetHtml,
+  type JudgeSheetData,
+  type JudgeSheetRow,
+} from "@/components/JudgeBallotSheet";
+import {
   Select,
   SelectContent,
   SelectItem,
