@@ -45,6 +45,10 @@ function VotePage() {
 
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const [overPick, setOverPick] = useState<{ candidateId: string; nextCount: number } | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
 
   const { data, isLoading } = useQuery({
