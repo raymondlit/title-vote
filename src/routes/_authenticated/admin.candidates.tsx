@@ -140,6 +140,33 @@ function CandidatesPage() {
     return data.id;
   }
 
+  async function doCreate() {
+    if (!session?.schoolId) return;
+    if (!form.full_name.trim()) {
+      toast.error("请填写姓名");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.from("candidates").insert({
+      school_id: session.schoolId,
+      full_name: form.full_name.trim(),
+      unit: form.unit.trim() || null,
+      current_title: form.current_title.trim() || null,
+      category_id: form.category_id || null,
+      group_id: form.group_id || null,
+      notes: form.notes.trim() || null,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`已新增评审对象 ${form.full_name.trim()}`);
+    setForm({ full_name: "", unit: "", current_title: "", category_id: "", group_id: "", notes: "" });
+    setShowAdd(false);
+    queryClient.invalidateQueries({ queryKey: ["candidates"] });
+  }
+
   async function doImport() {
     if (!session?.schoolId) return;
     setBusy(true);
