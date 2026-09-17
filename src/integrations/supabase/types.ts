@@ -334,6 +334,8 @@ export type Database = {
           font_family: string
           font_scale: string
           id: string
+          judge_password_charset: string
+          judge_password_length: number
           layout_density: string
           logo_url: string | null
           name: string
@@ -353,6 +355,8 @@ export type Database = {
           font_family?: string
           font_scale?: string
           id?: string
+          judge_password_charset?: string
+          judge_password_length?: number
           layout_density?: string
           logo_url?: string | null
           name: string
@@ -372,6 +376,8 @@ export type Database = {
           font_family?: string
           font_scale?: string
           id?: string
+          judge_password_charset?: string
+          judge_password_length?: number
           layout_density?: string
           logo_url?: string | null
           name?: string
