@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { submitBallot } from "@/lib/vote.functions";
+import { pickVotingRule } from "@/lib/voteRules";
 import { Button } from "@/components/ui/button";
 import {
   Select,
