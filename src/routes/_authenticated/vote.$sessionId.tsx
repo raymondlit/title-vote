@@ -307,9 +307,21 @@ function VotePage() {
                 <td className="py-4 text-muted-foreground">{c.current_title ?? "—"}</td>
                 <td className="px-8 py-3 text-right">
                   <Select
-                    value={choices[c.id] ?? ""}
-                    onValueChange={(v) => setChoices((p) => ({ ...p, [c.id]: v as Choice }))}
-                  >
+                     value={choices[c.id] ?? ""}
+                     onValueChange={(v) => {
+                       if (
+                         v === "recommend" &&
+                         choices[c.id] !== "recommend" &&
+                         maxRecommend > 0 &&
+                         recommendCount >= maxRecommend
+                       ) {
+                         toast.warning(
+                           `本轮${labels.recommend}名额已用完（共 ${maxRecommend} 人），如需改选请先取消其他人的${labels.recommend}`,
+                         );
+                       }
+                       setChoices((p) => ({ ...p, [c.id]: v as Choice }));
+                     }}
+                   >
                     <SelectTrigger className="ml-auto h-9 w-32 rounded-none text-[12px]">
                       <SelectValue placeholder="请选择" />
                     </SelectTrigger>
