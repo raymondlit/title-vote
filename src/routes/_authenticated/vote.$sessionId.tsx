@@ -252,7 +252,7 @@ function VotePage() {
         title={data.vs.title}
         description={
           rule
-            ? `本场参评 ${data.candidates.length} 人，须恰好${labels.recommend} ${maxRecommend} 人，多选或少选均无法提交。${mustVoteAll ? "须对每位评审对象表态。" : ""}`
+            ? `本场参评 ${data.candidates.length} 人，${labels.recommend}名额 ${maxRecommend} 人，实时显示剩余名额，超出名额无法提交。${mustVoteAll ? "须对每位评审对象表态。" : ""}`
             : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`
         }
       />
@@ -263,16 +263,18 @@ function VotePage() {
           {rule ? (
             <>
               <span>
-                须恰好{labels.recommend} <span className="text-primary">{maxRecommend}</span> 人
+                本轮{labels.recommend}名额 <span className="text-primary">{maxRecommend}</span> 人
               </span>
               <span className="ml-6 text-muted-foreground">
                 当前已{labels.recommend} {recommendCount} 人
-                {overLimit
-                  ? `，超出 ${recommendCount - maxRecommend} 人`
-                  : underLimit
-                    ? `，还差 ${maxRecommend - recommendCount} 人`
-                    : "，人数符合要求"}
               </span>
+              {remaining !== null ? (
+                <span className={remaining < 0 ? "ml-6 text-destructive" : "ml-6 text-primary"}>
+                  {remaining < 0
+                    ? `已超出名额 ${-remaining} 人，无法提交`
+                    : `剩余${labels.recommend}名额 ${remaining} 人`}
+                </span>
+              ) : null}
               {mustVoteAll ? (
                 <span className="ml-6 text-muted-foreground">
                   {missing > 0 ? `尚有 ${missing} 人未表态` : "已全部表态"}
