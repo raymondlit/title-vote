@@ -245,9 +245,22 @@ function SessionsPage() {
           </div>
         </div>
 
-        <Button onClick={create} className="mt-8 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]">
-          创建投票
-        </Button>
+        <div className="mt-8 flex flex-wrap items-center gap-4">
+          <Button onClick={create} className="h-10 rounded-none px-8 text-[12px] tracking-[0.2em]">
+            创建投票
+          </Button>
+          <Button
+            variant="outline"
+            onClick={loadByGroups}
+            className="h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+          >
+            加载评审对象
+          </Button>
+          <span className="text-[11px] tracking-[0.12em] text-muted-foreground">
+            按学科小组把评审对象分别载入对应投票场次（当前所选类别共{" "}
+            {countFor(categoryId === "all" ? null : categoryId, null)} 人）。
+          </span>
+        </div>
       </Panel>
 
       <Panel className="p-0">
