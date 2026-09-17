@@ -127,16 +127,21 @@ function VotePage() {
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
   const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
+  const remaining = maxRecommend > 0 ? maxRecommend - recommendCount : null;
   const missing = data.candidates.filter((c) => !choices[c.id]).length;
   const mustVoteAll = rule ? rule.require_all || !rule.allow_abstain : true;
+  const overReason =
+    maxRecommend > 0 && overLimit
+      ? `${labels.recommend}人数超出名额：名额 ${maxRecommend} 人，已选 ${recommendCount} 人，超出 ${recommendCount - maxRecommend} 人，请改回 ${labels.recommend}后再提交`
+      : null;
   const blockReason = !rule
     ? missing > 0
       ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
       : null
-    : overLimit
-      ? `${labels.recommend}人数超过上限，最多${labels.recommend} ${maxRecommend} 人`
+    : overReason
+      ? overReason
       : underLimit
-        ? `${labels.recommend}人数不足，须恰好${labels.recommend} ${maxRecommend} 人，当前仅 ${recommendCount} 人`
+        ? `${labels.recommend}人数不足，须${labels.recommend} ${maxRecommend} 人，还差 ${maxRecommend - recommendCount} 人`
         : mustVoteAll && missing > 0
           ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
           : null;
