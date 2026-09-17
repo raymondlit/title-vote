@@ -127,16 +127,21 @@ function VotePage() {
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
   const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
+  const remaining = maxRecommend > 0 ? maxRecommend - recommendCount : null;
   const missing = data.candidates.filter((c) => !choices[c.id]).length;
   const mustVoteAll = rule ? rule.require_all || !rule.allow_abstain : true;
+  const overReason =
+    maxRecommend > 0 && overLimit
+      ? `${labels.recommend}人数超出名额：名额 ${maxRecommend} 人，已选 ${recommendCount} 人，超出 ${recommendCount - maxRecommend} 人，请改回 ${labels.recommend}后再提交`
+      : null;
   const blockReason = !rule
     ? missing > 0
       ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
       : null
-    : overLimit
-      ? `${labels.recommend}人数超过上限，最多${labels.recommend} ${maxRecommend} 人`
+    : overReason
+      ? overReason
       : underLimit
-        ? `${labels.recommend}人数不足，须恰好${labels.recommend} ${maxRecommend} 人，当前仅 ${recommendCount} 人`
+        ? `${labels.recommend}人数不足，须${labels.recommend} ${maxRecommend} 人，还差 ${maxRecommend - recommendCount} 人`
         : mustVoteAll && missing > 0
           ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
           : null;
@@ -247,7 +252,7 @@ function VotePage() {
         title={data.vs.title}
         description={
           rule
-            ? `本场参评 ${data.candidates.length} 人，须恰好${labels.recommend} ${maxRecommend} 人，多选或少选均无法提交。${mustVoteAll ? "须对每位评审对象表态。" : ""}`
+            ? `本场参评 ${data.candidates.length} 人，${labels.recommend}名额 ${maxRecommend} 人，实时显示剩余名额，超出名额无法提交。${mustVoteAll ? "须对每位评审对象表态。" : ""}`
             : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`
         }
       />
@@ -258,16 +263,18 @@ function VotePage() {
           {rule ? (
             <>
               <span>
-                须恰好{labels.recommend} <span className="text-primary">{maxRecommend}</span> 人
+                本轮{labels.recommend}名额 <span className="text-primary">{maxRecommend}</span> 人
               </span>
               <span className="ml-6 text-muted-foreground">
                 当前已{labels.recommend} {recommendCount} 人
-                {overLimit
-                  ? `，超出 ${recommendCount - maxRecommend} 人`
-                  : underLimit
-                    ? `，还差 ${maxRecommend - recommendCount} 人`
-                    : "，人数符合要求"}
               </span>
+              {remaining !== null ? (
+                <span className={remaining < 0 ? "ml-6 text-destructive" : "ml-6 text-primary"}>
+                  {remaining < 0
+                    ? `已超出名额 ${-remaining} 人，无法提交`
+                    : `剩余${labels.recommend}名额 ${remaining} 人`}
+                </span>
+              ) : null}
               {mustVoteAll ? (
                 <span className="ml-6 text-muted-foreground">
                   {missing > 0 ? `尚有 ${missing} 人未表态` : "已全部表态"}
@@ -300,9 +307,21 @@ function VotePage() {
                 <td className="py-4 text-muted-foreground">{c.current_title ?? "—"}</td>
                 <td className="px-8 py-3 text-right">
                   <Select
-                    value={choices[c.id] ?? ""}
-                    onValueChange={(v) => setChoices((p) => ({ ...p, [c.id]: v as Choice }))}
-                  >
+                     value={choices[c.id] ?? ""}
+                     onValueChange={(v) => {
+                       if (
+                         v === "recommend" &&
+                         choices[c.id] !== "recommend" &&
+                         maxRecommend > 0 &&
+                         recommendCount >= maxRecommend
+                       ) {
+                         toast.warning(
+                           `本轮${labels.recommend}名额已用完（共 ${maxRecommend} 人），如需改选请先取消其他人的${labels.recommend}`,
+                         );
+                       }
+                       setChoices((p) => ({ ...p, [c.id]: v as Choice }));
+                     }}
+                   >
                     <SelectTrigger className="ml-auto h-9 w-32 rounded-none text-[12px]">
                       <SelectValue placeholder="请选择" />
                     </SelectTrigger>
@@ -324,6 +343,13 @@ function VotePage() {
             已{labels.recommend} {recommendCount}
             {maxRecommend > 0 ? ` / ${maxRecommend}` : ""} 人
           </span>
+          {remaining !== null ? (
+            <span className={remaining < 0 ? "ml-6 text-destructive" : "ml-6"}>
+              {remaining < 0
+                ? `超出名额 ${-remaining} 人，无法提交`
+                : `剩余${labels.recommend}名额 ${remaining} 人`}
+            </span>
+          ) : null}
           {missing > 0 ? (
             <span className="ml-6 text-muted-foreground">未表态 {missing} 人</span>
           ) : null}

@@ -33,6 +33,13 @@ export const submitBallot = createServerFn({ method: "POST" })
       .eq("id", data.sessionId)
       .maybeSingle();
     if (!session || session.school_id !== judge.school_id) throw new Error("投票不存在");
+
+    const { data: school } = await supabase
+      .from("schools")
+      .select("vote_label_recommend")
+      .eq("id", session.school_id)
+      .maybeSingle();
+    const labelRecommend = school?.vote_label_recommend?.trim() || "推荐";
     if (session.status !== "open") throw new Error("该场投票尚未开始或已结束");
     if (
       session.group_id &&
@@ -73,7 +80,9 @@ export const submitBallot = createServerFn({ method: "POST" })
       const recommends = data.choices.filter((c) => c.choice === "recommend").length;
       if (rule.max_recommend > 0 && recommends !== rule.max_recommend) {
         throw new Error(
-          `本场投票须恰好推荐 ${rule.max_recommend} 人，当前已推荐 ${recommends} 人，请调整后重新提交`,
+          recommends > rule.max_recommend
+            ? `本轮${labelRecommend}名额 ${rule.max_recommend} 人，已选 ${recommends} 人，超出 ${recommends - rule.max_recommend} 人，无法提交，请调整后再试`
+            : `本轮须${labelRecommend} ${rule.max_recommend} 人，当前仅 ${recommends} 人，还差 ${rule.max_recommend - recommends} 人，无法提交`,
         );
       }
       if (!rule.allow_abstain && data.choices.some((c) => c.choice === "abstain")) {
