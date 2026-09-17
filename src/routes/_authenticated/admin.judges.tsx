@@ -702,6 +702,39 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
               允许评委自行修改密码
             </label>
             <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              密码类型
+              <select
+                aria-label="评委密码类型"
+                value={(school.data as any)?.judge_password_charset ?? "alnum_mixed"}
+                onChange={(e) => savePasswordPolicy({ judge_password_charset: e.target.value })}
+                className="border-0 border-b bg-transparent px-1 py-1 text-[11px] text-foreground focus:outline-none"
+              >
+                <option value="digits">纯数字</option>
+                <option value="letters">纯字母（小写）</option>
+                <option value="letters_mixed">大小写字母</option>
+                <option value="alnum">字母+数字</option>
+                <option value="alnum_mixed">大小写字母+数字</option>
+                <option value="full">大小写字母+数字+符号</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              密码长度
+              <select
+                aria-label="评委密码长度"
+                value={(school.data as any)?.judge_password_length ?? 8}
+                onChange={(e) =>
+                  savePasswordPolicy({ judge_password_length: Number(e.target.value) })
+                }
+                className="border-0 border-b bg-transparent px-1 py-1 text-[11px] text-foreground focus:outline-none"
+              >
+                {[4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 20].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              位
+            </label>
+
+            <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
               每页
               <select
                 aria-label="每页显示评委数量"
