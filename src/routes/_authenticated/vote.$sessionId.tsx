@@ -343,6 +343,13 @@ function VotePage() {
             已{labels.recommend} {recommendCount}
             {maxRecommend > 0 ? ` / ${maxRecommend}` : ""} 人
           </span>
+          {remaining !== null ? (
+            <span className={remaining < 0 ? "ml-6 text-destructive" : "ml-6"}>
+              {remaining < 0
+                ? `超出名额 ${-remaining} 人，无法提交`
+                : `剩余${labels.recommend}名额 ${remaining} 人`}
+            </span>
+          ) : null}
           {missing > 0 ? (
             <span className="ml-6 text-muted-foreground">未表态 {missing} 人</span>
           ) : null}
