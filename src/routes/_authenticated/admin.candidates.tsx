@@ -47,6 +47,15 @@ function CandidatesPage() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [printing, setPrinting] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "",
+    unit: "",
+    current_title: "",
+    category_id: "",
+    group_id: "",
+    notes: "",
+  });
 
 
   useEffect(() => {
