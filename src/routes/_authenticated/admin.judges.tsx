@@ -272,6 +272,36 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
 </body></html>`;
   }
 
+  async function batchDelete() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) {
+      toast.error("请先勾选需要删除的评委");
+      return;
+    }
+    if (
+      !window.confirm(
+        `确定批量删除已勾选的 ${ids.length} 位评委？其登录账号将一并删除，且不可恢复。`,
+      )
+    )
+      return;
+    setBusy(true);
+    let done = 0;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await deleteFn({ data: { judgeId: id } });
+        done += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setSelected(new Set());
+    queryClient.invalidateQueries({ queryKey: ["judges"] });
+    setBusy(false);
+    if (failed > 0) toast.error(`已删除 ${done} 人，${failed} 人删除失败`);
+    else toast.success(`已批量删除 ${done} 位评委`);
+  }
+
   async function printPasswordBook() {
     const ids = Array.from(selected);
     if (ids.length === 0) {
@@ -637,6 +667,13 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
               disabled={busy || selected.size === 0}
             >
               打印密码本（已选 {selected.size} 人）
+            </button>
+            <button
+              className="text-[11px] tracking-[0.2em] text-destructive underline disabled:text-muted-foreground"
+              onClick={batchDelete}
+              disabled={busy || selected.size === 0}
+            >
+              批量删除（已选 {selected.size} 人）
             </button>
             <label className="ml-auto flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
               <input
