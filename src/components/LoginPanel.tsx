@@ -33,6 +33,14 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
       return;
     }
     setLoading(true);
+    // 切换账号：先彻底清空上一个账号的会话与缓存，避免数据串号
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // 无既有会话时忽略
+    }
     const { error } = await supabase.auth.signInWithPassword({
       email: accountToEmail(account),
       password,
