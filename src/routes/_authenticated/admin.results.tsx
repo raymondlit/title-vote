@@ -82,6 +82,7 @@ function ResultsPage() {
   const { data: result } = useQuery({
     queryKey: ["result", sessionId],
     enabled: !!current,
+    refetchInterval: 15000,
     queryFn: async () => {
       let cq = supabase
         .from("candidates")
@@ -90,18 +91,33 @@ function ResultsPage() {
       if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
       if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
 
-      const [{ data: candidates }, { data: ballots }] = await Promise.all([
+      const [{ data: candidates }, { data: ballots }, { data: judges }] = await Promise.all([
         cq,
-        supabase.from("ballots").select("id, judge_id").eq("session_id", current!.id),
+        supabase
+          .from("ballots")
+          .select("id, judge_id, submitted_at")
+          .eq("session_id", current!.id),
+        supabase
+          .from("judges")
+          .select("id, full_name, unit, group_id")
+          .eq("school_id", current!.school_id)
+          .order("full_name"),
       ]);
+
+      const eligibleJudges = (judges ?? []).filter(
+        (j) =>
+          !current!.group_id ||
+          current!.voter_scope === "all" ||
+          j.group_id === current!.group_id,
+      );
 
       const ballotIds = (ballots ?? []).map((b) => b.id);
       const { data: items } = ballotIds.length
         ? await supabase
             .from("ballot_items")
-            .select("candidate_id, choice")
+            .select("ballot_id, candidate_id, choice")
             .in("ballot_id", ballotIds)
-        : { data: [] as { candidate_id: string; choice: string }[] };
+        : { data: [] as { ballot_id: string; candidate_id: string; choice: string }[] };
 
       const rows: ResultSheetRow[] = (candidates ?? []).map((c) => ({
         id: c.id,
@@ -120,14 +136,56 @@ function ResultsPage() {
         else if (it.choice === "not_recommend") r.not_recommend += 1;
         else r.abstain += 1;
       }
+
+      const choiceByBallot = new Map<string, Map<string, string>>();
+      for (const it of items ?? []) {
+        let m = choiceByBallot.get(it.ballot_id);
+        if (!m) {
+          m = new Map();
+          choiceByBallot.set(it.ballot_id, m);
+        }
+        m.set(it.candidate_id, it.choice);
+      }
+      const judgeById = new Map(eligibleJudges.map((j) => [j.id, j]));
+      const candidateOrder = (candidates ?? []).map((c) => ({
+        id: c.id,
+        name: c.full_name,
+        unit: c.unit,
+        title: c.current_title,
+      }));
+      const sheets: JudgeSheetData[] = (ballots ?? [])
+        .filter((b) => judgeById.has(b.judge_id))
+        .map((b) => {
+          const judge = judgeById.get(b.judge_id)!;
+          const choices = choiceByBallot.get(b.id);
+          return {
+            judgeId: judge.id,
+            judgeName: judge.full_name,
+            judgeUnit: judge.unit,
+            submittedAt: b.submitted_at,
+            rows: candidateOrder.map((c) => ({
+              id: c.id,
+              name: c.name,
+              unit: c.unit,
+              title: c.title,
+              choice: (choices?.get(c.id) as JudgeSheetRow["choice"]) ?? null,
+            })),
+          };
+        })
+        .sort((a, b) => a.judgeName.localeCompare(b.judgeName, "zh-Hans-CN"));
+
+      const submittedIds = new Set((ballots ?? []).map((b) => b.judge_id));
+      const pendingJudges = eligibleJudges.filter((j) => !submittedIds.has(j.id));
+
       rows.sort((a, b) => b.recommend - a.recommend);
 
-      const { count: judgeCount } = await supabase
-        .from("judges")
-        .select("id", { count: "exact", head: true })
-        .eq("school_id", current!.school_id);
-
-      return { rows, submitted: ballotIds.length, judgeCount: judgeCount ?? 0 };
+      return {
+        rows,
+        submitted: sheets.length,
+        judgeCount: eligibleJudges.length,
+        sheets,
+        pendingJudges,
+      };
     },
   });
 
