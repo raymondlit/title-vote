@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { pickVotingRule } from "@/lib/voteRules";
 
 const choiceEnum = z.enum(["recommend", "not_recommend", "abstain"]);
 

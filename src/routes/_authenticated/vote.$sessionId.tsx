@@ -82,13 +82,11 @@ function VotePage() {
       if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
       const { data: candidates } = await cq;
 
-      let rq = supabase
+      const { data: rules } = await supabase
         .from("voting_rules")
-        .select("total_count, max_recommend, allow_abstain, require_all")
+        .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
         .eq("school_id", vs.school_id);
-      rq = vs.category_id ? rq.eq("category_id", vs.category_id) : rq.is("category_id", null);
-      rq = vs.group_id ? rq.eq("group_id", vs.group_id) : rq.is("group_id", null);
-      const { data: rule } = await rq.maybeSingle();
+      const rule = pickVotingRule(rules, vs.category_id, vs.group_id);
 
       const { data: ballot } = judge
         ? await supabase
