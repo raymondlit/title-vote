@@ -154,20 +154,23 @@ export const resetUserPassword = createServerFn({ method: "POST" })
       if (!target || target.school_id !== schoolId) throw new Error("没有权限执行该操作");
     }
 
-    const password = randomPassword(10);
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
-    if (error) throw new Error(error.message);
     const { data: judge } = await supabaseAdmin
       .from("judges")
-      .select("id")
+      .select("id, school_id")
       .eq("profile_id", data.userId)
       .maybeSingle();
+    const password = judge
+      ? policyPassword(await getPasswordPolicy(supabaseAdmin, judge.school_id))
+      : randomPassword(10);
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { password });
+    if (error) throw new Error(error.message);
     if (judge) {
       const { error: credentialError } = await supabaseAdmin
         .from("judge_credentials")
         .upsert({ judge_id: judge.id, current_password: password, updated_at: new Date().toISOString() });
       if (credentialError) throw new Error("保存新密码失败");
     }
+
     return { password };
   });
 
