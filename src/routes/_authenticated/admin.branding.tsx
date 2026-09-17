@@ -254,9 +254,19 @@ function BrandingPage() {
               保存
             </Button>
             {school ? (
-              <p className="text-[11px] tracking-[0.14em] text-muted-foreground">
-                本校登录页地址：/school/{school.slug}
-              </p>
+              <div className="rounded-none border border-border/60 bg-muted/40 px-4 py-3">
+                <p className="text-[11px] tracking-[0.14em] text-muted-foreground">
+                  本校登录页地址：
+                  {origin ? (
+                    <span className="font-medium text-foreground">{origin}/school/{school.slug}</span>
+                  ) : (
+                    <span className="font-medium text-foreground">/school/{school.slug}</span>
+                  )}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                  请将此地址告知全体评委，评委请从该登录页进入，使用分配的账号与密码登录后开展评审投票。
+                </p>
+              </div>
             ) : null}
           </div>
         </Panel>
