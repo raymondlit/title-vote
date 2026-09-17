@@ -364,10 +364,10 @@ function VotePage() {
           ) : null}
         </div>
         <Button
-          disabled={!!blockReason || saving || data.candidates.length === 0}
+          disabled={saving || data.candidates.length === 0}
           onClick={() => {
             if (blockReason) {
-              toast.error(blockReason);
+              setRuleOpen(true);
               return;
             }
             setConfirmOpen(true);
