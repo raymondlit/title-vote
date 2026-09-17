@@ -225,13 +225,13 @@ function BrandingPage() {
                 <Slider
                   aria-label="字号比例"
                   min={75}
-                  max={150}
+                  max={300}
                   step={1}
                   value={[fontScalePercent(fontScale)]}
                   onValueChange={(values) => setFontScale(String(values[0] ?? 100))}
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>75%</span><span>100% 标准</span><span>150%</span>
+                  <span>75%</span><span>100% 标准</span><span>300%</span>
                 </div>
               </div>
               {colorScheme === "custom" ? (
