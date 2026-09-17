@@ -213,6 +213,26 @@ function CandidatesPage() {
   const printRows = candidateList.filter((c) => selected.has(c.id));
 
 
+  async function batchDelete() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) {
+      toast.error("请先勾选需要删除的参评人员");
+      return;
+    }
+    if (!window.confirm(`确定批量删除已勾选的 ${ids.length} 位参评人员？此操作不可恢复。`))
+      return;
+    setBusy(true);
+    const { error } = await supabase.from("candidates").delete().in("id", ids);
+    setBusy(false);
+    if (error) {
+      toast.error(`删除失败：${error.message}`);
+      return;
+    }
+    setSelected(new Set());
+    toast.success(`已批量删除 ${ids.length} 位参评人员`);
+    queryClient.invalidateQueries({ queryKey: ["candidates"] });
+  }
+
   function printList() {
     if (selected.size === 0) {
       toast.error("请先勾选需要打印的参评人员");
@@ -378,6 +398,13 @@ function CandidatesPage() {
               disabled={selected.size === 0}
             >
               打印名单（已选 {selected.size} 人）
+            </button>
+            <button
+              className="text-[11px] tracking-[0.2em] text-destructive underline disabled:text-muted-foreground"
+              onClick={batchDelete}
+              disabled={busy || selected.size === 0}
+            >
+              批量删除（已选 {selected.size} 人）
             </button>
             <span className="text-[11px] tracking-[0.16em] text-muted-foreground">
               打印内容按上方勾选的栏目生成
