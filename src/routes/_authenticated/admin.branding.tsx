@@ -9,6 +9,7 @@ import { useSession, useSchool } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -16,24 +17,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SchoolAppearance } from "@/components/SchoolAppearance";
+import { fontScalePercent, SchoolAppearance } from "@/components/SchoolAppearance";
 
 const OPTIONS = {
   fontFamily: [
     ["noto", "思源黑体"],
     ["system", "系统黑体"],
     ["serif", "宋体"],
-  ],
-  fontScale: [
-    ["small", "小"],
-    ["standard", "标准"],
-    ["large", "大"],
+    ["source-serif", "思源宋体"],
+    ["kai", "楷体"],
+    ["fangsong", "仿宋"],
+    ["heiti", "黑体"],
+    ["rounded", "圆体"],
+    ["elegant", "雅致宋黑"],
+    ["mono", "等宽字体"],
   ],
   colorScheme: [
     ["minimal", "墨灰"],
     ["ocean", "深海蓝"],
     ["forest", "松柏绿"],
     ["burgundy", "绛红"],
+    ["jade", "青玉"],
+    ["sky", "晴空蓝"],
+    ["amber", "琥珀"],
+    ["rose", "山茶红"],
+    ["plum", "梅紫"],
+    ["indigo", "靛青"],
     ["custom", "自定义"],
   ],
   displayMode: [
@@ -114,7 +123,7 @@ function BrandingPage() {
     setAccent(school.accent_color);
     setLogoUrl(school.logo_url);
     setFontFamily(school.font_family);
-    setFontScale(school.font_scale);
+    setFontScale(String(fontScalePercent(school.font_scale)));
     setColorScheme(school.color_scheme);
     setDisplayMode(school.display_mode);
     setLayoutDensity(school.layout_density);
@@ -166,7 +175,7 @@ function BrandingPage() {
         description="这里的设置会同步应用到本校的登录页与评委投票端。"
       />
 
-      <div className="grid gap-10 lg:grid-cols-[1fr_340px]">
+      <div className="space-y-10">
         <Panel>
           <div className="space-y-8">
             <div className="space-y-2">
@@ -202,10 +211,26 @@ function BrandingPage() {
               <div className="mb-6 text-[11px] tracking-[0.2em] text-muted-foreground">显示设置</div>
               <div className="grid gap-7 sm:grid-cols-2">
                 <AppearanceSelect label="系统字体" value={fontFamily} options={OPTIONS.fontFamily} onChange={setFontFamily} />
-                <AppearanceSelect label="字号" value={fontScale} options={OPTIONS.fontScale} onChange={setFontScale} />
                 <AppearanceSelect label="配色方案" value={colorScheme} options={OPTIONS.colorScheme} onChange={setColorScheme} />
                 <AppearanceSelect label="显示模式" value={displayMode} options={OPTIONS.displayMode} onChange={setDisplayMode} />
                 <AppearanceSelect label="布局密度" value={layoutDensity} options={OPTIONS.layoutDensity} onChange={setLayoutDensity} />
+              </div>
+              <div className="mt-7 space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] tracking-[0.2em] text-muted-foreground">字号</Label>
+                  <span className="min-w-12 text-right text-[12px] tabular-nums text-foreground">{fontScale}%</span>
+                </div>
+                <Slider
+                  aria-label="字号比例"
+                  min={75}
+                  max={150}
+                  step={1}
+                  value={[fontScalePercent(fontScale)]}
+                  onValueChange={(values) => setFontScale(String(values[0] ?? 100))}
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>75%</span><span>100% 标准</span><span>150%</span>
+                </div>
               </div>
               {colorScheme === "custom" ? (
                 <div className="mt-7 space-y-2">
@@ -235,26 +260,41 @@ function BrandingPage() {
         <SchoolAppearance
           preview
           settings={{ accent_color: accent, color_scheme: colorScheme, display_mode: displayMode, font_family: fontFamily, font_scale: fontScale, layout_density: layoutDensity }}
-          className="h-fit"
+          className="min-h-0"
         >
-        <Panel className="h-fit">
-          <div className="mb-6 text-[11px] tracking-[0.2em] text-muted-foreground">登录页预览</div>
-          <div className="flex flex-col items-center border bg-background px-6 py-14 text-center">
-            {logoUrl ? (
-              <img src={logoUrl} alt="校徽预览" className="mb-6 h-12 w-auto object-contain" />
-            ) : (
-              <div className="mb-6 h-px w-8" style={{ backgroundColor: accent }} />
-            )}
-            <div className="text-[13px] tracking-[0.2em]">{name || "学校名称"}</div>
-            {subtitle ? (
-              <div className="mt-2 text-[11px] tracking-[0.18em] text-muted-foreground">
-                {subtitle}
+        <Panel>
+          <div className="mb-8 flex items-end justify-between border-b pb-5">
+            <div>
+              <div className="text-[16px] tracking-[0.12em]">{name || "学校名称"}</div>
+              <div className="mt-2 text-[11px] text-muted-foreground">{subtitle || "职称评审推荐投票"}</div>
+            </div>
+            {logoUrl ? <img src={logoUrl} alt="校徽预览" className="h-10 w-auto object-contain" /> : null}
+          </div>
+          <div className="grid gap-8 md:grid-cols-[1fr_0.8fr]">
+            <div>
+              <div className="text-[11px] tracking-[0.2em] text-muted-foreground">调整后预览</div>
+              <h2 className="mt-5 text-[17px]">2026 年度职称评审</h2>
+              <p className="mt-3 max-w-xl text-[12px] leading-loose text-muted-foreground">
+                请核对评审对象信息，并在规定时间内完成推荐投票。当前区域会实时呈现字体、字号、配色、显示模式与布局密度。
+              </p>
+              <div className="mt-7 overflow-hidden border">
+                {["张文华 · 教授", "李明远 · 副教授", "王静 · 讲师"].map((person, index) => (
+                  <div key={person} className="flex items-center justify-between border-b px-4 py-3 last:border-b-0">
+                    <span className="text-[12px]">{person}</span>
+                    <span className={index === 0 ? "text-[11px] text-primary" : "text-[11px] text-muted-foreground"}>
+                      {index === 0 ? "已推荐" : "待选择"}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ) : null}
-            <div className="mt-10 w-full space-y-4">
-              <div className="hairline-b h-7" />
-              <div className="hairline-b h-7" />
-              <div className="h-9 w-full bg-primary" aria-hidden="true" />
+            </div>
+            <div className="border bg-background p-6">
+              <Label className="text-[11px] tracking-[0.16em] text-muted-foreground">评审意见</Label>
+              <Input className="mt-3 rounded-none border-0 border-b bg-transparent px-0 shadow-none" placeholder="请输入意见" />
+              <div className="mt-7 flex items-center gap-3">
+                <Button className="rounded-none text-[12px]">确认提交</Button>
+                <Button variant="outline" className="rounded-none text-[12px]">暂存</Button>
+              </div>
             </div>
           </div>
         </Panel>

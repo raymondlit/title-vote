@@ -17,6 +17,18 @@ export const APPEARANCE_DEFAULTS = {
   layoutDensity: "standard",
 } as const;
 
+const LEGACY_FONT_SCALE: Record<string, number> = {
+  small: 92,
+  standard: 100,
+  large: 112,
+};
+
+export function fontScalePercent(value?: string | null) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) return Math.min(150, Math.max(75, parsed));
+  return LEGACY_FONT_SCALE[value ?? "standard"] ?? 100;
+}
+
 export function appearanceAttributes(settings?: SchoolAppearanceSettings | null) {
   return {
     "data-color-scheme": settings?.color_scheme ?? APPEARANCE_DEFAULTS.colorScheme,
@@ -28,8 +40,13 @@ export function appearanceAttributes(settings?: SchoolAppearanceSettings | null)
 }
 
 function appearanceStyle(settings?: SchoolAppearanceSettings | null): CSSProperties {
-  if ((settings?.color_scheme ?? APPEARANCE_DEFAULTS.colorScheme) !== "custom") return {};
-  return { "--school-accent": settings?.accent_color ?? "#3f4a52" } as CSSProperties;
+  const style = {
+    "--ui-font-multiplier": fontScalePercent(settings?.font_scale) / 100,
+  } as CSSProperties;
+  if ((settings?.color_scheme ?? APPEARANCE_DEFAULTS.colorScheme) === "custom") {
+    Object.assign(style, { "--school-accent": settings?.accent_color ?? "#3f4a52" });
+  }
+  return style;
 }
 
 export function SchoolAppearance({
