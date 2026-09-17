@@ -71,8 +71,10 @@ export const submitBallot = createServerFn({ method: "POST" })
 
     if (rule) {
       const recommends = data.choices.filter((c) => c.choice === "recommend").length;
-      if (rule.max_recommend > 0 && recommends > rule.max_recommend) {
-        throw new Error(`最多可推荐 ${rule.max_recommend} 人，当前已推荐 ${recommends} 人`);
+      if (rule.max_recommend > 0 && recommends !== rule.max_recommend) {
+        throw new Error(
+          `本场投票须恰好推荐 ${rule.max_recommend} 人，当前已推荐 ${recommends} 人，请调整后重新提交`,
+        );
       }
       if (!rule.allow_abstain && data.choices.some((c) => c.choice === "abstain")) {
         throw new Error("本场投票不允许弃权");

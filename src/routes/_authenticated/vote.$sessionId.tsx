@@ -126,7 +126,20 @@ function VotePage() {
   const rule = data.rule;
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
+  const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
   const missing = data.candidates.filter((c) => !choices[c.id]).length;
+  const mustVoteAll = rule ? rule.require_all || !rule.allow_abstain : true;
+  const blockReason = !rule
+    ? missing > 0
+      ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
+      : null
+    : overLimit
+      ? `${labels.recommend}人数超过上限，最多${labels.recommend} ${maxRecommend} 人`
+      : underLimit
+        ? `${labels.recommend}人数不足，须恰好${labels.recommend} ${maxRecommend} 人，当前仅 ${recommendCount} 人`
+        : mustVoteAll && missing > 0
+          ? `还有 ${missing} 人未表态，须对每位评审对象表态后方可提交`
+          : null;
 
   // 已提交：确认单
   if (data.ballot) {
