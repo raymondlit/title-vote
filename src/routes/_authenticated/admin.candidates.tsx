@@ -420,7 +420,51 @@ function CandidatesPage() {
             ))}
           </div>
 
+          {candidateList.length > 0 ? (
+            <div className="no-print mt-8 flex flex-wrap items-center justify-between gap-4 border-t pt-5 text-[11px] tracking-[0.12em] text-muted-foreground">
+              <span>
+                显示第 {pageStart + 1}–{Math.min(pageStart + pageSize, candidateList.length)} 人，共 {candidateList.length} 人
+              </span>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none px-4 text-[11px]"
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                >
+                  上一页
+                </Button>
+                <span className="tabular-nums">第 {currentPage} / {totalPages} 页</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none px-4 text-[11px]"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                >
+                  下一页
+                </Button>
+                <label className="ml-4 flex items-center gap-2 text-[11px] tracking-[0.16em]">
+                  每页
+                  <select
+                    aria-label="每页显示评审对象数量"
+                    value={pageSize}
+                    onChange={(event) => changePageSize(Number(event.target.value))}
+                    className="border-0 border-b bg-transparent px-1 py-1 text-[11px] text-foreground focus:outline-none"
+                  >
+                    {CANDIDATE_PAGE_SIZES.map((size) => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                  人
+                </label>
+              </div>
+            </div>
+          ) : null}
+
           {printing && printRows.length > 0 ? (
+
             <div className="print-area print-only">
               <h3 className="mb-6 text-[14px] tracking-[0.2em]">参评人员名单</h3>
               <table className="w-full border-collapse text-[12px] tracking-[0.1em]">
