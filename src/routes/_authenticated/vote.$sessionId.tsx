@@ -45,6 +45,10 @@ function VotePage() {
 
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const [overPick, setOverPick] = useState<{ candidateId: string; nextCount: number } | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -315,9 +319,11 @@ function VotePage() {
                          maxRecommend > 0 &&
                          recommendCount >= maxRecommend
                        ) {
-                         toast.warning(
-                           `本轮${labels.recommend}名额已用完（共 ${maxRecommend} 人），如需改选请先取消其他人的${labels.recommend}`,
-                         );
+                         setOverPick({
+                           candidateId: c.id,
+                           nextCount: recommendCount + 1,
+                         });
+                         return;
                        }
                        setChoices((p) => ({ ...p, [c.id]: v as Choice }));
                      }}
@@ -358,10 +364,10 @@ function VotePage() {
           ) : null}
         </div>
         <Button
-          disabled={!!blockReason || saving || data.candidates.length === 0}
+          disabled={saving || data.candidates.length === 0}
           onClick={() => {
             if (blockReason) {
-              toast.error(blockReason);
+              setRuleOpen(true);
               return;
             }
             setConfirmOpen(true);
@@ -371,6 +377,91 @@ function VotePage() {
           提交表决
         </Button>
       </div>
+
+      {/* 名额已满仍选择推荐：明确提醒规则数与剩余名额，由评委决定是否继续 */}
+      <AlertDialog
+        open={!!overPick}
+        onOpenChange={(o) => {
+          if (!o) setOverPick(null);
+        }}
+      >
+        <AlertDialogContent className="rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[14px] tracking-[0.16em]">
+              {labels.recommend}名额提醒
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[12px] leading-loose tracking-[0.1em]">
+              本轮规则：须{labels.recommend} {maxRecommend} 人，剩余名额{" "}
+              {Math.max(maxRecommend - recommendCount, 0)} 人。
+              <br />
+              若继续将超出名额{" "}
+              {overPick ? overPick.nextCount - maxRecommend : 0} 人，超出后无法提交。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="rounded-none text-[12px] tracking-[0.2em]"
+              onClick={() => setOverPick(null)}
+            >
+              取消本次选择
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (overPick) {
+                  const { candidateId } = overPick;
+                  setChoices((p) => ({ ...p, [candidateId]: "recommend" }));
+                }
+                setOverPick(null);
+              }}
+              className="rounded-none text-[12px] tracking-[0.2em]"
+            >
+              继续投票（保留选择，稍后调整）
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 提交时人数与规则不符：说明规则数与剩余名额，决定是否继续投票 */}
+      <AlertDialog open={ruleOpen} onOpenChange={setRuleOpen}>
+        <AlertDialogContent className="rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-[14px] tracking-[0.16em]">
+              {labels.recommend}人数与规则不符
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-[12px] leading-loose tracking-[0.1em]">
+              {rule
+                ? `本轮规则：须${labels.recommend} ${maxRecommend} 人，当前已${labels.recommend} ${recommendCount} 人，剩余名额 ${Math.max(maxRecommend - recommendCount, 0)} 人${
+                    overLimit
+                      ? `，已超出 ${recommendCount - maxRecommend} 人`
+                      : underLimit
+                        ? `，还差 ${maxRecommend - recommendCount} 人`
+                        : ""
+                  }。`
+                : `尚有 ${missing} 人未表态，须对每位评审对象表态后方可提交。`}
+              {blockReason ? (
+                <>
+                  <br />
+                  {blockReason}
+                </>
+              ) : null}
+              <br />
+              是否继续投票（返回调整选择）？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setRuleOpen(false);
+              }}
+              className="rounded-none text-[12px] tracking-[0.2em]"
+            >
+              继续投票
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent className="rounded-none">
