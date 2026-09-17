@@ -25,7 +25,7 @@ const LEGACY_FONT_SCALE: Record<string, number> = {
 
 export function fontScalePercent(value?: string | null) {
   const parsed = Number(value);
-  if (Number.isFinite(parsed)) return Math.min(150, Math.max(75, parsed));
+  if (Number.isFinite(parsed)) return Math.min(300, Math.max(75, parsed));
   return LEGACY_FONT_SCALE[value ?? "standard"] ?? 100;
 }
 
