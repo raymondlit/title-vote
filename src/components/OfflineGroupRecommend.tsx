@@ -64,6 +64,7 @@ export function OfflineGroupRecommend({
   const queryClient = useQueryClient();
   const [design, setDesign] = useState<Design>(DEFAULT_DESIGN);
   const [newCol, setNewCol] = useState("");
+  const [newEditable, setNewEditable] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [groupId, setGroupId] = useState("");
   const [rows, setRows] = useState<SheetRow[]>([]);
