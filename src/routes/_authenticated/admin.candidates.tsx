@@ -627,6 +627,13 @@ function CandidatesPage() {
             </div>
           ) : null}
         </Panel>
+
+        <OfflineGroupRecommend
+          schoolId={session.data?.schoolId ?? null}
+          categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name }))}
+          groups={(groups.data ?? []).map((g) => ({ id: g.id, name: g.name }))}
+          candidates={(candidates.data ?? []) as never}
+        />
       </div>
     </Shell>
   );
