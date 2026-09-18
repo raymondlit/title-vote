@@ -372,10 +372,76 @@ tr{page-break-inside:avoid;}
               </button>
             </span>
           ))}
-          <span className="text-[11px] tracking-[0.16em] text-muted-foreground">
-            固定含线下填写栏：是否推荐 / 同意票数 / 总票数
-          </span>
         </div>
+
+        {/* 线下填写（可编辑）列 */}
+        <div className="mt-6">
+          <div className="mb-3 text-[11px] tracking-[0.16em] text-muted-foreground">
+            线下填写列（表格中留空，供线下评审时手写或录入）
+          </div>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-[12px] tracking-[0.1em]">
+            {GROUP_SHEET_RESULT_COLUMNS.map((col) => (
+              <label key={col} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  disabled={col === LOCKED_EDITABLE}
+                  checked={editableCols.includes(col)}
+                  onChange={(e) =>
+                    persist({
+                      ...design,
+                      editable: e.target.checked
+                        ? [...editableCols, col]
+                        : editableCols.filter((x) => x !== col),
+                    })
+                  }
+                />
+                {col}
+                {col === LOCKED_EDITABLE ? (
+                  <span className="text-muted-foreground">（必填）</span>
+                ) : null}
+              </label>
+            ))}
+            {editableCols
+              .filter((c) => !GROUP_SHEET_RESULT_COLUMNS.includes(c))
+              .map((c) => (
+                <span key={c} className="flex items-center gap-2">
+                  {c}
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-destructive"
+                    onClick={() =>
+                      persist({ ...design, editable: editableCols.filter((x) => x !== c) })
+                    }
+                  >
+                    删除
+                  </button>
+                </span>
+              ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <input
+              value={newEditable}
+              onChange={(e) => setNewEditable(e.target.value)}
+              placeholder="新增填写列，如 组内排名 / 备注意见"
+              className="w-56 border-0 border-b bg-transparent py-1 text-[12px] tracking-[0.1em] focus:outline-none"
+            />
+            <button
+              className="text-[11px] tracking-[0.2em] underline"
+              onClick={() => {
+                const name = newEditable.trim();
+                if (!name) return;
+                if (headerLabels.includes(name)) {
+                  toast.error("该栏目已存在");
+                  return;
+                }
+                persist({ ...design, editable: [...editableCols, name] });
+                setNewEditable("");
+              }}
+            >
+              增加填写列
+            </button>
+          </div>
+        </div>
+
 
         <div className="mt-5 flex flex-wrap items-center gap-4">
           <input
