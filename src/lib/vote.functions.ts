@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { pickVotingRule } from "@/lib/voteRules";
+import { COMMITTEE_SCOPE, fetchRecommendedCandidateIds } from "@/lib/committee";
 
 const choiceEnum = z.enum(["recommend", "not_recommend", "abstain"]);
 
@@ -22,7 +23,7 @@ export const submitBallot = createServerFn({ method: "POST" })
 
     const { data: judge } = await supabase
       .from("judges")
-      .select("id, school_id, group_id")
+      .select("id, school_id, group_id, is_committee_member")
       .eq("profile_id", context.userId)
       .maybeSingle();
     if (!judge) throw new Error("当前账号不是评委");
@@ -41,7 +42,11 @@ export const submitBallot = createServerFn({ method: "POST" })
       .maybeSingle();
     const labelRecommend = school?.vote_label_recommend?.trim() || "推荐";
     if (session.status !== "open") throw new Error("该场投票尚未开始或已结束");
-    if (
+    if (session.voter_scope === COMMITTEE_SCOPE) {
+      if (!(judge as { is_committee_member?: boolean }).is_committee_member) {
+        throw new Error("您不是大评审委员会成员，无法参加本场投票");
+      }
+    } else if (
       session.group_id &&
       session.voter_scope !== "all" &&
       session.group_id !== judge.group_id
@@ -62,7 +67,15 @@ export const submitBallot = createServerFn({ method: "POST" })
     if (session.category_id) candQuery = candQuery.eq("category_id", session.category_id);
     if (session.group_id) candQuery = candQuery.eq("group_id", session.group_id);
     const { data: candidates } = await candQuery;
-    const validIds = new Set((candidates ?? []).map((c) => c.id));
+    let validIds = new Set((candidates ?? []).map((c) => c.id));
+    if (session.voter_scope === COMMITTEE_SCOPE) {
+      const recommended = await fetchRecommendedCandidateIds(
+        supabase,
+        session.school_id,
+        session.category_id,
+      );
+      validIds = new Set([...validIds].filter((id) => recommended.has(id)));
+    }
 
     for (const item of data.choices) {
       if (!validIds.has(item.candidateId)) throw new Error("提交的评审对象不在本场投票范围内");

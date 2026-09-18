@@ -23,7 +23,7 @@ function VoteList() {
     queryFn: async () => {
       const { data: judge } = await supabase
         .from("judges")
-        .select("id, full_name, committee_role, group_id, school_id")
+        .select("id, full_name, committee_role, group_id, school_id, is_committee_member")
         .eq("profile_id", session!.userId)
         .maybeSingle();
 
@@ -44,8 +44,10 @@ function VoteList() {
         : { data: [] as { session_id: string }[] };
 
       const submitted = new Set((ballots ?? []).map((b) => b.session_id));
-      const list = (sessions ?? []).filter(
-        (s) => !s.group_id || s.voter_scope === "all" || s.group_id === judge?.group_id,
+      const list = (sessions ?? []).filter((s) =>
+        s.voter_scope === "committee"
+          ? !!(judge as { is_committee_member?: boolean } | null)?.is_committee_member
+          : !s.group_id || s.voter_scope === "all" || s.group_id === judge?.group_id,
       );
 
       return { judge, list, submitted };

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { submitBallot } from "@/lib/vote.functions";
+import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { pickVotingRule } from "@/lib/voteRules";
 import { voteLabels } from "@/lib/voteLabels";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ function VotePage() {
     queryFn: async () => {
       const { data: judge } = await supabase
         .from("judges")
-        .select("id, full_name, unit, title, school_id, group_id")
+        .select("id, full_name, unit, title, school_id, group_id, is_committee_member")
         .eq("profile_id", session!.userId)
         .maybeSingle();
 
@@ -68,8 +69,10 @@ function VotePage() {
         )
         .eq("id", sessionId)
         .maybeSingle();
-      const outOfScope =
-        !!vs?.group_id && vs.voter_scope !== "all" && vs.group_id !== judge?.group_id;
+      const isCommittee = vs?.voter_scope === "committee";
+      const outOfScope = isCommittee
+        ? !(judge as { is_committee_member?: boolean } | null)?.is_committee_member
+        : !!vs?.group_id && vs.voter_scope !== "all" && vs.group_id !== judge?.group_id;
       if (!vs || !judge || vs.school_id !== judge.school_id || outOfScope)
         return { judge, vs: null, candidates: [], rule: null, ballot: null, items: [] };
 
@@ -82,7 +85,16 @@ function VotePage() {
         .order("full_name");
       if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
       if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
-      const { data: candidates } = await cq;
+      const { data: candidatesRaw } = await cq;
+      let candidates = candidatesRaw ?? [];
+      if (isCommittee) {
+        const recommended = await fetchRecommendedCandidateIds(
+          supabase,
+          vs.school_id,
+          vs.category_id,
+        );
+        candidates = candidates.filter((c) => recommended.has(c.id));
+      }
 
       const { data: rules } = await supabase
         .from("voting_rules")
@@ -106,7 +118,7 @@ function VotePage() {
             .eq("ballot_id", ballot.id)
         : { data: [] as { candidate_id: string; choice: Choice }[] };
 
-      return { judge, vs, candidates: candidates ?? [], rule, ballot, items: items ?? [] };
+      return { judge, vs, candidates, rule, ballot, items: items ?? [] };
     },
   });
 
