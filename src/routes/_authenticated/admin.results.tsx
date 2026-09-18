@@ -106,16 +106,17 @@ function ResultsPage() {
           .eq("session_id", current!.id),
         supabase
           .from("judges")
-          .select("id, full_name, unit, group_id")
+          .select("id, full_name, unit, group_id, is_committee_member")
           .eq("school_id", current!.school_id)
           .order("full_name"),
       ]);
 
-      const eligibleJudges = (judges ?? []).filter(
-        (j) =>
-          !current!.group_id ||
-          current!.voter_scope === "all" ||
-          j.group_id === current!.group_id,
+      const eligibleJudges = (judges ?? []).filter((j) =>
+        current!.voter_scope === "committee"
+          ? !!(j as { is_committee_member?: boolean }).is_committee_member
+          : !current!.group_id ||
+            current!.voter_scope === "all" ||
+            j.group_id === current!.group_id,
       );
 
       const ballotIds = (ballots ?? []).map((b) => b.id);
