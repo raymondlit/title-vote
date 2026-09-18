@@ -171,21 +171,37 @@ export function OfflineGroupRecommend({
       toast.error("浏览器拦截了打印窗口，请允许弹出窗口");
       return;
     }
+    const fixedCount = 1 + activeFields.length;
+    const cls = (i: number) => (i === 0 ? "idx" : i >= fixedCount ? "fill" : "");
     win.document.write(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" />
 <title>${escapeHtml(sheetTitle())}</title>
 <style>
-body{font-family:"Noto Sans SC","Microsoft YaHei",sans-serif;color:#2b2b2b;padding:36px;}
-h1{font-size:18px;font-weight:400;letter-spacing:.2em;text-align:center;margin:0 0 12px;}
-p.sub{font-size:12px;line-height:1.9;color:#666;margin:0 0 22px;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
-th,td{border:1px solid #d8d6d1;padding:8px 10px;text-align:left;font-weight:400;}
-.foot{margin-top:36px;font-size:12px;line-height:2.4;}
+@page{size:A4 landscape;margin:14mm;}
+body{font-family:"Noto Sans SC","Microsoft YaHei",sans-serif;color:#2b2b2b;padding:8px;}
+h1{font-size:18px;font-weight:400;letter-spacing:.2em;text-align:center;margin:0 0 10px;}
+p.sub{font-size:12px;line-height:1.9;color:#666;margin:0 0 18px;text-align:center;}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+thead{display:table-header-group;}
+th,td{border:1px solid #9c9a95;padding:6px 8px;text-align:center;font-weight:400;
+  word-break:break-all;}
+th{background:#f3f2ef;letter-spacing:.08em;}
+td{height:34px;}
+td.idx,th.idx{width:38px;color:#777;}
+td.fill,th.fill{min-width:64px;}
+td.fill{background:#fff;}
+tr{page-break-inside:avoid;}
+.foot{margin-top:28px;font-size:12px;line-height:2.6;}
 </style></head><body>
 <h1>${escapeHtml(sheetTitle())}</h1>
 <p class="sub">${escapeHtml(design.subtitle)}</p>
-<table><thead><tr>${head.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+<table><thead><tr>${head
+      .map((h, i) => `<th class="${cls(i)}">${escapeHtml(h)}</th>`)
+      .join("")}</tr></thead>
 <tbody>${body
-      .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`)
+      .map(
+        (r) =>
+          `<tr>${r.map((c, i) => `<td class="${cls(i)}">${escapeHtml(c)}</td>`).join("")}</tr>`,
+      )
       .join("")}</tbody></table>
 <div class="foot">${escapeHtml(design.footer)}</div>
 </body></html>`);
