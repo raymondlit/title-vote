@@ -341,6 +341,7 @@ function VotePage() {
               <th className="px-8 py-4 font-normal">姓名</th>
               <th className="py-4 font-normal">单位</th>
               <th className="py-4 font-normal">现职称</th>
+              {hasGroupVotes ? <th className="py-4 font-normal">学科组推荐票</th> : null}
               <th className="px-8 py-4 text-right font-normal">表决</th>
             </tr>
           </thead>
