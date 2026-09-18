@@ -28,14 +28,18 @@ type Candidate = {
 type Design = {
   keys: string[];
   extra: string[];
+  editable: string[];
   title: string;
   subtitle: string;
   footer: string;
 };
 
+const LOCKED_EDITABLE = GROUP_SHEET_RESULT_COLUMNS[0]!; // 是否推荐（解析必需）
+
 const DEFAULT_DESIGN: Design = {
   keys: GROUP_SHEET_DEFAULT_KEYS,
   extra: [],
+  editable: [...GROUP_SHEET_RESULT_COLUMNS],
   title: "学科组推荐表",
   subtitle: "本表由学科组线下评议后填写，「是否推荐」请填写「是」或「否」。",
   footer: "组长签字：____________　　组员签字：________________________________　　日期：____年____月____日",
