@@ -269,7 +269,20 @@ tr{page-break-inside:avoid;}
     }
     setRows([]);
     toast.success(`已录入 ${usable.length} 条线下推荐结果，本组旧结果已覆盖`);
-    queryClient.invalidateQueries({ queryKey: ["offline-group-results"] });
+    // 结果入库后刷新相关名单：线下结果、评委/大评审名单、场次与评委端投票名单
+    for (const key of [
+      ["offline-group-results"],
+      ["judges"],
+      ["admin-judges"],
+      ["candidates"],
+      ["sessions"],
+      ["judge-sessions"],
+      ["vote-session"],
+      ["results"],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+    await queryClient.refetchQueries({ queryKey: ["offline-group-results"] });
   }
 
   async function clearGroup(gid: string | null) {
