@@ -53,6 +53,8 @@ function JudgesPage() {
     { full_name: string; username: string; password: string | null }[]
   >([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [committeeSearch, setCommitteeSearch] = useState("");
+  const [committeeGroup, setCommitteeGroup] = useState("");
   const [form, setForm] = useState({
     full_name: "",
     staff_no: "",
