@@ -135,8 +135,7 @@ export function OfflineGroupRecommend({
       ...scoped.map((c, i) => [
         String(i + 1),
         ...activeFields.map((f) => cellOf(c, f.key)),
-        ...GROUP_SHEET_RESULT_COLUMNS.map(() => ""),
-        ...design.extra.map(() => ""),
+        ...blankCols.map(() => ""),
       ]),
     ];
   }
