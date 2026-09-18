@@ -140,7 +140,7 @@ function ResultsPage() {
             .in("ballot_id", ballotIds)
         : { data: [] as { ballot_id: string; candidate_id: string; choice: string }[] };
 
-      const rows: ResultSheetRow[] = (candidates ?? []).map((c) => ({
+      const rows: ResultSheetRow[] = scopedCandidates.map((c) => ({
         id: c.id,
         name: c.full_name,
         unit: c.unit,
@@ -168,7 +168,7 @@ function ResultsPage() {
         m.set(it.candidate_id, it.choice);
       }
       const judgeById = new Map(eligibleJudges.map((j) => [j.id, j]));
-      const candidateOrder = (candidates ?? []).map((c) => ({
+      const candidateOrder = scopedCandidates.map((c) => ({
         id: c.id,
         name: c.full_name,
         unit: c.unit,
