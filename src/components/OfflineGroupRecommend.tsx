@@ -112,12 +112,12 @@ export function OfflineGroupRecommend({
     },
   });
 
-  const headerLabels = [
-    "序号",
-    ...activeFields.map((f) => f.label),
-    ...GROUP_SHEET_RESULT_COLUMNS,
-    ...design.extra,
-  ];
+  const editableCols = design.editable.includes(LOCKED_EDITABLE)
+    ? design.editable
+    : [LOCKED_EDITABLE, ...design.editable];
+  const blankCols = [...editableCols, ...design.extra];
+
+  const headerLabels = ["序号", ...activeFields.map((f) => f.label), ...blankCols];
 
   function cellOf(c: Candidate, key: string) {
     if (key === "full_name") return c.full_name;
