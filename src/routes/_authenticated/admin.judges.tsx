@@ -176,9 +176,49 @@ function JudgesPage() {
   const allVisibleSelected =
     visibleJudgeIds.length > 0 && visibleJudgeIds.every((id) => selected.has(id));
 
+  const committeeMembers = judgeList.filter((j) => (j as any).is_committee_member);
+  const committeeFiltered = committeeMembers.filter(
+    (j) =>
+      (!committeeGroup || j.group_id === committeeGroup) &&
+      (!committeeSearch.trim() || j.full_name.includes(committeeSearch.trim())),
+  );
+  const committeeTotalPages = Math.max(1, Math.ceil(committeeFiltered.length / committeePageSize));
+  const committeeCurrentPage = Math.min(committeePage, committeeTotalPages);
+  const committeeStart = (committeeCurrentPage - 1) * committeePageSize;
+  const visibleCommittee = committeeFiltered.slice(
+    committeeStart,
+    committeeStart + committeePageSize,
+  );
+  const roleCount = (role: string) =>
+    committeeMembers.filter((m) => m.committee_role === role).length;
+
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  useEffect(() => {
+    if (committeePage > committeeTotalPages) setCommitteePage(committeeTotalPages);
+  }, [committeePage, committeeTotalPages]);
+
+  function changeCommitteePageSize(value: number) {
+    setCommitteePageSize(value);
+    setCommitteePage(1);
+    localStorage.setItem("committee_list_page_size", String(value));
+  }
+
+  function confirmCommittee() {
+    if (committeeMembers.length === 0) {
+      toast.error("请先在评委名单中勾选「加入委员会」的评委");
+      return;
+    }
+    if (roleCount("chair") === 0) {
+      toast.error("请至少指定一位主任委员");
+      return;
+    }
+    toast.success(
+      `大评审委员会已确认组建（${committeeMembers.length} 人），可在「投票场次」创建大评审场次`,
+    );
+  }
 
   function changePageSize(value: number) {
     setPageSize(value);
