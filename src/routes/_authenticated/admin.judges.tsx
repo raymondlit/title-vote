@@ -848,6 +848,14 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
                   />
                   组长
                 </label>
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={!!(j as any).is_committee_member}
+                    onChange={(e) => update(j.id, { is_committee_member: e.target.checked })}
+                  />
+                  加入委员会
+                </label>
                 <button
                   className="ml-auto text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
                   onClick={async () => {
@@ -930,6 +938,153 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
               </table>
             </div>
           ) : null}
+        </Panel>
+
+        <Panel>
+          <h2 className="mb-2 text-[12px] tracking-[0.2em] text-muted-foreground">
+            大评审委员会（{committeeMembers.length}）
+          </h2>
+          <p className="mb-6 text-[11px] leading-loose tracking-[0.12em] text-muted-foreground">
+            在上方评委名单中勾选「加入委员会」后，该评委会出现在下方名册，可在此指定职务或移出。学科组线下推荐完成后，由大评审委员会对推荐通过人员进行线上投票。
+          </p>
+          <div className="mb-5 flex flex-wrap items-center gap-6 text-[11px] tracking-[0.16em] text-muted-foreground">
+            <input
+              value={committeeSearch}
+              onChange={(e) => {
+                setCommitteeSearch(e.target.value);
+                setCommitteePage(1);
+              }}
+              placeholder="搜索姓名"
+              className="w-40 border-0 border-b bg-transparent py-1 text-[12px] text-foreground focus:outline-none"
+            />
+            <select
+              aria-label="按学科小组筛选委员会成员"
+              value={committeeGroup}
+              onChange={(e) => {
+                setCommitteeGroup(e.target.value);
+                setCommitteePage(1);
+              }}
+              className="border-0 border-b bg-transparent py-1 text-[11px] text-foreground focus:outline-none"
+            >
+              <option value="">全部学科小组</option>
+              {(groups.data ?? []).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+            <span>
+              主任 {roleCount("chair")} · 副主任 {roleCount("vice_chair")} · 委员{" "}
+              {roleCount("member")}
+            </span>
+            <label className="ml-auto flex items-center gap-2">
+              每页
+              <select
+                aria-label="每页显示委员会成员数量"
+                value={committeePageSize}
+                onChange={(event) => changeCommitteePageSize(Number(event.target.value))}
+                className="border-0 border-b bg-transparent px-1 py-1 text-[11px] text-foreground focus:outline-none"
+              >
+                {JUDGE_PAGE_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+              人
+            </label>
+          </div>
+          {committeeFiltered.length === 0 ? (
+            <p className="text-[11px] tracking-[0.12em] text-muted-foreground">
+              尚无委员会成员，请先在上方评委名单中勾选「加入委员会」。
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {visibleCommittee.map((j) => (
+                <div
+                  key={j.id}
+                  className="hairline-t flex flex-wrap items-center gap-6 pt-3 text-[12px] tracking-[0.1em]"
+                >
+                  <span className="w-20">{j.full_name}</span>
+                  <span className="w-40 text-muted-foreground">{j.unit ?? "—"}</span>
+                  <span className="w-32 text-muted-foreground">
+                    {(groups.data ?? []).find((g) => g.id === j.group_id)?.name ?? "未分组"}
+                  </span>
+                  <select
+                    aria-label="委员会职务"
+                    value={j.committee_role}
+                    onChange={(e) =>
+                      update(j.id, {
+                        committee_role: e.target.value as "chair" | "vice_chair" | "member",
+                      })
+                    }
+                    className="border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                  >
+                    {Object.entries(COMMITTEE_ROLE_LABELS).map(([v, label]) => (
+                      <option key={v} value={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="ml-auto text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
+                    onClick={async () => {
+                      if (!window.confirm(`确定将「${j.full_name}」移出大评审委员会？`)) return;
+                      await update(j.id, { is_committee_member: false });
+                      toast.success("已移出委员会");
+                    }}
+                  >
+                    移出
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {committeeFiltered.length > 0 ? (
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t pt-5 text-[11px] tracking-[0.12em] text-muted-foreground">
+              <span>
+                显示第 {committeeStart + 1}–
+                {Math.min(committeeStart + committeePageSize, committeeFiltered.length)} 人，共{" "}
+                {committeeFiltered.length} 人
+              </span>
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none px-4 text-[11px]"
+                  disabled={committeeCurrentPage <= 1}
+                  onClick={() => setCommitteePage((value) => Math.max(1, value - 1))}
+                >
+                  上一页
+                </Button>
+                <span className="tabular-nums">
+                  第 {committeeCurrentPage} / {committeeTotalPages} 页
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-none px-4 text-[11px]"
+                  disabled={committeeCurrentPage >= committeeTotalPages}
+                  onClick={() =>
+                    setCommitteePage((value) => Math.min(committeeTotalPages, value + 1))
+                  }
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-8 flex flex-wrap items-center gap-6">
+            <Button
+              onClick={confirmCommittee}
+              className="h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+            >
+              确认组建大评审委员会
+            </Button>
+            <span className="text-[11px] tracking-[0.12em] text-muted-foreground">
+              确认后即可在「投票场次」创建大评审场次，仅委员会成员可投票。
+            </span>
+          </div>
         </Panel>
       </div>
     </Shell>
