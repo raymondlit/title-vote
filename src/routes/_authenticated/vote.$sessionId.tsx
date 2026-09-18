@@ -86,14 +86,43 @@ function VotePage() {
       if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
       if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
       const { data: candidatesRaw } = await cq;
-      let candidates = candidatesRaw ?? [];
+      let base = candidatesRaw ?? [];
       if (isCommittee) {
         const recommended = await fetchRecommendedCandidateIds(
           supabase,
           vs.school_id,
           vs.category_id,
         );
-        candidates = candidates.filter((c) => recommended.has(c.id));
+        base = base.filter((c) => recommended.has(c.id));
+      }
+
+      // 学科组线下推荐票数：有票数时按票数从高到低排序
+      const { data: offline } = await supabase
+        .from("offline_group_results")
+        .select("candidate_id, agree_votes, total_votes")
+        .eq("school_id", vs.school_id)
+        .in(
+          "candidate_id",
+          base.map((c) => c.id),
+        );
+      const voteMap = new Map(
+        (offline ?? []).map((o) => [
+          o.candidate_id,
+          { agree: o.agree_votes ?? 0, total: o.total_votes ?? 0 },
+        ]),
+      );
+      let candidates = base.map((c) => ({
+        ...c,
+        agree_votes: voteMap.get(c.id)?.agree ?? null,
+        total_votes: voteMap.get(c.id)?.total ?? null,
+      }));
+      const hasVotes = candidates.some((c) => (c.agree_votes ?? 0) > 0);
+      if (hasVotes) {
+        candidates = [...candidates].sort(
+          (a, b) =>
+            (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
+            a.full_name.localeCompare(b.full_name, "zh-CN"),
+        );
       }
 
       const { data: rules } = await supabase
