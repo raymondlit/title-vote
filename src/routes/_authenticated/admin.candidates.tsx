@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { useSession } from "@/lib/session";
+import { OfflineGroupRecommend } from "@/components/OfflineGroupRecommend";
 import { Button } from "@/components/ui/button";
 import {
   parseSheet,
@@ -627,6 +628,13 @@ function CandidatesPage() {
             </div>
           ) : null}
         </Panel>
+
+        <OfflineGroupRecommend
+          schoolId={session?.schoolId ?? null}
+          categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name }))}
+          groups={(groups.data ?? []).map((g) => ({ id: g.id, name: g.name }))}
+          candidates={(candidates.data ?? []) as never}
+        />
       </div>
     </Shell>
   );

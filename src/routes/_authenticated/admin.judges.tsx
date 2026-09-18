@@ -53,6 +53,8 @@ function JudgesPage() {
     { full_name: string; username: string; password: string | null }[]
   >([]);
   const [showAdd, setShowAdd] = useState(false);
+  const [committeeSearch, setCommitteeSearch] = useState("");
+  const [committeeGroup, setCommitteeGroup] = useState("");
   const [form, setForm] = useState({
     full_name: "",
     staff_no: "",
@@ -233,6 +235,7 @@ function JudgesPage() {
       committee_role?: "chair" | "vice_chair" | "member";
       group_id?: string | null;
       is_group_leader?: boolean;
+      is_committee_member?: boolean;
     },
   ) {
     const { error } = await supabase.from("judges").update(patch).eq("id", id);
@@ -664,6 +667,101 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
               </div>
             </div>
           ) : null}
+        </Panel>
+
+        <Panel>
+          <h2 className="mb-2 text-[12px] tracking-[0.2em] text-muted-foreground">大评审委员会</h2>
+          <p className="mb-6 text-[11px] leading-loose tracking-[0.12em] text-muted-foreground">
+            学科组线下推荐完成后，由大评审委员会对推荐通过人员进行线上投票。在此勾选委员并指定职务。
+          </p>
+          {(() => {
+            const members = judgeList.filter((j) => (j as any).is_committee_member);
+            const filtered = judgeList.filter(
+              (j) =>
+                (!committeeGroup || j.group_id === committeeGroup) &&
+                (!committeeSearch.trim() || j.full_name.includes(committeeSearch.trim())),
+            );
+            const roleCount = (role: string) =>
+              members.filter((m) => m.committee_role === role).length;
+            return (
+              <>
+                <div className="mb-5 flex flex-wrap items-center gap-6 text-[11px] tracking-[0.16em] text-muted-foreground">
+                  <input
+                    value={committeeSearch}
+                    onChange={(e) => setCommitteeSearch(e.target.value)}
+                    placeholder="搜索姓名"
+                    className="w-40 border-0 border-b bg-transparent py-1 text-[12px] text-foreground focus:outline-none"
+                  />
+                  <select
+                    aria-label="按学科小组筛选"
+                    value={committeeGroup}
+                    onChange={(e) => setCommitteeGroup(e.target.value)}
+                    className="border-0 border-b bg-transparent py-1 text-[11px] text-foreground focus:outline-none"
+                  >
+                    <option value="">全部学科小组</option>
+                    {(groups.data ?? []).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="underline"
+                    onClick={async () => {
+                      const leaders = filtered.filter((j) => j.is_group_leader);
+                      for (const j of leaders) await update(j.id, { is_committee_member: true });
+                      toast.success(`已将 ${leaders.length} 位学科组长加入委员会`);
+                    }}
+                  >
+                    按组长自动加入
+                  </button>
+                  <span>
+                    已选 {members.length} 人 · 主任 {roleCount("chair")} · 副主任{" "}
+                    {roleCount("vice_chair")} · 委员 {roleCount("member")}
+                  </span>
+                </div>
+                <div className="max-h-96 space-y-3 overflow-auto">
+                  {filtered.map((j) => (
+                    <div
+                      key={j.id}
+                      className="hairline-t flex flex-wrap items-center gap-6 pt-3 text-[12px] tracking-[0.1em]"
+                    >
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!!(j as any).is_committee_member}
+                          onChange={(e) =>
+                            update(j.id, { is_committee_member: e.target.checked })
+                          }
+                        />
+                        {j.full_name}
+                      </label>
+                      <span className="w-40 text-muted-foreground">{j.unit ?? "—"}</span>
+                      <span className="w-32 text-muted-foreground">
+                        {(groups.data ?? []).find((g) => g.id === j.group_id)?.name ?? "未分组"}
+                      </span>
+                      <select
+                        aria-label="委员会职务"
+                        value={j.committee_role}
+                        onChange={(e) =>
+                          update(j.id, {
+                            committee_role: e.target.value as "chair" | "vice_chair" | "member",
+                          })
+                        }
+                        className="border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
+                      >
+                        {Object.entries(COMMITTEE_ROLE_LABELS).map(([v, label]) => (
+                          <option key={v} value={v}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
         </Panel>
 
         <Panel>

@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -106,16 +107,29 @@ function ResultsPage() {
           .eq("session_id", current!.id),
         supabase
           .from("judges")
-          .select("id, full_name, unit, group_id")
+          .select("id, full_name, unit, group_id, is_committee_member")
           .eq("school_id", current!.school_id)
           .order("full_name"),
       ]);
 
-      const eligibleJudges = (judges ?? []).filter(
-        (j) =>
-          !current!.group_id ||
-          current!.voter_scope === "all" ||
-          j.group_id === current!.group_id,
+      const scopedCandidates =
+        current!.voter_scope === "committee"
+          ? await (async () => {
+              const recommended = await fetchRecommendedCandidateIds(
+                supabase,
+                current!.school_id,
+                current!.category_id,
+              );
+              return (candidates ?? []).filter((c) => recommended.has(c.id));
+            })()
+          : candidates ?? [];
+
+      const eligibleJudges = (judges ?? []).filter((j) =>
+        current!.voter_scope === "committee"
+          ? !!(j as { is_committee_member?: boolean }).is_committee_member
+          : !current!.group_id ||
+            current!.voter_scope === "all" ||
+            j.group_id === current!.group_id,
       );
 
       const ballotIds = (ballots ?? []).map((b) => b.id);
@@ -126,7 +140,7 @@ function ResultsPage() {
             .in("ballot_id", ballotIds)
         : { data: [] as { ballot_id: string; candidate_id: string; choice: string }[] };
 
-      const rows: ResultSheetRow[] = (candidates ?? []).map((c) => ({
+      const rows: ResultSheetRow[] = scopedCandidates.map((c) => ({
         id: c.id,
         name: c.full_name,
         unit: c.unit,
@@ -154,7 +168,7 @@ function ResultsPage() {
         m.set(it.candidate_id, it.choice);
       }
       const judgeById = new Map(eligibleJudges.map((j) => [j.id, j]));
-      const candidateOrder = (candidates ?? []).map((c) => ({
+      const candidateOrder = scopedCandidates.map((c) => ({
         id: c.id,
         name: c.full_name,
         unit: c.unit,

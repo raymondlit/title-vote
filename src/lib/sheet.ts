@@ -23,7 +23,28 @@ const HEADER_MAP: Record<string, string> = {
   学科组: "group",
   学科小组: "group",
   备注: "notes",
+  是否推荐: "is_recommended",
+  推荐结论: "is_recommended",
+  同意票数: "agree_votes",
+  赞成票数: "agree_votes",
+  总票数: "total_votes",
+  应到票数: "total_votes",
 };
+
+/** 学科组线下推荐表：可勾选的信息栏目 */
+export const GROUP_SHEET_FIELDS: TemplateField[] = [
+  { key: "full_name", label: "姓名", required: true, sample: ["", ""] },
+  { key: "unit", label: "单位", sample: ["", ""] },
+  { key: "current_title", label: "现职称", sample: ["", ""] },
+  { key: "category", label: "评审类别", sample: ["", ""] },
+  { key: "group", label: "学科小组", sample: ["", ""] },
+  { key: "notes", label: "备注", sample: ["", ""] },
+];
+
+export const GROUP_SHEET_DEFAULT_KEYS = ["full_name", "unit", "current_title"];
+
+/** 线下填写栏（固定追加，用于回传录入） */
+export const GROUP_SHEET_RESULT_COLUMNS = ["是否推荐", "同意票数", "总票数"];
 
 export async function parseSheet(file: File): Promise<SheetRow[]> {
   const isCsv = /\.csv$/i.test(file.name);

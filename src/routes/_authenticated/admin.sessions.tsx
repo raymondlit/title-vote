@@ -41,8 +41,13 @@ function SessionsPage() {
     queryKey: ["admin-sessions", schoolId],
     enabled: !!schoolId,
     queryFn: async () => {
-      const [{ data: sessions }, { data: categories }, { data: groups }, { data: candidates }] =
-        await Promise.all([
+      const [
+        { data: sessions },
+        { data: categories },
+        { data: groups },
+        { data: candidates },
+        { data: offline },
+      ] = await Promise.all([
           supabase
             .from("vote_sessions")
             .select("*")
@@ -54,12 +59,18 @@ function SessionsPage() {
             .from("candidates")
             .select("id, category_id, group_id")
             .eq("school_id", schoolId!),
+          supabase
+            .from("offline_group_results")
+            .select("candidate_id, category_id, is_recommended")
+            .eq("school_id", schoolId!)
+            .eq("is_recommended", true),
         ]);
       return {
         sessions: sessions ?? [],
         categories: categories ?? [],
         groups: groups ?? [],
         candidates: candidates ?? [],
+        offline: offline ?? [],
       };
     },
   });
@@ -69,6 +80,34 @@ function SessionsPage() {
       (c) =>
         (!categoryId || c.category_id === categoryId) && (!groupId || c.group_id === groupId),
     ).length;
+
+  const recommendedCount = (cat: string | null) =>
+    (data?.offline ?? []).filter((r) => !cat || r.category_id === cat).length;
+
+  /** 创建大评审场次：参评人员为线下推荐通过者，参与评委为大评审委员会成员 */
+  async function createCommitteeSession() {
+    if (!schoolId) return;
+    const cat = categoryId === "all" ? null : categoryId;
+    if (recommendedCount(cat) === 0) {
+      toast.error("该类别下暂无线下推荐通过的人员，请先在「评审对象」录入学科组推荐结果");
+      return;
+    }
+    const base = title.trim() || (cat ? nameOf(data?.categories, cat) : "") || "评审";
+    const { error } = await supabase.from("vote_sessions").insert({
+      school_id: schoolId,
+      title: `${base} · 大评审`,
+      category_id: cat,
+      group_id: null,
+      voter_scope: "committee",
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setTitle("");
+    toast.success("已创建大评审场次，开启后大评审委员会成员即可投票");
+    queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
+  }
 
   async function loadByGroups() {
     if (!schoolId) return;
@@ -259,6 +298,17 @@ function SessionsPage() {
           <span className="text-[11px] tracking-[0.12em] text-muted-foreground">
             按学科小组把评审对象分别载入对应投票场次（当前所选类别共{" "}
             {countFor(categoryId === "all" ? null : categoryId, null)} 人）。
+          </span>
+          <Button
+            variant="outline"
+            onClick={createCommitteeSession}
+            className="h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+          >
+            创建大评审场次
+          </Button>
+          <span className="text-[11px] tracking-[0.12em] text-muted-foreground">
+            参评人员为线下推荐通过者（当前类别 {recommendedCount(categoryId === "all" ? null : categoryId)} 人），
+            由大评审委员会成员投票。
           </span>
         </div>
       </Panel>
