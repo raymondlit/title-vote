@@ -21,7 +21,11 @@ export async function fetchSession(): Promise<SessionInfo | null> {
   if (!user) return null;
 
   const [{ data: profile }, { data: roles }, { data: perms }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("full_name, username, school_id")
+      .eq("id", user.id)
+      .maybeSingle(),
     supabase.from("user_roles").select("role").eq("user_id", user.id),
     supabase.from("admin_permissions").select("permission").eq("user_id", user.id),
   ]);
