@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { useSession } from "@/lib/session";
+import { OfflineGroupRecommend } from "@/components/OfflineGroupRecommend";
 import { Button } from "@/components/ui/button";
 import {
   parseSheet,
