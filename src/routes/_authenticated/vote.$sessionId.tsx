@@ -169,6 +169,7 @@ function VotePage() {
   }
 
   const rule = data.rule;
+  const hasGroupVotes = data.candidates.some((c) => (c.agree_votes ?? 0) > 0);
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
   const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
