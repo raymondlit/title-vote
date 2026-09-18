@@ -233,6 +233,7 @@ function JudgesPage() {
       committee_role?: "chair" | "vice_chair" | "member";
       group_id?: string | null;
       is_group_leader?: boolean;
+      is_committee_member?: boolean;
     },
   ) {
     const { error } = await supabase.from("judges").update(patch).eq("id", id);
