@@ -1,0 +1,17 @@
+CREATE INDEX IF NOT EXISTS idx_judges_profile ON public.judges (profile_id);
+CREATE INDEX IF NOT EXISTS idx_judges_school_group ON public.judges (school_id, group_id);
+CREATE INDEX IF NOT EXISTS idx_ballots_judge ON public.ballots (judge_id);
+CREATE INDEX IF NOT EXISTS idx_candidates_school_cat_group ON public.candidates (school_id, category_id, group_id);
+CREATE INDEX IF NOT EXISTS idx_vote_sessions_school_status ON public.vote_sessions (school_id, status);
+CREATE INDEX IF NOT EXISTS idx_review_categories_school ON public.review_categories (school_id);
+CREATE INDEX IF NOT EXISTS idx_subject_groups_school ON public.subject_groups (school_id);
+CREATE INDEX IF NOT EXISTS idx_voting_rules_school ON public.voting_rules (school_id);
+CREATE INDEX IF NOT EXISTS idx_offline_results_school_cat ON public.offline_group_results (school_id, category_id);
+CREATE INDEX IF NOT EXISTS idx_offline_results_group ON public.offline_group_results (group_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_school ON public.profiles (school_id);
+CREATE INDEX IF NOT EXISTS idx_admin_permissions_user ON public.admin_permissions (user_id);
+ANALYZE public.judges;
+ANALYZE public.candidates;
+ANALYZE public.ballots;
+ANALYZE public.ballot_items;
+ANALYZE public.vote_sessions;

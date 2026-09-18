@@ -8,6 +8,13 @@
       "when": 1789705150414,
       "tag": "0000_offline_group_results_and_committee",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789712415135,
+      "tag": "0001_perf_indexes",
+      "breakpoints": true
     }
   ]
 }
