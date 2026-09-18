@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -110,6 +111,18 @@ function ResultsPage() {
           .eq("school_id", current!.school_id)
           .order("full_name"),
       ]);
+
+      const scopedCandidates =
+        current!.voter_scope === "committee"
+          ? await (async () => {
+              const recommended = await fetchRecommendedCandidateIds(
+                supabase,
+                current!.school_id,
+                current!.category_id,
+              );
+              return (candidates ?? []).filter((c) => recommended.has(c.id));
+            })()
+          : candidates ?? [];
 
       const eligibleJudges = (judges ?? []).filter((j) =>
         current!.voter_scope === "committee"
