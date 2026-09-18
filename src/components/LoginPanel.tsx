@@ -41,13 +41,22 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     } catch {
       // 无既有会话时忽略
     }
-    const { error } = await supabase.auth.signInWithPassword({
-      email: accountToEmail(account),
-      password,
-    });
+    // 多人同时登录时可能被登录频次限制挡下，自动错峰重试，避免评委反复手动点击
+    const email = accountToEmail(account);
+    let error: { status?: number; message?: string } | null = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const res = await supabase.auth.signInWithPassword({ email, password });
+      error = res.error;
+      if (!error) break;
+      const busy = error.status === 429 || /rate limit/i.test(error.message ?? "");
+      if (!busy) break;
+      if (attempt === 0) toast.info("同时登录人数较多，正在为你重试…");
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1) + Math.random() * 1200));
+    }
     if (error) {
       setLoading(false);
-      toast.error("账号或密码不正确");
+      const busy = error.status === 429 || /rate limit/i.test(error.message ?? "");
+      toast.error(busy ? "当前登录人数过多，请稍等十几秒后重试" : "账号或密码不正确");
       return;
     }
     const session = await fetchSession();
