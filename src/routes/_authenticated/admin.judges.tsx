@@ -85,6 +85,11 @@ function JudgesPage() {
     if (JUDGE_PAGE_SIZES.some((size) => size === stored)) setPageSize(stored);
   }, []);
 
+  useEffect(() => {
+    const stored = Number(localStorage.getItem("committee_list_page_size"));
+    if (JUDGE_PAGE_SIZES.some((size) => size === stored)) setCommitteePageSize(stored);
+  }, []);
+
   function persist(keys: string[], extra: string[]) {
     setEnabledKeys(keys);
     setExtraCols(extra);
