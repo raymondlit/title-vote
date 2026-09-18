@@ -43,7 +43,7 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     }
     // 多人同时登录时可能被登录频次限制挡下，自动错峰重试，避免评委反复手动点击
     const email = accountToEmail(account);
-    let error: { status?: number; message?: string } | null = null;
+    let error: { status?: number | undefined; message?: string | undefined } | null = null;
     for (let attempt = 0; attempt < 4; attempt++) {
       const res = await supabase.auth.signInWithPassword({ email, password });
       error = res.error;
