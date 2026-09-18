@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789705150414,
+      "tag": "0000_offline_group_results_and_committee",
+      "breakpoints": true
+    }
+  ]
+}

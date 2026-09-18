@@ -201,6 +201,7 @@ export type Database = {
           full_name: string
           group_id: string | null
           id: string
+          is_committee_member: boolean
           is_group_leader: boolean
           phone: string | null
           profile_id: string | null
@@ -216,6 +217,7 @@ export type Database = {
           full_name: string
           group_id?: string | null
           id?: string
+          is_committee_member?: boolean
           is_group_leader?: boolean
           phone?: string | null
           profile_id?: string | null
@@ -231,6 +233,7 @@ export type Database = {
           full_name?: string
           group_id?: string | null
           id?: string
+          is_committee_member?: boolean
           is_group_leader?: boolean
           phone?: string | null
           profile_id?: string | null
@@ -250,6 +253,74 @@ export type Database = {
           },
           {
             foreignKeyName: "judges_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offline_group_results: {
+        Row: {
+          agree_votes: number
+          candidate_id: string
+          category_id: string | null
+          created_at: string
+          group_id: string | null
+          id: string
+          is_recommended: boolean
+          recorded_by: string | null
+          school_id: string
+          total_votes: number
+        }
+        Insert: {
+          agree_votes?: number
+          candidate_id: string
+          category_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          is_recommended?: boolean
+          recorded_by?: string | null
+          school_id: string
+          total_votes?: number
+        }
+        Update: {
+          agree_votes?: number
+          candidate_id?: string
+          category_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          is_recommended?: boolean
+          recorded_by?: string | null
+          school_id?: string
+          total_votes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_group_results_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: true
+            referencedRelation: "candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_group_results_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "review_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_group_results_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "subject_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_group_results_school_id_fkey"
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
