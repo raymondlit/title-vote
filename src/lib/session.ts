@@ -15,8 +15,9 @@ export type SessionInfo = {
 };
 
 export async function fetchSession(): Promise<SessionInfo | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData.user;
+  // 读取本地会话（无网络往返）；令牌有效性仍由数据库 RLS 校验。
+  const { data: sessionData } = await supabase.auth.getSession();
+  const user = sessionData.session?.user ?? null;
   if (!user) return null;
 
   const [{ data: profile }, { data: roles }, { data: perms }] = await Promise.all([
@@ -41,13 +42,20 @@ export async function fetchSession(): Promise<SessionInfo | null> {
 }
 
 export function useSession() {
-  return useQuery({ queryKey: ["session"], queryFn: fetchSession, staleTime: 30_000 });
+  return useQuery({
+    queryKey: ["session"],
+    queryFn: fetchSession,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+  });
 }
 
 export function useSchool(schoolId: string | null | undefined) {
   return useQuery({
     queryKey: ["school", schoolId],
     enabled: !!schoolId,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     queryFn: async () => {
       const { data } = await supabase.from("schools").select("*").eq("id", schoolId!).maybeSingle();
       return data;

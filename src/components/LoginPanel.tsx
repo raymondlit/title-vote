@@ -51,7 +51,8 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
       return;
     }
     const session = await fetchSession();
-    await queryClient.invalidateQueries({ queryKey: ["session"] });
+    // 直接写入缓存，避免登录后重复拉取一次会话
+    queryClient.setQueryData(["session"], session);
     setLoading(false);
     if (session?.isSuper) navigate({ to: "/super" });
     else if (session?.isAdmin) navigate({ to: "/admin" });
