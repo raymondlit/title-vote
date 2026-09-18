@@ -28,14 +28,18 @@ type Candidate = {
 type Design = {
   keys: string[];
   extra: string[];
+  editable: string[];
   title: string;
   subtitle: string;
   footer: string;
 };
 
+const LOCKED_EDITABLE = GROUP_SHEET_RESULT_COLUMNS[0]!; // 是否推荐（解析必需）
+
 const DEFAULT_DESIGN: Design = {
   keys: GROUP_SHEET_DEFAULT_KEYS,
   extra: [],
+  editable: [...GROUP_SHEET_RESULT_COLUMNS],
   title: "学科组推荐表",
   subtitle: "本表由学科组线下评议后填写，「是否推荐」请填写「是」或「否」。",
   footer: "组长签字：____________　　组员签字：________________________________　　日期：____年____月____日",
@@ -60,6 +64,7 @@ export function OfflineGroupRecommend({
   const queryClient = useQueryClient();
   const [design, setDesign] = useState<Design>(DEFAULT_DESIGN);
   const [newCol, setNewCol] = useState("");
+  const [newEditable, setNewEditable] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [groupId, setGroupId] = useState("");
   const [rows, setRows] = useState<SheetRow[]>([]);
@@ -108,12 +113,12 @@ export function OfflineGroupRecommend({
     },
   });
 
-  const headerLabels = [
-    "序号",
-    ...activeFields.map((f) => f.label),
-    ...GROUP_SHEET_RESULT_COLUMNS,
-    ...design.extra,
-  ];
+  const editableCols = design.editable.includes(LOCKED_EDITABLE)
+    ? design.editable
+    : [LOCKED_EDITABLE, ...design.editable];
+  const blankCols = [...editableCols, ...design.extra];
+
+  const headerLabels = ["序号", ...activeFields.map((f) => f.label), ...blankCols];
 
   function cellOf(c: Candidate, key: string) {
     if (key === "full_name") return c.full_name;
@@ -131,8 +136,7 @@ export function OfflineGroupRecommend({
       ...scoped.map((c, i) => [
         String(i + 1),
         ...activeFields.map((f) => cellOf(c, f.key)),
-        ...GROUP_SHEET_RESULT_COLUMNS.map(() => ""),
-        ...design.extra.map(() => ""),
+        ...blankCols.map(() => ""),
       ]),
     ];
   }
@@ -168,21 +172,37 @@ export function OfflineGroupRecommend({
       toast.error("浏览器拦截了打印窗口，请允许弹出窗口");
       return;
     }
+    const fixedCount = 1 + activeFields.length;
+    const cls = (i: number) => (i === 0 ? "idx" : i >= fixedCount ? "fill" : "");
     win.document.write(`<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" />
 <title>${escapeHtml(sheetTitle())}</title>
 <style>
-body{font-family:"Noto Sans SC","Microsoft YaHei",sans-serif;color:#2b2b2b;padding:36px;}
-h1{font-size:18px;font-weight:400;letter-spacing:.2em;text-align:center;margin:0 0 12px;}
-p.sub{font-size:12px;line-height:1.9;color:#666;margin:0 0 22px;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
-th,td{border:1px solid #d8d6d1;padding:8px 10px;text-align:left;font-weight:400;}
-.foot{margin-top:36px;font-size:12px;line-height:2.4;}
+@page{size:A4 landscape;margin:14mm;}
+body{font-family:"Noto Sans SC","Microsoft YaHei",sans-serif;color:#2b2b2b;padding:8px;}
+h1{font-size:18px;font-weight:400;letter-spacing:.2em;text-align:center;margin:0 0 10px;}
+p.sub{font-size:12px;line-height:1.9;color:#666;margin:0 0 18px;text-align:center;}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+thead{display:table-header-group;}
+th,td{border:1px solid #9c9a95;padding:6px 8px;text-align:center;font-weight:400;
+  word-break:break-all;}
+th{background:#f3f2ef;letter-spacing:.08em;}
+td{height:34px;}
+td.idx,th.idx{width:38px;color:#777;}
+td.fill,th.fill{min-width:64px;}
+td.fill{background:#fff;}
+tr{page-break-inside:avoid;}
+.foot{margin-top:28px;font-size:12px;line-height:2.6;}
 </style></head><body>
 <h1>${escapeHtml(sheetTitle())}</h1>
 <p class="sub">${escapeHtml(design.subtitle)}</p>
-<table><thead><tr>${head.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
+<table><thead><tr>${head
+      .map((h, i) => `<th class="${cls(i)}">${escapeHtml(h)}</th>`)
+      .join("")}</tr></thead>
 <tbody>${body
-      .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`)
+      .map(
+        (r) =>
+          `<tr>${r.map((c, i) => `<td class="${cls(i)}">${escapeHtml(c)}</td>`).join("")}</tr>`,
+      )
       .join("")}</tbody></table>
 <div class="foot">${escapeHtml(design.footer)}</div>
 </body></html>`);
@@ -249,7 +269,20 @@ th,td{border:1px solid #d8d6d1;padding:8px 10px;text-align:left;font-weight:400;
     }
     setRows([]);
     toast.success(`已录入 ${usable.length} 条线下推荐结果，本组旧结果已覆盖`);
-    queryClient.invalidateQueries({ queryKey: ["offline-group-results"] });
+    // 结果入库后刷新相关名单：线下结果、评委/大评审名单、场次与评委端投票名单
+    for (const key of [
+      ["offline-group-results"],
+      ["judges"],
+      ["admin-judges"],
+      ["candidates"],
+      ["sessions"],
+      ["judge-sessions"],
+      ["vote-session"],
+      ["results"],
+    ]) {
+      queryClient.invalidateQueries({ queryKey: key });
+    }
+    await queryClient.refetchQueries({ queryKey: ["offline-group-results"] });
   }
 
   async function clearGroup(gid: string | null) {
@@ -353,10 +386,76 @@ th,td{border:1px solid #d8d6d1;padding:8px 10px;text-align:left;font-weight:400;
               </button>
             </span>
           ))}
-          <span className="text-[11px] tracking-[0.16em] text-muted-foreground">
-            固定含线下填写栏：是否推荐 / 同意票数 / 总票数
-          </span>
         </div>
+
+        {/* 线下填写（可编辑）列 */}
+        <div className="mt-6">
+          <div className="mb-3 text-[11px] tracking-[0.16em] text-muted-foreground">
+            线下填写列（表格中留空，供线下评审时手写或录入）
+          </div>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-[12px] tracking-[0.1em]">
+            {GROUP_SHEET_RESULT_COLUMNS.map((col) => (
+              <label key={col} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  disabled={col === LOCKED_EDITABLE}
+                  checked={editableCols.includes(col)}
+                  onChange={(e) =>
+                    persist({
+                      ...design,
+                      editable: e.target.checked
+                        ? [...editableCols, col]
+                        : editableCols.filter((x) => x !== col),
+                    })
+                  }
+                />
+                {col}
+                {col === LOCKED_EDITABLE ? (
+                  <span className="text-muted-foreground">（必填）</span>
+                ) : null}
+              </label>
+            ))}
+            {editableCols
+              .filter((c) => !GROUP_SHEET_RESULT_COLUMNS.includes(c))
+              .map((c) => (
+                <span key={c} className="flex items-center gap-2">
+                  {c}
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-destructive"
+                    onClick={() =>
+                      persist({ ...design, editable: editableCols.filter((x) => x !== c) })
+                    }
+                  >
+                    删除
+                  </button>
+                </span>
+              ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-4">
+            <input
+              value={newEditable}
+              onChange={(e) => setNewEditable(e.target.value)}
+              placeholder="新增填写列，如 组内排名 / 备注意见"
+              className="w-56 border-0 border-b bg-transparent py-1 text-[12px] tracking-[0.1em] focus:outline-none"
+            />
+            <button
+              className="text-[11px] tracking-[0.2em] underline"
+              onClick={() => {
+                const name = newEditable.trim();
+                if (!name) return;
+                if (headerLabels.includes(name)) {
+                  toast.error("该栏目已存在");
+                  return;
+                }
+                persist({ ...design, editable: [...editableCols, name] });
+                setNewEditable("");
+              }}
+            >
+              增加填写列
+            </button>
+          </div>
+        </div>
+
 
         <div className="mt-5 flex flex-wrap items-center gap-4">
           <input

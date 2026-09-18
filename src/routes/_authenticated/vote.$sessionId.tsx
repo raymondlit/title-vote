@@ -86,14 +86,43 @@ function VotePage() {
       if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
       if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
       const { data: candidatesRaw } = await cq;
-      let candidates = candidatesRaw ?? [];
+      let base = candidatesRaw ?? [];
       if (isCommittee) {
         const recommended = await fetchRecommendedCandidateIds(
           supabase,
           vs.school_id,
           vs.category_id,
         );
-        candidates = candidates.filter((c) => recommended.has(c.id));
+        base = base.filter((c) => recommended.has(c.id));
+      }
+
+      // 学科组线下推荐票数：有票数时按票数从高到低排序
+      const { data: offline } = await supabase
+        .from("offline_group_results")
+        .select("candidate_id, agree_votes, total_votes")
+        .eq("school_id", vs.school_id)
+        .in(
+          "candidate_id",
+          base.map((c) => c.id),
+        );
+      const voteMap = new Map(
+        (offline ?? []).map((o) => [
+          o.candidate_id,
+          { agree: o.agree_votes ?? 0, total: o.total_votes ?? 0 },
+        ]),
+      );
+      let candidates = base.map((c) => ({
+        ...c,
+        agree_votes: voteMap.get(c.id)?.agree ?? null,
+        total_votes: voteMap.get(c.id)?.total ?? null,
+      }));
+      const hasVotes = candidates.some((c) => (c.agree_votes ?? 0) > 0);
+      if (hasVotes) {
+        candidates = [...candidates].sort(
+          (a, b) =>
+            (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
+            a.full_name.localeCompare(b.full_name, "zh-CN"),
+        );
       }
 
       const { data: rules } = await supabase
@@ -140,6 +169,7 @@ function VotePage() {
   }
 
   const rule = data.rule;
+  const hasGroupVotes = data.candidates.some((c) => (c.agree_votes ?? 0) > 0);
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
   const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
@@ -312,6 +342,7 @@ function VotePage() {
               <th className="px-8 py-4 font-normal">姓名</th>
               <th className="py-4 font-normal">单位</th>
               <th className="py-4 font-normal">现职称</th>
+              {hasGroupVotes ? <th className="py-4 font-normal">学科组推荐票</th> : null}
               <th className="px-8 py-4 text-right font-normal">表决</th>
             </tr>
           </thead>
@@ -321,6 +352,14 @@ function VotePage() {
                 <td className="px-8 py-4 tracking-[0.1em]">{c.full_name}</td>
                 <td className="py-4 text-muted-foreground">{c.unit ?? "—"}</td>
                 <td className="py-4 text-muted-foreground">{c.current_title ?? "—"}</td>
+                {hasGroupVotes ? (
+                  <td className="py-4 tracking-[0.1em]">
+                    {c.agree_votes ?? 0}
+                    <span className="text-muted-foreground">
+                      {c.total_votes ? ` / ${c.total_votes}` : ""}
+                    </span>
+                  </td>
+                ) : null}
                 <td className="px-8 py-3 text-right">
                   <Select
                      value={choices[c.id] ?? ""}
