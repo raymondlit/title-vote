@@ -351,6 +351,14 @@ function VotePage() {
                 <td className="px-8 py-4 tracking-[0.1em]">{c.full_name}</td>
                 <td className="py-4 text-muted-foreground">{c.unit ?? "—"}</td>
                 <td className="py-4 text-muted-foreground">{c.current_title ?? "—"}</td>
+                {hasGroupVotes ? (
+                  <td className="py-4 tracking-[0.1em]">
+                    {c.agree_votes ?? 0}
+                    <span className="text-muted-foreground">
+                      {c.total_votes ? ` / ${c.total_votes}` : ""}
+                    </span>
+                  </td>
+                ) : null}
                 <td className="px-8 py-3 text-right">
                   <Select
                      value={choices[c.id] ?? ""}
