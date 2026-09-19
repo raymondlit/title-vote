@@ -661,6 +661,88 @@ tr{page-break-inside:avoid;}
           </div>
         )}
       </div>
+
+      {/* 步骤四：历次上传记录 */}
+      <div className="hairline-t mt-8 pt-6">
+        <h3 className="mb-5 text-[11px] tracking-[0.2em]">四　历次上传记录</h3>
+        {(batches.data ?? []).length === 0 ? (
+          <p className="text-[12px] tracking-[0.1em] text-muted-foreground">
+            暂无历史记录，上传录入后会自动存档，便于对比与复核。
+          </p>
+        ) : (
+          <div>
+            {(batches.data ?? []).map((b) => {
+              const snap = Array.isArray(b.snapshot)
+                ? (b.snapshot as unknown as {
+                    name: string;
+                    is_recommended: boolean;
+                    agree_votes: number;
+                    total_votes: number;
+                  }[])
+                : [];
+              const open = openBatch === b.id;
+              return (
+                <div key={b.id} className="hairline-t py-3">
+                  <div className="flex flex-wrap items-center gap-6 text-[12px] tracking-[0.1em]">
+                    <span className="w-40 text-muted-foreground">
+                      {new Date(b.created_at).toLocaleString("zh-CN")}
+                    </span>
+                    <span className="w-28">{b.group_id ? nameOf(groups, b.group_id) : "未分组"}</span>
+                    <span className="w-28 text-muted-foreground">
+                      {b.category_id ? nameOf(categories, b.category_id) : "全部类别"}
+                    </span>
+                    <span className="text-muted-foreground">
+                      共 {b.row_count} 人 · 推荐通过 {b.recommended_count} 人
+                    </span>
+                    <button
+                      className="text-[11px] tracking-[0.2em] underline"
+                      onClick={() => setOpenBatch(open ? null : b.id)}
+                    >
+                      {open ? "收起" : "查看明细"}
+                    </button>
+                    <button
+                      className="text-[11px] tracking-[0.2em] underline text-muted-foreground"
+                      onClick={() =>
+                        downloadXlsx(
+                          `线下推荐记录-${new Date(b.created_at).toLocaleDateString("zh-CN")}.xlsx`,
+                          [
+                            ["姓名", "是否推荐", "同意票数", "总票数"],
+                            ...snap.map((s) => [
+                              s.name,
+                              s.is_recommended ? "是" : "否",
+                              String(s.agree_votes),
+                              String(s.total_votes),
+                            ]),
+                          ],
+                          "历史记录",
+                        )
+                      }
+                    >
+                      导出
+                    </button>
+                  </div>
+                  {open ? (
+                    <div className="mt-3 pl-2">
+                      {snap.map((s, i) => (
+                        <div
+                          key={i}
+                          className="flex flex-wrap gap-6 py-1 text-[12px] tracking-[0.1em]"
+                        >
+                          <span className="w-24">{s.name}</span>
+                          <span className="w-24">{s.is_recommended ? "推荐通过" : "未通过"}</span>
+                          <span className="text-muted-foreground">
+                            同意 {s.agree_votes} / 总 {s.total_votes}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </Panel>
   );
 }
