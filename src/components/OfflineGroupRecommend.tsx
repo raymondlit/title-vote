@@ -286,6 +286,7 @@ tr{page-break-inside:avoid;}
     // 结果入库后刷新相关名单：线下结果、评委/大评审名单、场次与评委端投票名单
     for (const key of [
       ["offline-group-results"],
+      ["offline-batches"],
       ["judges"],
       ["admin-judges"],
       ["candidates"],
