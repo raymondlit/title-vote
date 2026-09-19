@@ -27,6 +27,7 @@ import {
   type ResultSheetRow,
 } from "@/components/ResultSheet";
 import { ResultSheetConfigEditor } from "@/components/ResultSheetConfigEditor";
+import { ListSkeleton } from "@/components/DataState";
 import { voteLabels } from "@/lib/voteLabels";
 import {
   JudgeBallotSheet,
@@ -322,6 +323,12 @@ function ResultsPage() {
         ) : null}
       </div>
 
+      {current && !result && resultLoading ? (
+        <Panel>
+          <ListSkeleton rows={6} />
+        </Panel>
+      ) : null}
+
       {current && result ? (
         <>
           <div className="no-print mb-10 grid gap-6 lg:grid-cols-[1fr_280px]">
@@ -356,7 +363,7 @@ function ResultsPage() {
             </Panel>
 
             <Panel>
-              <div className="text-[12px] tracking-[0.16em]">提交情况（每 15 秒刷新）</div>
+              <div className="text-[12px] tracking-[0.16em]">提交情况（每 10 秒自动刷新）</div>
               <div className="mt-6 text-[11px] tracking-[0.14em] text-muted-foreground">
                 未提交 {result.pendingJudges.length} 人
               </div>
