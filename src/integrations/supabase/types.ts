@@ -260,6 +260,64 @@ export type Database = {
           },
         ]
       }
+      offline_group_result_batches: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          group_id: string | null
+          id: string
+          recommended_count: number
+          recorded_by: string | null
+          row_count: number
+          school_id: string
+          snapshot: Json
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          recommended_count?: number
+          recorded_by?: string | null
+          row_count?: number
+          school_id: string
+          snapshot?: Json
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          group_id?: string | null
+          id?: string
+          recommended_count?: number
+          recorded_by?: string | null
+          row_count?: number
+          school_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_group_result_batches_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "review_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_group_result_batches_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "subject_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_group_result_batches_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offline_group_results: {
         Row: {
           agree_votes: number
