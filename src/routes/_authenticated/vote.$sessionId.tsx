@@ -335,8 +335,8 @@ function VotePage() {
         </div>
       </Panel>
 
-      <Panel className="p-0">
-        <table className="w-full text-[12px]">
+      <Panel className="overflow-x-auto p-0">
+        <table className="w-full min-w-[640px] text-[12px]">
           <thead>
             <tr className="hairline-b text-left tracking-[0.14em] text-muted-foreground">
               <th className="px-8 py-4 font-normal">姓名</th>
@@ -394,8 +394,8 @@ function VotePage() {
         </table>
       </Panel>
 
-      <div className="mt-8 flex items-center justify-between">
-        <div className="text-[12px] tracking-[0.14em]">
+      <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] tracking-[0.14em]">
           <span className={overLimit ? "text-destructive" : "text-muted-foreground"}>
             已{labels.recommend} {recommendCount}
             {maxRecommend > 0 ? ` / ${maxRecommend}` : ""} 人
