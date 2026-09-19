@@ -113,6 +113,20 @@ export function OfflineGroupRecommend({
     },
   });
 
+  const batches = useQuery({
+    queryKey: ["offline-batches", schoolId],
+    enabled: !!schoolId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("offline_group_result_batches")
+        .select("*")
+        .eq("school_id", schoolId!)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return data ?? [];
+    },
+  });
+
   const editableCols = design.editable.includes(LOCKED_EDITABLE)
     ? design.editable
     : [LOCKED_EDITABLE, ...design.editable];
