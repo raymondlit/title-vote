@@ -63,6 +63,7 @@ export function OfflineGroupRecommend({
   candidates: Candidate[];
 }) {
   const queryClient = useQueryClient();
+  const { confirm, dialog } = useConfirm();
   const [design, setDesign] = useState<Design>(DEFAULT_DESIGN);
   const [newCol, setNewCol] = useState("");
   const [newEditable, setNewEditable] = useState("");

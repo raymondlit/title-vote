@@ -216,14 +216,22 @@ function SuperPage() {
                   <button
                     className="text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
                     onClick={async () => {
-                      if (!window.confirm(`确定删除高校「${s.name}」？其管理员账号将一并删除。`))
-                        return;
+                      const go = await confirm({
+                        title: `删除高校「${s.name}」`,
+                        description: "该校的管理员账号将一并删除，此操作不可恢复。",
+                        confirmLabel: "确认删除",
+                        destructive: true,
+                      });
+                      if (!go) return;
                       try {
                         const res = await deleteSchoolFn({ data: { schoolId: s.id } });
                         if (!res.ok) {
-                          const ok = window.confirm(
-                            `该校已有${res.blocking.join("、")}数据。确定连同这些数据一起永久删除？此操作不可恢复。`,
-                          );
+                          const ok = await confirm({
+                            title: "该校仍有评审数据",
+                            description: `已有${res.blocking.join("、")}数据，确认后将连同这些数据一起永久删除。`,
+                            confirmLabel: "一并永久删除",
+                            destructive: true,
+                          });
                           if (!ok) return;
                           await deleteSchoolFn({ data: { schoolId: s.id, force: true } });
                         }
