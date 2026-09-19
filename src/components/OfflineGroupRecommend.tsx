@@ -69,6 +69,7 @@ export function OfflineGroupRecommend({
   const [groupId, setGroupId] = useState("");
   const [rows, setRows] = useState<SheetRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [openBatch, setOpenBatch] = useState<string | null>(null);
 
   useEffect(() => {
     try {
