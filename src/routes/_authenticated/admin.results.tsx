@@ -87,10 +87,23 @@ function ResultsPage() {
 
   const current = (sessions ?? []).find((s) => s.id === sessionId) ?? null;
 
-  const { data: result } = useQuery({
-    queryKey: ["result", sessionId],
+  // 轻量轮询：只查本场已提交评委，页面不可见时自动暂停
+  const { data: submittedIdsLive } = useQuery({
+    queryKey: ["result-submitted", sessionId],
     enabled: !!current,
-    refetchInterval: 15000,
+    refetchInterval: () => (document.visibilityState === "visible" ? 10000 : false),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("ballots")
+        .select("judge_id")
+        .eq("session_id", current!.id);
+      return (data ?? []).map((b) => b.judge_id).join(",");
+    },
+  });
+
+  const { data: result, isLoading: resultLoading } = useQuery({
+    queryKey: ["result", sessionId, submittedIdsLive ?? ""],
+    enabled: !!current,
     queryFn: async () => {
       let cq = supabase
         .from("candidates")
