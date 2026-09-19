@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Panel } from "@/components/Shell";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ConfirmDialog";
 import {
   parseSheet,
   downloadCsv,
@@ -316,7 +317,13 @@ tr{page-break-inside:avoid;}
   }
 
   async function clearGroup(gid: string | null) {
-    if (!window.confirm("确定清除该学科小组已录入的线下推荐结果？")) return;
+    const ok = await confirm({
+      title: "清除该学科小组的线下推荐结果",
+      description: "清除后该组人员将不再进入大评审范围，历史上传记录仍会保留可查。",
+      confirmLabel: "确认清除",
+      destructive: true,
+    });
+    if (!ok) return;
     let q = supabase.from("offline_group_results").delete().eq("school_id", schoolId!);
     q = gid ? q.eq("group_id", gid) : q.is("group_id", null);
     const { error } = await q;
