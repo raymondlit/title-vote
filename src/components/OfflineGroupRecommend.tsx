@@ -267,6 +267,20 @@ tr{page-break-inside:avoid;}
       toast.error(error.message);
       return;
     }
+    // 存入历史记录，便于历次结果对比与复核
+    await supabase.from("offline_group_result_batches").insert({
+      school_id: schoolId,
+      category_id: categoryId || null,
+      group_id: groupId || null,
+      row_count: usable.length,
+      recommended_count: usable.filter((m) => m.is_recommended).length,
+      snapshot: usable.map((m) => ({
+        name: m.name,
+        is_recommended: m.is_recommended,
+        agree_votes: m.agree_votes,
+        total_votes: m.total_votes,
+      })),
+    });
     setRows([]);
     toast.success(`已录入 ${usable.length} 条线下推荐结果，本组旧结果已覆盖`);
     // 结果入库后刷新相关名单：线下结果、评委/大评审名单、场次与评委端投票名单
