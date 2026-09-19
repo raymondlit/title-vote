@@ -751,6 +751,7 @@ tr{page-break-inside:avoid;}
           </div>
         )}
       </div>
+      {dialog}
     </Panel>
   );
 }
