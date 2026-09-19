@@ -57,8 +57,8 @@ export function DataState({
   skeletonRows?: number;
   children: ReactNode;
 }) {
-  if (isLoading) return <ListSkeleton rows={skeletonRows} />;
-  if (isError) return <ErrorState onRetry={onRetry} />;
+  if (isLoading) return <ListSkeleton rows={skeletonRows ?? 5} />;
+  if (isError) return <ErrorState {...(onRetry ? { onRetry } : {})} />;
   if (isEmpty) return <EmptyState text={emptyText ?? "暂无数据"} />;
   return <>{children}</>;
 }
