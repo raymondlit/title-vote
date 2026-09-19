@@ -5,3 +5,4 @@
 - [x] Ensure judge pages and their floating controls inherit the school's theme and font scale.
 - [x] Add configurable 10/20/40/100-per-page pagination to the judge list.
 - [x] 学科组线下推荐表设计/下载/打印/上传录入，及大评审委员会组建与大评审场次投票。
+- [x] 全流程优化：评审进度看板、统一确认弹窗与加载/空状态、投票提交幂等、结果页轻量轮询、窄屏适配与中文错误页。

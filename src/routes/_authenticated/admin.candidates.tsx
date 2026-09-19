@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { useSession } from "@/lib/session";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { OfflineGroupRecommend } from "@/components/OfflineGroupRecommend";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/_authenticated/admin/candidates")({
 function CandidatesPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const { confirm, dialog } = useConfirm();
   const [preview, setPreview] = useState<SheetRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [enabledKeys, setEnabledKeys] = useState<string[]>(CANDIDATE_DEFAULT_KEYS);
@@ -256,8 +258,13 @@ function CandidatesPage() {
       toast.error("请先勾选需要删除的参评人员");
       return;
     }
-    if (!window.confirm(`确定批量删除已勾选的 ${ids.length} 位参评人员？此操作不可恢复。`))
-      return;
+    const ok = await confirm({
+      title: `批量删除 ${ids.length} 位参评人员`,
+      description: "删除后其线下推荐记录与投票范围将同步变化，此操作不可恢复。",
+      confirmLabel: "确认删除",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     const { error } = await supabase.from("candidates").delete().in("id", ids);
     setBusy(false);
@@ -636,6 +643,7 @@ function CandidatesPage() {
           candidates={(candidates.data ?? []) as never}
         />
       </div>
+      {dialog}
     </Shell>
   );
 }

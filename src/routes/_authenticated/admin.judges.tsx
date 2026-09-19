@@ -19,6 +19,7 @@ import {
 } from "@/lib/sheet";
 import { importJudges, deleteJudge, getJudgePasswordBook, createJudge } from "@/lib/admin.functions";
 import { useSession, useSchool } from "@/lib/session";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 const JUDGE_PAGE_SIZES = [10, 20, 40, 100] as const;
 
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/admin/judges")({
 
 function JudgesPage() {
   const queryClient = useQueryClient();
+  const { confirm, dialog } = useConfirm();
   const session = useSession();
   const school = useSchool(session.data?.schoolId);
   const [preview, setPreview] = useState<SheetRow[]>([]);
@@ -328,12 +330,13 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
       toast.error("请先勾选需要删除的评委");
       return;
     }
-    if (
-      !window.confirm(
-        `确定批量删除已勾选的 ${ids.length} 位评委？其登录账号将一并删除，且不可恢复。`,
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: `批量删除 ${ids.length} 位评委`,
+      description: "这些评委的登录账号将一并删除，已提交的表决不会被移除，此操作不可恢复。",
+      confirmLabel: "确认删除",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     let done = 0;
     let failed = 0;
@@ -859,8 +862,13 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
                 <button
                   className="ml-auto text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
                   onClick={async () => {
-                    if (!window.confirm(`确定删除评委「${j.full_name}」？其登录账号将一并删除。`))
-                      return;
+                    const ok = await confirm({
+                      title: `删除评委「${j.full_name}」`,
+                      description: "该评委的登录账号将一并删除，此操作不可恢复。",
+                      confirmLabel: "确认删除",
+                      destructive: true,
+                    });
+                    if (!ok) return;
                     try {
                       await deleteFn({ data: { judgeId: j.id } });
                       toast.success("已删除");
@@ -1029,7 +1037,13 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
                   <button
                     className="ml-auto text-[11px] tracking-[0.16em] text-muted-foreground hover:text-destructive"
                     onClick={async () => {
-                      if (!window.confirm(`确定将「${j.full_name}」移出大评审委员会？`)) return;
+                      const ok = await confirm({
+                        title: `将「${j.full_name}」移出大评审委员会`,
+                        description: "移出后该评委不再参与大评审场次投票，评委身份保留。",
+                        confirmLabel: "确认移出",
+                        destructive: true,
+                      });
+                      if (!ok) return;
                       await update(j.id, { is_committee_member: false });
                       toast.success("已移出委员会");
                     }}
@@ -1087,6 +1101,7 @@ th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weigh
           </div>
         </Panel>
       </div>
+      {dialog}
     </Shell>
   );
 }
