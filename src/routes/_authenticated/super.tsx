@@ -421,6 +421,7 @@ function SuperPage() {
           </Panel>
         </div>
       )}
+      {dialog}
     </Shell>
   );
 }
