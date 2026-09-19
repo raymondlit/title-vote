@@ -19,6 +19,7 @@ import {
 } from "@/lib/sheet";
 import { importJudges, deleteJudge, getJudgePasswordBook, createJudge } from "@/lib/admin.functions";
 import { useSession, useSchool } from "@/lib/session";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 const JUDGE_PAGE_SIZES = [10, 20, 40, 100] as const;
 
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/_authenticated/admin/judges")({
 
 function JudgesPage() {
   const queryClient = useQueryClient();
+  const { confirm, dialog } = useConfirm();
   const session = useSession();
   const school = useSchool(session.data?.schoolId);
   const [preview, setPreview] = useState<SheetRow[]>([]);
