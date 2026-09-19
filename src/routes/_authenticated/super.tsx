@@ -17,6 +17,7 @@ import {
   setAdminPermissions,
   setUserActive,
 } from "@/lib/admin.functions";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 export const Route = createFileRoute("/_authenticated/super")({
   head: () => ({
@@ -46,6 +47,7 @@ type Tab = "schools" | "admins";
 
 function SuperPage() {
   const queryClient = useQueryClient();
+  const { confirm, dialog } = useConfirm();
   const [tab, setTab] = useState<Tab>("schools");
 
   // 新增高校
