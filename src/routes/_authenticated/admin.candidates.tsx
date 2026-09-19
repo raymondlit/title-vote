@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { useSession } from "@/lib/session";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { OfflineGroupRecommend } from "@/components/OfflineGroupRecommend";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/_authenticated/admin/candidates")({
 function CandidatesPage() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const { confirm, dialog } = useConfirm();
   const [preview, setPreview] = useState<SheetRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [enabledKeys, setEnabledKeys] = useState<string[]>(CANDIDATE_DEFAULT_KEYS);
