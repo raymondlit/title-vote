@@ -258,8 +258,13 @@ function CandidatesPage() {
       toast.error("请先勾选需要删除的参评人员");
       return;
     }
-    if (!window.confirm(`确定批量删除已勾选的 ${ids.length} 位参评人员？此操作不可恢复。`))
-      return;
+    const ok = await confirm({
+      title: `批量删除 ${ids.length} 位参评人员`,
+      description: "删除后其线下推荐记录与投票范围将同步变化，此操作不可恢复。",
+      confirmLabel: "确认删除",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     const { error } = await supabase.from("candidates").delete().in("id", ids);
     setBusy(false);
@@ -638,6 +643,7 @@ function CandidatesPage() {
           candidates={(candidates.data ?? []) as never}
         />
       </div>
+      {dialog}
     </Shell>
   );
 }
