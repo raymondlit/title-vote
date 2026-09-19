@@ -111,6 +111,10 @@ export const submitBallot = createServerFn({ method: "POST" })
       .insert({ session_id: session.id, judge_id: judge.id })
       .select("id")
       .single();
+    // 唯一约束保证同一评委同场次只有一份表决：重复点击或网络重发不会产生重复票
+    if (ballotError?.code === "23505") {
+      throw new Error("您已提交过本场投票，不能重复提交");
+    }
     if (ballotError || !ballot) throw new Error(ballotError?.message ?? "提交失败");
 
     if (data.choices.length) {
@@ -121,7 +125,11 @@ export const submitBallot = createServerFn({ method: "POST" })
           choice: c.choice,
         })),
       );
-      if (itemError) throw new Error(itemError.message);
+      if (itemError) {
+        // 明细写入失败则回滚整张票，避免留下半截数据
+        await supabase.from("ballots").delete().eq("id", ballot.id);
+        throw new Error(itemError.message);
+      }
     }
 
     return { ballotId: ballot.id as string, submittedAt: new Date().toISOString() };
