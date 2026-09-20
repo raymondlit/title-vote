@@ -168,10 +168,6 @@ export function OfflineGroupRecommend({
 
   function guardScope() {
     if (!schoolId) return false;
-    if (!groupId) {
-      toast.error("请先选择学科小组");
-      return false;
-    }
     if (scoped.length === 0) {
       toast.error("该类别与学科小组下暂无评审对象");
       return false;
@@ -381,7 +377,7 @@ tr{page-break-inside:avoid;}
               onChange={(e) => setGroupId(e.target.value)}
               className="w-full border-0 border-b bg-transparent py-1 text-[12px] focus:outline-none"
             >
-              <option value="">请选择</option>
+              <option value="">全部学科小组（表格含学科分类列，上传后自动分组）</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
