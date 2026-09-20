@@ -80,7 +80,7 @@ function VotePage() {
 
       let cq = supabase
         .from("candidates")
-        .select("id, full_name, unit, current_title")
+        .select("id, full_name, unit, current_title, group_id")
         .eq("school_id", vs.school_id)
         .order("full_name");
       if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
@@ -117,11 +117,34 @@ function VotePage() {
         total_votes: voteMap.get(c.id)?.total ?? null,
       }));
       const hasVotes = candidates.some((c) => (c.agree_votes ?? 0) > 0);
+
+      // 学科组信息：分组排序时显示组名
+      const { data: subjectGroups } = await supabase
+        .from("subject_groups")
+        .select("id, name")
+        .eq("school_id", vs.school_id);
+      const groupName = new Map((subjectGroups ?? []).map((g) => [g.id, g.name]));
+
       if (hasVotes) {
-        candidates = [...candidates].sort(
-          (a, b) =>
-            (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
-            a.full_name.localeCompare(b.full_name, "zh-CN"),
+        // 按学科组分组排序：组间按组名排序，组内按推荐票数从高到低、票数相同按姓名
+        const byGroup = new Map<string | null, typeof candidates>();
+        for (const c of candidates) {
+          const key = c.group_id ?? null;
+          const arr = byGroup.get(key) ?? [];
+          arr.push(c);
+          byGroup.set(key, arr);
+        }
+        const orderedGroups = [...byGroup.entries()].sort(([a], [b]) => {
+          const na = a ? (groupName.get(a) ?? "") : "￿"; // 未分组排最后
+          const nb = b ? (groupName.get(b) ?? "") : "￿";
+          return na.localeCompare(nb, "zh-CN");
+        });
+        candidates = orderedGroups.flatMap(([, arr]) =>
+          [...arr].sort(
+            (a, b) =>
+              (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
+              a.full_name.localeCompare(b.full_name, "zh-CN"),
+          ),
         );
       }
 
