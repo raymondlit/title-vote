@@ -382,7 +382,21 @@ function VotePage() {
             </tr>
           </thead>
           <tbody>
-            {data.candidates.map((c) => (
+            {data.candidates.flatMap((c, idx) => {
+              const prev = idx > 0 ? data.candidates[idx - 1] : null;
+              const newGroup =
+                showGroupHeaders && (prev?.group_id ?? null) !== (c.group_id ?? null);
+              const groupHeader = newGroup ? (
+                <tr key={`group-${c.group_id ?? "none"}-${idx}`} className="bg-muted/40">
+                  <td
+                    colSpan={hasGroupVotes ? 5 : 4}
+                    className="px-8 py-2 text-[11px] tracking-[0.2em] text-muted-foreground"
+                  >
+                    {groupLabel(c.group_id)}
+                  </td>
+                </tr>
+              ) : null;
+              const row = (
               <tr key={c.id} className="hairline-b last:border-b-0">
                 <td className="px-8 py-4 tracking-[0.1em]">{c.full_name}</td>
                 <td className="py-4 text-muted-foreground">{c.unit ?? "—"}</td>
