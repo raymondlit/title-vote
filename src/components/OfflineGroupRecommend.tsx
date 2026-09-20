@@ -241,34 +241,55 @@ tr{page-break-inside:avoid;}
   const truthy = (value: string | undefined) =>
     ["是", "推荐", "y", "yes", "true", "1", "通过"].includes((value ?? "").trim().toLowerCase());
 
+  // 按行内「学科分类」自动分组：名称匹配学科小组，同名候选人优先取本组的
+  const groupIdByName = new Map(groups.map((g) => [g.name.trim(), g.id]));
   const matched = rows.map((r) => {
     const name = (r["full_name"] ?? "").trim();
-    const hit = scoped.find((c) => c.full_name === name) ?? null;
+    const rowGroupName = (r["group"] ?? "").trim();
+    const rowGroupId = rowGroupName ? (groupIdByName.get(rowGroupName) ?? null) : undefined;
+    const unknownGroup = rowGroupName !== "" && rowGroupId === null;
+    const pool = rowGroupId ? scoped.filter((c) => c.group_id === rowGroupId) : scoped;
+    const hit = pool.find((c) => c.full_name === name) ?? null;
     return {
       name,
+      groupName: rowGroupName,
+      unknownGroup,
       candidate: hit,
       is_recommended: truthy(r["is_recommended"]),
       agree_votes: Number(r["agree_votes"] ?? 0) || 0,
       total_votes: Number(r["total_votes"] ?? 0) || 0,
     };
   });
-  const unmatched = matched.filter((m) => !m.candidate).length;
+  const unmatched = matched.filter((m) => !m.candidate || m.unknownGroup).length;
 
   async function saveResults() {
     if (!schoolId || !guardScope()) return;
-    const usable = matched.filter((m) => m.candidate);
+    const usable = matched.filter((m) => m.candidate && !m.unknownGroup);
     if (usable.length === 0) {
-      toast.error("没有可录入的记录，请核对姓名是否与名单一致");
+      toast.error("没有可录入的记录，请核对姓名与学科分类是否与名单一致");
       return;
     }
     setBusy(true);
-    const ids = scoped.map((c) => c.id);
-    await supabase.from("offline_group_results").delete().in("candidate_id", ids);
+    // 自动按学科分类分组：仅覆盖本次涉及的学科小组旧结果
+    const perGroup = new Map<string | null, typeof usable>();
+    for (const m of usable) {
+      const gid = m.candidate!.group_id ?? null;
+      perGroup.set(gid, [...(perGroup.get(gid) ?? []), m]);
+    }
+    const affectedIds = candidates
+      .filter(
+        (c) =>
+          perGroup.has(c.group_id ?? null) && (!categoryId || c.category_id === categoryId),
+      )
+      .map((c) => c.id);
+    if (affectedIds.length > 0) {
+      await supabase.from("offline_group_results").delete().in("candidate_id", affectedIds);
+    }
     const { error } = await supabase.from("offline_group_results").insert(
       usable.map((m) => ({
         school_id: schoolId,
         category_id: categoryId || null,
-        group_id: groupId || null,
+        group_id: m.candidate!.group_id ?? null,
         candidate_id: m.candidate!.id,
         is_recommended: m.is_recommended,
         agree_votes: m.agree_votes,
@@ -280,22 +301,26 @@ tr{page-break-inside:avoid;}
       toast.error(error.message);
       return;
     }
-    // 存入历史记录，便于历次结果对比与复核
-    await supabase.from("offline_group_result_batches").insert({
-      school_id: schoolId,
-      category_id: categoryId || null,
-      group_id: groupId || null,
-      row_count: usable.length,
-      recommended_count: usable.filter((m) => m.is_recommended).length,
-      snapshot: usable.map((m) => ({
-        name: m.name,
-        is_recommended: m.is_recommended,
-        agree_votes: m.agree_votes,
-        total_votes: m.total_votes,
+    // 存入历史记录（按学科小组各存一份），便于历次结果对比与复核
+    await supabase.from("offline_group_result_batches").insert(
+      [...perGroup.entries()].map(([gid, list]) => ({
+        school_id: schoolId,
+        category_id: categoryId || null,
+        group_id: gid,
+        row_count: list.length,
+        recommended_count: list.filter((m) => m.is_recommended).length,
+        snapshot: list.map((m) => ({
+          name: m.name,
+          is_recommended: m.is_recommended,
+          agree_votes: m.agree_votes,
+          total_votes: m.total_votes,
+        })),
       })),
-    });
+    );
     setRows([]);
-    toast.success(`已录入 ${usable.length} 条线下推荐结果，本组旧结果已覆盖`);
+    toast.success(
+      `已录入 ${usable.length} 条线下推荐结果，自动归入 ${perGroup.size} 个学科小组，旧结果已覆盖`,
+    );
     // 结果入库后刷新相关名单：线下结果、评委/大评审名单、场次与评委端投票名单
     for (const key of [
       ["offline-group-results"],
