@@ -438,7 +438,9 @@ function VotePage() {
                   </Select>
                 </td>
               </tr>
-            ))}
+              );
+              return [groupHeader, row];
+            })}
           </tbody>
         </table>
       </Panel>
