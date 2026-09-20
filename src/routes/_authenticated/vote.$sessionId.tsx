@@ -80,7 +80,7 @@ function VotePage() {
 
       let cq = supabase
         .from("candidates")
-        .select("id, full_name, unit, current_title")
+        .select("id, full_name, unit, current_title, group_id")
         .eq("school_id", vs.school_id)
         .order("full_name");
       if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
@@ -117,11 +117,34 @@ function VotePage() {
         total_votes: voteMap.get(c.id)?.total ?? null,
       }));
       const hasVotes = candidates.some((c) => (c.agree_votes ?? 0) > 0);
+
+      // 学科组信息：分组排序时显示组名
+      const { data: subjectGroups } = await supabase
+        .from("subject_groups")
+        .select("id, name")
+        .eq("school_id", vs.school_id);
+      const groupName = new Map((subjectGroups ?? []).map((g) => [g.id, g.name]));
+
       if (hasVotes) {
-        candidates = [...candidates].sort(
-          (a, b) =>
-            (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
-            a.full_name.localeCompare(b.full_name, "zh-CN"),
+        // 按学科组分组排序：组间按组名排序，组内按推荐票数从高到低、票数相同按姓名
+        const byGroup = new Map<string | null, typeof candidates>();
+        for (const c of candidates) {
+          const key = c.group_id ?? null;
+          const arr = byGroup.get(key) ?? [];
+          arr.push(c);
+          byGroup.set(key, arr);
+        }
+        const orderedGroups = [...byGroup.entries()].sort(([a], [b]) => {
+          const na = a ? (groupName.get(a) ?? "") : "￿"; // 未分组排最后
+          const nb = b ? (groupName.get(b) ?? "") : "￿";
+          return na.localeCompare(nb, "zh-CN");
+        });
+        candidates = orderedGroups.flatMap(([, arr]) =>
+          [...arr].sort(
+            (a, b) =>
+              (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
+              a.full_name.localeCompare(b.full_name, "zh-CN"),
+          ),
         );
       }
 
@@ -147,7 +170,15 @@ function VotePage() {
             .eq("ballot_id", ballot.id)
         : { data: [] as { candidate_id: string; choice: Choice }[] };
 
-      return { judge, vs, candidates, rule, ballot, items: items ?? [] };
+      return {
+        judge,
+        vs,
+        candidates,
+        rule,
+        ballot,
+        items: items ?? [],
+        groupNames: Object.fromEntries(groupName),
+      };
     },
   });
 
@@ -170,6 +201,10 @@ function VotePage() {
 
   const rule = data.rule;
   const hasGroupVotes = data.candidates.some((c) => (c.agree_votes ?? 0) > 0);
+  const distinctGroups = new Set(data.candidates.map((c) => c.group_id ?? "none"));
+  const showGroupHeaders = hasGroupVotes && distinctGroups.size > 1;
+  const groupLabel = (groupId: string | null) =>
+    groupId ? (data.groupNames[groupId] ?? "未分组") : "未分组";
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
   const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
@@ -347,7 +382,21 @@ function VotePage() {
             </tr>
           </thead>
           <tbody>
-            {data.candidates.map((c) => (
+            {data.candidates.flatMap((c, idx) => {
+              const prev = idx > 0 ? data.candidates[idx - 1] : null;
+              const newGroup =
+                showGroupHeaders && (prev?.group_id ?? null) !== (c.group_id ?? null);
+              const groupHeader = newGroup ? (
+                <tr key={`group-${c.group_id ?? "none"}-${idx}`} className="bg-muted/40">
+                  <td
+                    colSpan={hasGroupVotes ? 5 : 4}
+                    className="px-8 py-2 text-[11px] tracking-[0.2em] text-muted-foreground"
+                  >
+                    {groupLabel(c.group_id)}
+                  </td>
+                </tr>
+              ) : null;
+              const row = (
               <tr key={c.id} className="hairline-b last:border-b-0">
                 <td className="px-8 py-4 tracking-[0.1em]">{c.full_name}</td>
                 <td className="py-4 text-muted-foreground">{c.unit ?? "—"}</td>
@@ -389,7 +438,9 @@ function VotePage() {
                   </Select>
                 </td>
               </tr>
-            ))}
+              );
+              return [groupHeader, row];
+            })}
           </tbody>
         </table>
       </Panel>
