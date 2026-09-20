@@ -170,7 +170,15 @@ function VotePage() {
             .eq("ballot_id", ballot.id)
         : { data: [] as { candidate_id: string; choice: Choice }[] };
 
-      return { judge, vs, candidates, rule, ballot, items: items ?? [] };
+      return {
+        judge,
+        vs,
+        candidates,
+        rule,
+        ballot,
+        items: items ?? [],
+        groupNames: Object.fromEntries(groupName),
+      };
     },
   });
 
