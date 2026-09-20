@@ -201,6 +201,10 @@ function VotePage() {
 
   const rule = data.rule;
   const hasGroupVotes = data.candidates.some((c) => (c.agree_votes ?? 0) > 0);
+  const distinctGroups = new Set(data.candidates.map((c) => c.group_id ?? "none"));
+  const showGroupHeaders = hasGroupVotes && distinctGroups.size > 1;
+  const groupLabel = (groupId: string | null) =>
+    groupId ? (data.groupNames[groupId] ?? "未分组") : "未分组";
   const maxRecommend = rule?.max_recommend ?? 0;
   const overLimit = maxRecommend > 0 && recommendCount > maxRecommend;
   const underLimit = maxRecommend > 0 && recommendCount < maxRecommend;
