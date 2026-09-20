@@ -616,22 +616,26 @@ tr{page-break-inside:avoid;}
         {rows.length > 0 ? (
           <div className="mt-6">
             <div className="mb-3 text-[11px] tracking-[0.16em] text-muted-foreground">
-              识别 {rows.length} 条{unmatched > 0 ? `，其中 ${unmatched} 条姓名与名单不符（标红，不会录入）` : ""}
+              识别 {rows.length} 条{unmatched > 0 ? `，其中 ${unmatched} 条姓名或学科分类与名单不符（标红，不会录入）` : ""}
             </div>
             <div className="max-h-64 overflow-auto">
               {matched.map((m, i) => (
                 <div
                   key={i}
                   className={`hairline-t flex flex-wrap gap-6 py-2 text-[12px] tracking-[0.1em] ${
-                    m.candidate ? "" : "text-destructive"
+                    m.candidate && !m.unknownGroup ? "" : "text-destructive"
                   }`}
                 >
                   <span className="w-24">{m.name}</span>
+                  <span className="w-28 text-muted-foreground">
+                    {m.groupName || nameOf(groups, m.candidate?.group_id ?? null)}
+                  </span>
                   <span className="w-24">{m.is_recommended ? "推荐" : "不推荐"}</span>
                   <span className="w-32 text-muted-foreground">
                     同意 {m.agree_votes} / 总 {m.total_votes}
                   </span>
-                  {m.candidate ? null : <span>名单中无此人</span>}
+                  {m.unknownGroup ? <span>学科分类不存在</span> : null}
+                  {!m.unknownGroup && !m.candidate ? <span>名单中无此人</span> : null}
                 </div>
               ))}
             </div>
@@ -640,7 +644,7 @@ tr{page-break-inside:avoid;}
               disabled={busy}
               className="mt-6 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
             >
-              确认录入本组结果
+              确认录入（自动按学科分类分组）
             </Button>
           </div>
         ) : null}
