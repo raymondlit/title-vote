@@ -20,6 +20,7 @@ const HEADER_MAP: Record<string, string> = {
   类别: "category",
   评审类别: "category",
   学科: "group",
+  学科分类: "group",
   学科组: "group",
   学科小组: "group",
   备注: "notes",
@@ -37,11 +38,11 @@ export const GROUP_SHEET_FIELDS: TemplateField[] = [
   { key: "unit", label: "单位", sample: ["", ""] },
   { key: "current_title", label: "现职称", sample: ["", ""] },
   { key: "category", label: "评审类别", sample: ["", ""] },
-  { key: "group", label: "学科小组", sample: ["", ""] },
+  { key: "group", label: "学科分类", required: true, sample: ["", ""] },
   { key: "notes", label: "备注", sample: ["", ""] },
 ];
 
-export const GROUP_SHEET_DEFAULT_KEYS = ["full_name", "unit", "current_title"];
+export const GROUP_SHEET_DEFAULT_KEYS = ["full_name", "unit", "current_title", "group"];
 
 /** 线下填写栏（固定追加，用于回传录入） */
 export const GROUP_SHEET_RESULT_COLUMNS = ["是否推荐", "同意票数", "总票数"];
