@@ -219,10 +219,24 @@ function ResultsPage() {
       const submittedIds = new Set((ballots ?? []).map((b) => b.judge_id));
       const pendingJudges = eligibleJudges.filter((j) => !submittedIds.has(j.id));
 
-      rows.sort((a, b) => b.recommend - a.recommend);
+      rows.sort(
+        (a, b) => b.recommend - a.recommend || a.name.localeCompare(b.name, "zh-Hans-CN"),
+      );
+
+      const groupNameById = new Map((groups ?? []).map((g) => [g.id as string, g.name as string]));
+      const groupOfCandidate = new Map(
+        scopedCandidates.map((c) => [c.id, (c as { group_id?: string | null }).group_id ?? null]),
+      );
+      const summary = rows.map((r, index) => ({
+        rank: index + 1,
+        name: r.name,
+        group: groupNameById.get(groupOfCandidate.get(r.id) ?? "") ?? "—",
+        recommend: r.recommend,
+      }));
 
       return {
         rows,
+        summary,
         submitted: sheets.length,
         judgeCount: eligibleJudges.length,
         sheets,
