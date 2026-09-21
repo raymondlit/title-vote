@@ -46,6 +46,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-vote-recommend: var(--vote-recommend);
+  --color-vote-recommend-bg: var(--vote-recommend-bg);
+  --color-vote-reject: var(--vote-reject);
+  --color-vote-reject-bg: var(--vote-reject-bg);
 }
 
 :root {
@@ -83,6 +87,10 @@
   --sidebar-accent-foreground: oklch(0.3 0.008 75);
   --sidebar-border: oklch(0.885 0.004 91);
   --sidebar-ring: oklch(0.62 0.01 210);
+  --vote-recommend: oklch(0.43 0.1 148);
+  --vote-recommend-bg: oklch(0.95 0.025 148);
+  --vote-reject: oklch(0.5 0.14 28);
+  --vote-reject-bg: oklch(0.95 0.025 28);
 }
 
 .school-theme,
@@ -154,6 +162,10 @@
   --accent-foreground: oklch(0.95 0.003 91);
   --border: oklch(1 0 0 / 14%);
   --input: oklch(1 0 0 / 18%);
+  --vote-recommend: oklch(0.75 0.11 148);
+  --vote-recommend-bg: oklch(0.3 0.04 148);
+  --vote-reject: oklch(0.75 0.12 28);
+  --vote-reject-bg: oklch(0.3 0.04 28);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -174,6 +186,10 @@
     --accent-foreground: oklch(0.95 0.003 91);
     --border: oklch(1 0 0 / 14%);
     --input: oklch(1 0 0 / 18%);
+    --vote-recommend: oklch(0.75 0.11 148);
+    --vote-recommend-bg: oklch(0.3 0.04 148);
+    --vote-reject: oklch(0.75 0.12 28);
+    --vote-reject-bg: oklch(0.3 0.04 28);
   }
 }
 
