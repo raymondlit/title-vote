@@ -399,6 +399,50 @@ function ResultsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+
+              <div className="mt-12">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="text-[12px] tracking-[0.16em]">
+                    本组投票结果总表（按{voteLabels(school).recommend}票数从高到低）
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="no-print rounded-none"
+                    onClick={printSummaryTable}
+                  >
+                    <Printer /> 打印总表
+                  </Button>
+                </div>
+                <table className="mt-6 w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="bg-muted/50 tracking-[0.1em]">
+                      <th className="w-16 border border-border px-3 py-2 font-normal">序号</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">姓名</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">学科</th>
+                      <th className="w-32 border border-border px-3 py-2 font-normal">
+                        {voteLabels(school).recommend}票数
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.summary.map((r) => (
+                      <tr key={r.rank}>
+                        <td className="border border-border px-3 py-2 text-center text-muted-foreground">
+                          {r.rank}
+                        </td>
+                        <td className="border border-border px-3 py-2 tracking-[0.06em]">
+                          {r.name}
+                        </td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">
+                          {r.group}
+                        </td>
+                        <td className="border border-border px-3 py-2 text-center">{r.recommend}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </Panel>
 
             <Panel>
