@@ -613,7 +613,7 @@ function VotePage() {
       </AlertDialog>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent className="rounded-none">
+        <AlertDialogContent className="max-w-2xl rounded-none md:max-w-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-[14px] tracking-[0.16em]">确认提交</AlertDialogTitle>
             <AlertDialogDescription className="text-[12px] leading-loose tracking-[0.1em]">
@@ -621,14 +621,17 @@ function VotePage() {
               {missing > 0 ? `，未表态 ${missing} 人` : ""}。提交后不可修改，是否确认？
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="max-h-52 overflow-auto text-[12px] leading-loose">
-            {data.candidates
-              .filter((c) => choices[c.id] === "recommend")
-              .map((c) => (
-                <div key={c.id} className="tracking-[0.1em]">
-                  {labels.recommend} · {c.full_name}
-                </div>
-              ))}
+          <div className="max-h-80 overflow-auto">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-[12px] leading-loose sm:grid-cols-3 md:grid-cols-4">
+              {data.candidates
+                .filter((c) => choices[c.id] === "recommend")
+                .map((c, i) => (
+                  <div key={c.id} className="flex items-baseline gap-2 tracking-[0.1em]">
+                    <span className="text-muted-foreground">{i + 1}.</span>
+                    <span>{c.full_name}</span>
+                  </div>
+                ))}
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-none text-[12px] tracking-[0.2em]">
