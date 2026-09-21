@@ -130,6 +130,7 @@ function ResultsPage() {
           .select("id, full_name, unit, group_id, is_committee_member")
           .eq("school_id", current!.school_id)
           .order("full_name"),
+        supabase.from("subject_groups").select("id, name").eq("school_id", current!.school_id),
       ]);
 
       const scopedCandidates =
