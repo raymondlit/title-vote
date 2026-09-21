@@ -28,6 +28,7 @@ import {
 } from "@/components/ResultSheet";
 import { ResultSheetConfigEditor } from "@/components/ResultSheetConfigEditor";
 import { ListSkeleton } from "@/components/DataState";
+import { escapeHtml, openPrintWindow, printDocumentHtml } from "@/lib/print";
 import { voteLabels } from "@/lib/voteLabels";
 import {
   JudgeBallotSheet,
@@ -108,12 +109,17 @@ function ResultsPage() {
     queryFn: async () => {
       let cq = supabase
         .from("candidates")
-        .select("id, full_name, unit, current_title")
+        .select("id, full_name, unit, current_title, group_id")
         .eq("school_id", current!.school_id);
       if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
       if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
 
-      const [{ data: candidates }, { data: ballots }, { data: judges }] = await Promise.all([
+      const [
+        { data: candidates },
+        { data: ballots },
+        { data: judges },
+        { data: groups },
+      ] = await Promise.all([
         cq,
         supabase
           .from("ballots")
@@ -124,6 +130,7 @@ function ResultsPage() {
           .select("id, full_name, unit, group_id, is_committee_member")
           .eq("school_id", current!.school_id)
           .order("full_name"),
+        supabase.from("subject_groups").select("id, name").eq("school_id", current!.school_id),
       ]);
 
       const scopedCandidates =
@@ -212,10 +219,24 @@ function ResultsPage() {
       const submittedIds = new Set((ballots ?? []).map((b) => b.judge_id));
       const pendingJudges = eligibleJudges.filter((j) => !submittedIds.has(j.id));
 
-      rows.sort((a, b) => b.recommend - a.recommend);
+      rows.sort(
+        (a, b) => b.recommend - a.recommend || a.name.localeCompare(b.name, "zh-Hans-CN"),
+      );
+
+      const groupNameById = new Map((groups ?? []).map((g) => [g.id as string, g.name as string]));
+      const groupOfCandidate = new Map(
+        scopedCandidates.map((c) => [c.id, (c as { group_id?: string | null }).group_id ?? null]),
+      );
+      const summary = rows.map((r, index) => ({
+        rank: index + 1,
+        name: r.name,
+        group: groupNameById.get(groupOfCandidate.get(r.id) ?? "") ?? "—",
+        recommend: r.recommend,
+      }));
 
       return {
         rows,
+        summary,
         submitted: sheets.length,
         judgeCount: eligibleJudges.length,
         sheets,
@@ -275,6 +296,24 @@ function ResultsPage() {
     win.document.close();
     win.focus();
     win.print();
+  }
+
+  function printSummaryTable() {
+    if (!current || !result) return;
+    const labels = voteLabels(school);
+    const rowsHtml = result.summary
+      .map(
+        (r) =>
+          `<tr><td>${r.rank}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.group)}</td><td>${r.recommend}</td></tr>`,
+      )
+      .join("");
+    const body = `<h1>${escapeHtml(school?.name ?? "")}</h1>
+<p class="sub">${escapeHtml(current.title)} · 投票结果总表（按${escapeHtml(labels.recommend)}票数从高到低排序）</p>
+<table><thead><tr><th style="width:64px">序号</th><th>姓名</th><th>学科</th><th style="width:120px">${escapeHtml(labels.recommend)}票数</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+<p class="foot">应到评委 ${result.judgeCount} 人 · 已提交 ${result.submitted} 人<br />打印日期：${new Date().toLocaleDateString("zh-CN")} &nbsp;&nbsp;&nbsp; 签字：________________</p>`;
+    if (!openPrintWindow(printDocumentHtml({ title: `${current.title} 投票结果总表`, body }))) {
+      toast.error("浏览器阻止了打印窗口，请允许弹出窗口后重试");
+    }
   }
 
   const chartData = (result?.rows ?? []).map((r) => ({ name: r.name, 推荐: r.recommend }));
@@ -359,6 +398,50 @@ function ResultsPage() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+
+              <div className="mt-12">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="text-[12px] tracking-[0.16em]">
+                    本组投票结果总表（按{voteLabels(school).recommend}票数从高到低）
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="no-print rounded-none"
+                    onClick={printSummaryTable}
+                  >
+                    <Printer /> 打印总表
+                  </Button>
+                </div>
+                <table className="mt-6 w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="bg-muted/50 tracking-[0.1em]">
+                      <th className="w-16 border border-border px-3 py-2 font-normal">序号</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">姓名</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">学科</th>
+                      <th className="w-32 border border-border px-3 py-2 font-normal">
+                        {voteLabels(school).recommend}票数
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.summary.map((r) => (
+                      <tr key={r.rank}>
+                        <td className="border border-border px-3 py-2 text-center text-muted-foreground">
+                          {r.rank}
+                        </td>
+                        <td className="border border-border px-3 py-2 tracking-[0.06em]">
+                          {r.name}
+                        </td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">
+                          {r.group}
+                        </td>
+                        <td className="border border-border px-3 py-2 text-center">{r.recommend}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </Panel>
 
