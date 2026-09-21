@@ -28,6 +28,7 @@ import {
 } from "@/components/ResultSheet";
 import { ResultSheetConfigEditor } from "@/components/ResultSheetConfigEditor";
 import { ListSkeleton } from "@/components/DataState";
+import { escapeHtml, openPrintWindow, printDocumentHtml } from "@/lib/print";
 import { voteLabels } from "@/lib/voteLabels";
 import {
   JudgeBallotSheet,
@@ -108,12 +109,17 @@ function ResultsPage() {
     queryFn: async () => {
       let cq = supabase
         .from("candidates")
-        .select("id, full_name, unit, current_title")
+        .select("id, full_name, unit, current_title, group_id")
         .eq("school_id", current!.school_id);
       if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
       if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
 
-      const [{ data: candidates }, { data: ballots }, { data: judges }] = await Promise.all([
+      const [
+        { data: candidates },
+        { data: ballots },
+        { data: judges },
+        { data: groups },
+      ] = await Promise.all([
         cq,
         supabase
           .from("ballots")
