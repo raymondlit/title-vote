@@ -383,23 +383,20 @@ function VotePage() {
         </div>
       </Panel>
 
-      <Panel
-        className="overflow-x-auto p-0"
-        {...(showFloatingRule
-          ? {
-              onMouseMove: (event: React.MouseEvent<HTMLElement>) => {
-                const panelWidth = 310;
-                const panelHeight = 126;
-                const gap = 18;
-                const x = Math.min(event.clientX + gap, window.innerWidth - panelWidth - gap);
-                const y = Math.min(event.clientY + gap, window.innerHeight - panelHeight - gap);
-                setRuleFloat({ x: Math.max(gap, x), y: Math.max(gap, y) });
-              },
-              onMouseLeave: () => setRuleFloat(null),
-            }
-          : {})}
+      <div
+        onMouseMove={(event) => {
+          if (!showFloatingRule) return;
+          const panelWidth = 310;
+          const panelHeight = 126;
+          const gap = 18;
+          const x = Math.min(event.clientX + gap, window.innerWidth - panelWidth - gap);
+          const y = Math.min(event.clientY + gap, window.innerHeight - panelHeight - gap);
+          setRuleFloat({ x: Math.max(gap, x), y: Math.max(gap, y) });
+        }}
+        onMouseLeave={() => setRuleFloat(null)}
       >
-        <table className="w-full min-w-[640px] text-[12px]">
+        <Panel className="overflow-x-auto p-0">
+          <table className="w-full min-w-[640px] text-[12px]">
           <thead>
             <tr className="hairline-b text-left tracking-[0.14em] text-muted-foreground">
               <th className="px-8 py-4 font-normal">姓名</th>
@@ -470,8 +467,9 @@ function VotePage() {
               return [groupHeader, row];
             })}
           </tbody>
-        </table>
-      </Panel>
+          </table>
+        </Panel>
+      </div>
 
       {showFloatingRule && ruleFloat ? (
         <aside
