@@ -298,6 +298,24 @@ function ResultsPage() {
     win.print();
   }
 
+  function printSummaryTable() {
+    if (!current || !result) return;
+    const labels = voteLabels(school);
+    const rowsHtml = result.summary
+      .map(
+        (r) =>
+          `<tr><td>${r.rank}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.group)}</td><td>${r.recommend}</td></tr>`,
+      )
+      .join("");
+    const body = `<h1>${escapeHtml(school?.name ?? "")}</h1>
+<p class="sub">${escapeHtml(current.title)} · 投票结果总表（按${escapeHtml(labels.recommend)}票数从高到低排序）</p>
+<table><thead><tr><th style="width:64px">序号</th><th>姓名</th><th>学科</th><th style="width:120px">${escapeHtml(labels.recommend)}票数</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+<p class="foot">应到评委 ${result.judgeCount} 人 · 已提交 ${result.submitted} 人<br />打印日期：${new Date().toLocaleDateString("zh-CN")} &nbsp;&nbsp;&nbsp; 签字：________________</p>`;
+    if (!openPrintWindow(printDocumentHtml({ title: `${current.title} 投票结果总表`, body }))) {
+      toast.error("浏览器阻止了打印窗口，请允许弹出窗口后重试");
+    }
+  }
+
   const chartData = (result?.rows ?? []).map((r) => ({ name: r.name, 推荐: r.recommend }));
 
   return (
