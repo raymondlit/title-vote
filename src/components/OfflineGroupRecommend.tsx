@@ -116,6 +116,30 @@ export function OfflineGroupRecommend({
     },
   });
 
+  // 实时同步：线下推荐结果变动后自动刷新
+  useEffect(() => {
+    if (!schoolId) return;
+    const channel = supabase
+      .channel(`offline-results-${schoolId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "offline_group_results",
+          filter: `school_id=eq.${schoolId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["offline-group-results"] });
+          queryClient.invalidateQueries({ queryKey: ["offline-batches", schoolId] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [schoolId, queryClient]);
+
   const batches = useQuery({
     queryKey: ["offline-batches", schoolId],
     enabled: !!schoolId,

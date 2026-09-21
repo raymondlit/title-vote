@@ -103,6 +103,28 @@ function ResultsPage() {
     },
   });
 
+  // 实时同步：评委提交表决后立即刷新，无需手动刷新页面
+  useEffect(() => {
+    if (!sessionId) return;
+    const channel = supabase
+      .channel(`results-${sessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ballots", filter: `session_id=eq.${sessionId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["result-submitted", sessionId] });
+          queryClient.invalidateQueries({ queryKey: ["result"] });
+        },
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "ballot_items" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["result"] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionId, queryClient]);
+
   const { data: result, isLoading: resultLoading } = useQuery({
     queryKey: ["result", sessionId, submittedIdsLive ?? ""],
     enabled: !!current,
