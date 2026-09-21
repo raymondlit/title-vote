@@ -51,15 +51,18 @@ function VotePage() {
     null,
   );
   const [saving, setSaving] = useState(false);
+  const [ruleFloat, setRuleFloat] = useState<{ x: number; y: number } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["vote-session", sessionId, session?.userId],
     enabled: !!session?.userId,
     queryFn: async () => {
+      const userId = session?.userId;
+      if (!userId) throw new Error("登录状态已失效");
       const { data: judge } = await supabase
         .from("judges")
         .select("id, full_name, unit, title, school_id, group_id, is_committee_member")
-        .eq("profile_id", session!.userId)
+        .eq("profile_id", userId)
         .maybeSingle();
 
       const { data: vs } = await supabase
@@ -210,6 +213,7 @@ function VotePage() {
   const remaining = maxRecommend > 0 ? maxRecommend - recommendCount : null;
   const missing = data.candidates.filter((c) => !choices[c.id]).length;
   const mustVoteAll = rule ? rule.require_all || !rule.allow_abstain : true;
+  const showFloatingRule = data.candidates.length > 20;
   const overReason =
     maxRecommend > 0 && overLimit
       ? `${labels.recommend}人数超出名额：名额 ${maxRecommend} 人，已选 ${recommendCount} 人，超出 ${recommendCount - maxRecommend} 人，请改回 ${labels.recommend}后再提交`
@@ -229,6 +233,12 @@ function VotePage() {
   // 已提交：确认单
   if (data.ballot) {
     const map = new Map(data.items.map((i) => [i.candidate_id, i.choice as Choice]));
+    const resultClass = (choice: Choice | undefined) =>
+      choice === "recommend"
+        ? "border-vote-recommend/30 bg-vote-recommend-bg text-vote-recommend"
+        : choice === "not_recommend"
+          ? "border-vote-reject/30 bg-vote-reject-bg text-vote-reject"
+          : "border-border bg-muted text-muted-foreground";
     return (
       <>
         <div className="no-print">
@@ -263,7 +273,11 @@ function VotePage() {
                   <td className="py-3 text-muted-foreground">{c.unit ?? "—"}</td>
                   <td className="py-3 text-muted-foreground">{c.current_title ?? "—"}</td>
                   <td className="py-3 tracking-[0.12em]">
-                    {map.get(c.id) ? choiceLabel(map.get(c.id)!) : "未表态"}
+                    <span
+                      className={`inline-flex min-w-16 justify-center border px-3 py-1 ${resultClass(map.get(c.id))}`}
+                    >
+                      {map.get(c.id) ? choiceLabel(map.get(c.id) as Choice) : "未表态"}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -369,8 +383,20 @@ function VotePage() {
         </div>
       </Panel>
 
-      <Panel className="overflow-x-auto p-0">
-        <table className="w-full min-w-[640px] text-[12px]">
+      <div
+        onMouseMove={(event) => {
+          if (!showFloatingRule) return;
+          const panelWidth = 310;
+          const panelHeight = 126;
+          const gap = 18;
+          const x = Math.min(event.clientX + gap, window.innerWidth - panelWidth - gap);
+          const y = Math.min(event.clientY + gap, window.innerHeight - panelHeight - gap);
+          setRuleFloat({ x: Math.max(gap, x), y: Math.max(gap, y) });
+        }}
+        onMouseLeave={() => setRuleFloat(null)}
+      >
+        <Panel className="overflow-x-auto p-0">
+          <table className="w-full min-w-[640px] text-[12px]">
           <thead>
             <tr className="hairline-b text-left tracking-[0.14em] text-muted-foreground">
               <th className="px-8 py-4 font-normal">姓名</th>
@@ -441,8 +467,30 @@ function VotePage() {
               return [groupHeader, row];
             })}
           </tbody>
-        </table>
-      </Panel>
+          </table>
+        </Panel>
+      </div>
+
+      {showFloatingRule && ruleFloat ? (
+        <aside
+          className="pointer-events-none fixed z-40 hidden w-[310px] border border-primary/40 bg-card p-4 text-[12px] leading-loose shadow-sm lg:block"
+          style={{ left: ruleFloat.x, top: ruleFloat.y }}
+          aria-live="polite"
+        >
+          <div className="mb-1 tracking-[0.12em] text-muted-foreground">投票规则提醒</div>
+          <div className="tracking-[0.08em]">
+            本轮{labels.recommend}名额 <span className="text-primary">{maxRecommend}</span> 人
+            <br />
+            当前已{labels.recommend} <span className="text-primary">{recommendCount}</span> 人
+            <br />
+            <span className={remaining !== null && remaining < 0 ? "text-destructive" : ""}>
+              剩余{labels.recommend}名额 {Math.max(remaining ?? 0, 0)} 人
+            </span>
+            <br />
+            尚有 {missing} 人未表态
+          </div>
+        </aside>
+      ) : null}
 
       <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] tracking-[0.14em]">
