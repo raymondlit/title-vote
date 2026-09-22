@@ -371,6 +371,9 @@ function VotePage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["vote-session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["judge-sessions"] });
+      if (draftKey) window.localStorage.removeItem(draftKey);
+      setDraftSavedAt(null);
+      setDraftRestoredAt(null);
       toast.success("表决已提交");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "提交失败");
