@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import {
+  DEFAULT_JUDGE_SHEET_PRINT_CONFIG,
+  normalizeJudgeSheetPrintConfig,
+  type JudgeSheetPrintConfig,
+} from "@/components/JudgeBallotSheet";
 
 export type ResultColumnKey =
   | "index"
@@ -35,6 +40,7 @@ export type ResultSheetConfig = {
   fontSize: "small" | "medium" | "large";
   density: "compact" | "comfortable";
   footer: string;
+  judgeSheet: JudgeSheetPrintConfig;
 };
 
 export type ResultSheetRow = {
@@ -71,6 +77,7 @@ export const DEFAULT_RESULT_SHEET_CONFIG: ResultSheetConfig = {
   fontSize: "medium",
   density: "comfortable",
   footer: "",
+  judgeSheet: DEFAULT_JUDGE_SHEET_PRINT_CONFIG,
 };
 
 const COLUMN_KEYS = new Set(DEFAULT_RESULT_SHEET_CONFIG.columns.map((column) => column.key));
@@ -125,6 +132,7 @@ export function normalizeResultSheetConfig(value: unknown): ResultSheetConfig {
     fontSize: raw.fontSize === "small" || raw.fontSize === "large" ? raw.fontSize : "medium",
     density: raw.density === "compact" ? "compact" : "comfortable",
     footer: typeof raw.footer === "string" ? raw.footer : "",
+    judgeSheet: normalizeJudgeSheetPrintConfig(raw.judgeSheet),
   };
 }
 
