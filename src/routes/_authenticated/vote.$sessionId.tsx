@@ -453,7 +453,15 @@ function VotePage() {
                        setChoices((p) => ({ ...p, [c.id]: v as Choice }));
                      }}
                    >
-                    <SelectTrigger className="ml-auto h-9 w-32 rounded-none text-[12px]">
+                    <SelectTrigger
+                      className={`ml-auto h-9 w-32 rounded-none text-[12px] ${
+                        choices[c.id] === "recommend"
+                          ? "border-vote-recommend/40 bg-vote-recommend-bg text-vote-recommend data-[state=open]:border-vote-recommend/60"
+                          : choices[c.id] === "not_recommend"
+                            ? "border-vote-reject/40 bg-vote-reject-bg text-vote-reject data-[state=open]:border-vote-reject/60"
+                            : ""
+                      }`}
+                    >
                       <SelectValue placeholder="请选择" />
                     </SelectTrigger>
                     <SelectContent className="rounded-none">
