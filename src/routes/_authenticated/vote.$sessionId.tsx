@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -189,6 +189,47 @@ function VotePage() {
     [choices],
   );
 
+  // 草稿：未提交的选择自动保存在本机，离开页面后可恢复
+  const draftKey = session?.userId ? `vote-draft:${sessionId}:${session.userId}` : null;
+  const draftLoaded = useRef(false);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const alreadySubmitted = !!data?.ballot;
+
+  useEffect(() => {
+    if (!draftKey || draftLoaded.current) return;
+    draftLoaded.current = true;
+    if (alreadySubmitted) {
+      window.localStorage.removeItem(draftKey);
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { choices?: Record<string, Choice>; savedAt?: string };
+      if (parsed?.choices && Object.keys(parsed.choices).length > 0) {
+        setChoices(parsed.choices);
+        setDraftRestoredAt(parsed.savedAt ?? null);
+        setDraftSavedAt(parsed.savedAt ?? null);
+      }
+    } catch {
+      window.localStorage.removeItem(draftKey);
+    }
+  }, [draftKey, alreadySubmitted]);
+
+  useEffect(() => {
+    if (!draftKey || !draftLoaded.current || alreadySubmitted) return;
+    if (Object.keys(choices).length === 0) {
+      window.localStorage.removeItem(draftKey);
+      setDraftSavedAt(null);
+      return;
+    }
+    const savedAt = new Date().toISOString();
+    window.localStorage.setItem(draftKey, JSON.stringify({ choices, savedAt }));
+    setDraftSavedAt(savedAt);
+  }, [choices, draftKey, alreadySubmitted]);
+
+
   if (isLoading || !data) return <div />;
   if (!data.vs) {
     return (
@@ -330,6 +371,9 @@ function VotePage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["vote-session", sessionId] });
       await queryClient.invalidateQueries({ queryKey: ["judge-sessions"] });
+      if (draftKey) window.localStorage.removeItem(draftKey);
+      setDraftSavedAt(null);
+      setDraftRestoredAt(null);
       toast.success("表决已提交");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "提交失败");
@@ -350,6 +394,31 @@ function VotePage() {
             : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`
         }
       />
+
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-[12px] tracking-[0.1em] text-muted-foreground">
+        <span>
+          {draftSavedAt
+            ? `未提交的选择已自动保存（${new Date(draftSavedAt).toLocaleTimeString("zh-CN")}），离开页面后可继续填写`
+            : "未提交的选择会自动保存在本机，离开页面后可继续填写"}
+        </span>
+        {draftRestoredAt ? (
+          <>
+            <span className="text-foreground">
+              已恢复 {new Date(draftRestoredAt).toLocaleString("zh-CN")} 的未提交选择
+            </span>
+            <button
+              type="button"
+              className="underline underline-offset-4"
+              onClick={() => {
+                setChoices({});
+                setDraftRestoredAt(null);
+              }}
+            >
+              清空重填
+            </button>
+          </>
+        ) : null}
+      </div>
 
       <Panel className="mb-6 border-primary/40 bg-primary/5">
         <div className="text-[12px] leading-loose tracking-[0.1em]">
