@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Printer, Settings2 } from "lucide-react";
+import { Download, Eye, Printer, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Bar,
@@ -18,7 +18,6 @@ import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DEFAULT_RESULT_SHEET_CONFIG,
   normalizeResultSheetConfig,
@@ -33,10 +32,12 @@ import { escapeHtml, openPrintWindow, printDocumentHtml } from "@/lib/print";
 import { voteLabels } from "@/lib/voteLabels";
 import {
   JudgeBallotSheet,
+  JudgeBallotSheetPreview,
   judgeBallotSheetHtml,
   type JudgeSheetData,
   type JudgeSheetRow,
 } from "@/components/JudgeBallotSheet";
+import { JudgeSheetPrintEditor } from "@/components/JudgeSheetPrintEditor";
 import {
   Select,
   SelectContent,
@@ -66,8 +67,9 @@ function ResultsPage() {
   const queryClient = useQueryClient();
   const [sessionId, setSessionId] = useState<string>("");
   const [showConfig, setShowConfig] = useState(false);
+  const [showPrintLayout, setShowPrintLayout] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
-  const [signatureOnEveryPage, setSignatureOnEveryPage] = useState(false);
+  const [previewJudgeId, setPreviewJudgeId] = useState("");
   const [config, setConfig] = useState<ResultSheetConfig>(() =>
     structuredClone(DEFAULT_RESULT_SHEET_CONFIG),
   );
@@ -315,7 +317,7 @@ function ResultsPage() {
       current.title,
       sheets,
       voteLabels(school),
-      signatureOnEveryPage,
+      config.judgeSheet,
     );
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) {
@@ -347,6 +349,8 @@ function ResultsPage() {
   }
 
   const chartData = (result?.rows ?? []).map((r) => ({ name: r.name, 推荐: r.recommend }));
+  const previewSheet =
+    result?.sheets.find((sheet) => sheet.judgeId === previewJudgeId) ?? result?.sheets[0] ?? null;
 
   return (
     <>
@@ -514,14 +518,9 @@ function ResultsPage() {
                   评委投票情况确认单（{result.sheets.length} 份）
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
-                  <label className="flex cursor-pointer items-center gap-2 text-[12px] tracking-[0.08em]">
-                    <Checkbox
-                      checked={signatureOnEveryPage}
-                      onCheckedChange={(checked) => setSignatureOnEveryPage(checked === true)}
-                      aria-label="每个打印页面底部增加评委签字线"
-                    />
-                    每页底部增加评委签字线
-                  </label>
+                  <Button type="button" variant="outline" className="rounded-none" onClick={() => setShowPrintLayout((open) => !open)}>
+                    <Eye /> {showPrintLayout ? "收起打印预览" : "打印版式设置与预览"}
+                  </Button>
                   <Button
                     variant="outline"
                     className="rounded-none"
@@ -532,6 +531,39 @@ function ResultsPage() {
                   </Button>
                 </div>
               </div>
+              {showPrintLayout && previewSheet ? (
+                <div className="mt-8 grid gap-8 border-t pt-8 xl:grid-cols-[minmax(320px,0.8fr)_minmax(480px,1.2fr)]">
+                  <div>
+                    <JudgeSheetPrintEditor
+                      value={config.judgeSheet}
+                      onChange={(judgeSheet) => setConfig((currentConfig) => ({ ...currentConfig, judgeSheet }))}
+                      onSave={saveConfig}
+                      saving={savingConfig}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <div className="text-[12px] tracking-[0.16em]">最终打印效果</div>
+                        <p className="mt-2 text-[10px] text-muted-foreground">预览与打印使用相同的每页人数、页眉、页脚及签字线设置。</p>
+                      </div>
+                      <Select value={previewSheet.judgeId} onValueChange={setPreviewJudgeId}>
+                        <SelectTrigger className="w-48 rounded-none" aria-label="选择预览评委"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {result.sheets.map((sheet) => <SelectItem key={sheet.judgeId} value={sheet.judgeId}>{sheet.judgeName}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <JudgeBallotSheetPreview
+                      schoolName={school?.name ?? ""}
+                      sessionTitle={current.title}
+                      data={previewSheet}
+                      labels={voteLabels(school)}
+                      config={config.judgeSheet}
+                    />
+                  </div>
+                </div>
+              ) : null}
               {result.sheets.length === 0 ? (
                 <p className="mt-6 text-[12px] text-muted-foreground">暂无评委提交。</p>
               ) : (
