@@ -129,6 +129,7 @@ export function judgeBallotSheetHtml(
   sessionTitle: string,
   sheets: JudgeSheetData[],
   labels: VoteLabels = DEFAULT_VOTE_LABELS,
+  signatureOnEveryPage = false,
 ) {
   const body = sheets
     .map((data) => {
@@ -139,15 +140,37 @@ export function judgeBallotSheetHtml(
         },
         { recommend: 0, not_recommend: 0, abstain: 0 },
       );
-      const rows = data.rows
+      const renderRows = (rows: JudgeSheetRow[], offset = 0) =>
+        rows
+          .map(
+            (row, index) =>
+              `<tr><td>${offset + index + 1}</td><td>${esc(row.name)}</td><td>${esc(row.unit ?? "—")}</td><td>${esc(row.title ?? "—")}</td><td>${esc(choiceText(row.choice, labels))}</td></tr>`,
+          )
+          .join("");
+      const heading = (page?: number, pageCount?: number) =>
+        `<h2>${esc(schoolName)}</h2><h3>${esc(sessionTitle)} 评委投票情况确认单${page && pageCount && pageCount > 1 ? `（第 ${page}/${pageCount} 页）` : ""}</h3><p class="meta">评委：${esc(data.judgeName)}${data.judgeUnit ? ` · ${esc(data.judgeUnit)}` : ""} · 提交时间：${esc(formatTime(data.submittedAt))}</p>`;
+      const table = (rows: JudgeSheetRow[], offset = 0) =>
+        `<table><thead><tr><th>序号</th><th>姓名</th><th>单位</th><th>现职称</th><th>本人表决</th></tr></thead><tbody>${renderRows(rows, offset)}</tbody></table>`;
+      const summary = `<p class="meta totals">${esc(totalsText(counts, labels))}</p>`;
+      const signature = `<div class="sign">评委本人签字：<span class="line"></span> 日期：<span class="line short"></span></div>`;
+
+      if (!signatureOnEveryPage) {
+        return `<section class="sheet">${heading()}${table(data.rows)}${summary}${signature}</section>`;
+      }
+
+      const rowsPerPage = 22;
+      const pages = Array.from(
+        { length: Math.max(1, Math.ceil(data.rows.length / rowsPerPage)) },
+        (_, pageIndex) => data.rows.slice(pageIndex * rowsPerPage, (pageIndex + 1) * rowsPerPage),
+      );
+      return pages
         .map(
-          (row, index) =>
-            `<tr><td>${index + 1}</td><td>${esc(row.name)}</td><td>${esc(row.unit ?? "—")}</td><td>${esc(row.title ?? "—")}</td><td>${esc(choiceText(row.choice, labels))}</td></tr>`,
+          (pageRows, pageIndex) =>
+            `<section class="sheet signed-page">${heading(pageIndex + 1, pages.length)}${table(pageRows, pageIndex * rowsPerPage)}${pageIndex === pages.length - 1 ? summary : ""}${signature}</section>`,
         )
         .join("");
-      return `<section class="sheet"><h2>${esc(schoolName)}</h2><h3>${esc(sessionTitle)} 评委投票情况确认单</h3><p class="meta">评委：${esc(data.judgeName)}${data.judgeUnit ? ` · ${esc(data.judgeUnit)}` : ""} · 提交时间：${esc(formatTime(data.submittedAt))}</p><table><tr><th>序号</th><th>姓名</th><th>单位</th><th>现职称</th><th>本人表决</th></tr>${rows}</table><p class="meta">${esc(totalsText(counts, labels))}</p><div class="sign">评委本人签字：<span class="line"></span> 日期：<span class="line short"></span></div></section>`;
     })
     .join("");
 
-  return `<html><head><meta charset="utf-8"><title>评委投票情况确认单</title><style>@page{size:A4 portrait;margin:14mm}body{font-family:SimSun,serif;font-size:12px;color:#30302d}h2,h3{text-align:center;font-weight:normal;letter-spacing:2px;margin:4px 0}.meta{text-align:center;color:#666}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #888;padding:6px;text-align:left}th{font-weight:normal}.sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}.sign{margin-top:48px}.line{display:inline-block;border-bottom:1px solid #555;width:220px;height:16px}.line.short{width:120px}</style></head><body>${body}</body></html>`;
+  return `<html><head><meta charset="utf-8"><title>评委投票情况确认单</title><style>@page{size:A4 portrait;margin:14mm}body{font-family:SimSun,serif;font-size:12px;color:#30302d}h2,h3{text-align:center;font-weight:normal;letter-spacing:2px;margin:4px 0}.meta{text-align:center;color:#666}table{border-collapse:collapse;width:100%;margin-top:16px}thead{display:table-header-group}th,td{border:1px solid #888;padding:6px;text-align:left}th{font-weight:normal}.sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}.sign{margin-top:48px;display:flex;align-items:flex-end;gap:8px;white-space:nowrap}.line{display:inline-block;border-bottom:1px solid #555;width:220px;height:16px}.line.short{width:120px}.signed-page{box-sizing:border-box;height:269mm;display:flex;flex-direction:column;overflow:hidden}.signed-page .sign{margin-top:auto;padding-top:10mm}.signed-page .totals{margin-bottom:0}</style></head><body>${body}</body></html>`;
 }

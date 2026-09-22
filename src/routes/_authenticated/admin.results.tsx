@@ -18,6 +18,7 @@ import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DEFAULT_RESULT_SHEET_CONFIG,
   normalizeResultSheetConfig,
@@ -66,6 +67,7 @@ function ResultsPage() {
   const [sessionId, setSessionId] = useState<string>("");
   const [showConfig, setShowConfig] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [signatureOnEveryPage, setSignatureOnEveryPage] = useState(false);
   const [config, setConfig] = useState<ResultSheetConfig>(() =>
     structuredClone(DEFAULT_RESULT_SHEET_CONFIG),
   );
@@ -308,7 +310,13 @@ function ResultsPage() {
 
   function printJudgeSheets(sheets: JudgeSheetData[]) {
     if (!current || sheets.length === 0) return;
-    const html = judgeBallotSheetHtml(school?.name ?? "", current.title, sheets, voteLabels(school));
+    const html = judgeBallotSheetHtml(
+      school?.name ?? "",
+      current.title,
+      sheets,
+      voteLabels(school),
+      signatureOnEveryPage,
+    );
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) {
       toast.error("浏览器阻止了打印窗口，请允许弹出窗口后重试");
@@ -505,14 +513,24 @@ function ResultsPage() {
                 <div className="text-[12px] tracking-[0.16em]">
                   评委投票情况确认单（{result.sheets.length} 份）
                 </div>
-                <Button
-                  variant="outline"
-                  className="rounded-none"
-                  disabled={result.sheets.length === 0}
-                  onClick={() => printJudgeSheets(result.sheets)}
-                >
-                  <Printer /> 打印全部评委确认单
-                </Button>
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-[12px] tracking-[0.08em]">
+                    <Checkbox
+                      checked={signatureOnEveryPage}
+                      onCheckedChange={(checked) => setSignatureOnEveryPage(checked === true)}
+                      aria-label="每个打印页面底部增加评委签字线"
+                    />
+                    每页底部增加评委签字线
+                  </label>
+                  <Button
+                    variant="outline"
+                    className="rounded-none"
+                    disabled={result.sheets.length === 0}
+                    onClick={() => printJudgeSheets(result.sheets)}
+                  >
+                    <Printer /> 打印全部评委确认单
+                  </Button>
+                </div>
               </div>
               {result.sheets.length === 0 ? (
                 <p className="mt-6 text-[12px] text-muted-foreground">暂无评委提交。</p>
