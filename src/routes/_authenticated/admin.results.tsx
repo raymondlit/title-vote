@@ -277,6 +277,13 @@ function ResultsPage() {
       toast.error("请至少显示一个结果字段");
       return;
     }
+    if (
+      (config.judgeSheet.footerText.trim() || config.judgeSheet.showPageNumber) &&
+      config.judgeSheet.signatureBottom < 12
+    ) {
+      toast.error("签字线距页面底部至少需 12 毫米，以免与页脚或页码重叠");
+      return;
+    }
     setSavingConfig(true);
     const { error } = await supabase
       .from("schools")
