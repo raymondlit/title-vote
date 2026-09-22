@@ -395,6 +395,31 @@ function VotePage() {
         }
       />
 
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-[12px] tracking-[0.1em] text-muted-foreground">
+        <span>
+          {draftSavedAt
+            ? `未提交的选择已自动保存（${new Date(draftSavedAt).toLocaleTimeString("zh-CN")}），离开页面后可继续填写`
+            : "未提交的选择会自动保存在本机，离开页面后可继续填写"}
+        </span>
+        {draftRestoredAt ? (
+          <>
+            <span className="text-foreground">
+              已恢复 {new Date(draftRestoredAt).toLocaleString("zh-CN")} 的未提交选择
+            </span>
+            <button
+              type="button"
+              className="underline underline-offset-4"
+              onClick={() => {
+                setChoices({});
+                setDraftRestoredAt(null);
+              }}
+            >
+              清空重填
+            </button>
+          </>
+        ) : null}
+      </div>
+
       <Panel className="mb-6 border-primary/40 bg-primary/5">
         <div className="text-[12px] leading-loose tracking-[0.1em]">
           <span className="mr-4 text-muted-foreground">投票规则提醒</span>
