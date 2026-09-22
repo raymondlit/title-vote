@@ -189,6 +189,47 @@ function VotePage() {
     [choices],
   );
 
+  // 草稿：未提交的选择自动保存在本机，离开页面后可恢复
+  const draftKey = session?.userId ? `vote-draft:${sessionId}:${session.userId}` : null;
+  const draftLoaded = useRef(false);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const alreadySubmitted = !!data?.ballot;
+
+  useEffect(() => {
+    if (!draftKey || draftLoaded.current) return;
+    draftLoaded.current = true;
+    if (alreadySubmitted) {
+      window.localStorage.removeItem(draftKey);
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { choices?: Record<string, Choice>; savedAt?: string };
+      if (parsed?.choices && Object.keys(parsed.choices).length > 0) {
+        setChoices(parsed.choices);
+        setDraftRestoredAt(parsed.savedAt ?? null);
+        setDraftSavedAt(parsed.savedAt ?? null);
+      }
+    } catch {
+      window.localStorage.removeItem(draftKey);
+    }
+  }, [draftKey, alreadySubmitted]);
+
+  useEffect(() => {
+    if (!draftKey || !draftLoaded.current || alreadySubmitted) return;
+    if (Object.keys(choices).length === 0) {
+      window.localStorage.removeItem(draftKey);
+      setDraftSavedAt(null);
+      return;
+    }
+    const savedAt = new Date().toISOString();
+    window.localStorage.setItem(draftKey, JSON.stringify({ choices, savedAt }));
+    setDraftSavedAt(savedAt);
+  }, [choices, draftKey, alreadySubmitted]);
+
+
   if (isLoading || !data) return <div />;
   if (!data.vs) {
     return (
