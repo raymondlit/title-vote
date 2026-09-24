@@ -373,11 +373,19 @@ function ResultsPage() {
                 <SelectValue placeholder="选择投票场次" />
               </SelectTrigger>
               <SelectContent className="rounded-none">
-                {(sessions ?? []).map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.title}
-                  </SelectItem>
-                ))}
+                {(sessions ?? []).length === 0 ? (
+                  <div className="px-3 py-4 text-center text-[12px] leading-6 text-muted-foreground">
+                    暂无投票场次
+                    <br />
+                    请先在「投票场次」页创建
+                  </div>
+                ) : (
+                  (sessions ?? []).map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.title}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
             <Button
