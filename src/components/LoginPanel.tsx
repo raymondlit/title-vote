@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -33,13 +34,19 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
       return;
     }
     setLoading(true);
+    // 登录期间并行预加载后台与投票页面代码，登录完成即可瞬间进入
+    void router.preloadRoute({ to: "/admin" }).catch(() => {});
+    void router.preloadRoute({ to: "/vote" }).catch(() => {});
     // 切换账号：先彻底清空上一个账号的会话与缓存，避免数据串号
     await queryClient.cancelQueries();
     queryClient.clear();
-    try {
-      await supabase.auth.signOut({ scope: "local" });
-    } catch {
-      // 无既有会话时忽略
+    const { data: existing } = await supabase.auth.getSession();
+    if (existing.session) {
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // 忽略
+      }
     }
     // 多人同时登录时可能被登录频次限制挡下，自动错峰重试，避免评委反复手动点击
     const email = accountToEmail(account);
@@ -62,11 +69,13 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     const session = await fetchSession();
     // 直接写入缓存，避免登录后重复拉取一次会话
     queryClient.setQueryData(["session"], session);
-    setLoading(false);
     if (session?.isSuper) navigate({ to: "/super" });
     else if (session?.isAdmin) navigate({ to: "/admin" });
     else if (session?.isJudge) navigate({ to: "/vote" });
-    else toast.error("该账号尚未分配权限，请联系管理员");
+    else {
+      setLoading(false);
+      toast.error("该账号尚未分配权限，请联系管理员");
+    }
   }
 
   return (
