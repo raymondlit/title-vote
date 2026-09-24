@@ -699,6 +699,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_dashboard_stats: { Args: { _school_id: string }; Returns: Json }
       ballot_is_mine: { Args: { _ballot_id: string }; Returns: boolean }
       ballot_school_id: { Args: { _ballot_id: string }; Returns: string }
       candidate_school_id: { Args: { _candidate_id: string }; Returns: string }
