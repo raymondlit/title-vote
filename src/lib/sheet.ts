@@ -1,4 +1,5 @@
-import * as XLSX from "xlsx";
+// Excel 库体积较大，仅在导入/导出时按需加载，不拖慢页面首屏
+const loadXlsx = () => import("xlsx");
 
 export type SheetRow = Record<string, string>;
 
@@ -48,6 +49,7 @@ export const GROUP_SHEET_DEFAULT_KEYS = ["full_name", "unit", "current_title", "
 export const GROUP_SHEET_RESULT_COLUMNS = ["是否推荐", "同意票数", "总票数"];
 
 export async function parseSheet(file: File): Promise<SheetRow[]> {
+  const XLSX = await loadXlsx();
   const isCsv = /\.csv$/i.test(file.name);
   const wb = isCsv
     ? XLSX.read(await file.text(), { type: "string" })
@@ -69,7 +71,8 @@ export async function parseSheet(file: File): Promise<SheetRow[]> {
   });
 }
 
-export function downloadXlsx(filename: string, rows: string[][], sheetName = "Sheet1") {
+export async function downloadXlsx(filename: string, rows: string[][], sheetName = "Sheet1") {
+  const XLSX = await loadXlsx();
   const ws = XLSX.utils.aoa_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
