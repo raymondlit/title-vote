@@ -43,47 +43,24 @@ function AdminHome() {
     queryKey: ["admin-stats", schoolId],
     enabled: !!schoolId,
     queryFn: async () => {
-      const count = (n: number | null) => n ?? 0;
-      const [
-        judges,
-        candidates,
-        categories,
-        groups,
-        rules,
-        offline,
-        committee,
-        sessions,
-        openSessions,
-        ballots,
-      ] = await Promise.all([
-        supabase.from("judges").select("id", { count: "exact", head: true }),
-        supabase.from("candidates").select("id", { count: "exact", head: true }),
-        supabase.from("review_categories").select("id", { count: "exact", head: true }),
-        supabase.from("subject_groups").select("id", { count: "exact", head: true }),
-        supabase.from("voting_rules").select("id", { count: "exact", head: true }),
-        supabase.from("offline_group_results").select("id", { count: "exact", head: true }),
-        supabase
-          .from("judges")
-          .select("id", { count: "exact", head: true })
-          .eq("is_committee_member", true),
-        supabase.from("vote_sessions").select("id", { count: "exact", head: true }),
-        supabase
-          .from("vote_sessions")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "open"),
-        supabase.from("ballots").select("id", { count: "exact", head: true }),
-      ]);
+      // 一次请求取回全部统计（原为 10 次并发请求），RLS 仍按本校生效
+      const { data, error } = await supabase.rpc("admin_dashboard_stats", {
+        _school_id: schoolId!,
+      });
+      if (error) throw error;
+      const d = (data ?? {}) as Record<string, number>;
+      const n = (k: string) => Number(d[k] ?? 0);
       return {
-        judges: count(judges.count),
-        candidates: count(candidates.count),
-        categories: count(categories.count),
-        groups: count(groups.count),
-        rules: count(rules.count),
-        offline: count(offline.count),
-        committee: count(committee.count),
-        sessions: count(sessions.count),
-        openSessions: count(openSessions.count),
-        ballots: count(ballots.count),
+        judges: n("judges"),
+        candidates: n("candidates"),
+        categories: n("categories"),
+        groups: n("groups"),
+        rules: n("rules"),
+        offline: n("offline"),
+        committee: n("committee"),
+        sessions: n("sessions"),
+        openSessions: n("openSessions"),
+        ballots: n("ballots"),
       };
     },
   });
