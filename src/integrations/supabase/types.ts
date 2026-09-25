@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_credentials: {
+        Row: {
+          current_password: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          current_password: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          current_password?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_permissions: {
         Row: {
           id: string
