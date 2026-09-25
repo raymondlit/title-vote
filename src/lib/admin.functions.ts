@@ -122,6 +122,7 @@ export const createSchoolAdmin = createServerFn({ method: "POST" })
       .from("profiles")
       .insert({ id: uid, school_id: school.id, full_name: data.fullName, username });
     await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: "admin" });
+    await supabaseAdmin.from("admin_credentials").insert({ user_id: uid, current_password: password });
     if (data.permissions.length) {
       await supabaseAdmin
         .from("admin_permissions")
@@ -169,9 +170,24 @@ export const resetUserPassword = createServerFn({ method: "POST" })
         .from("judge_credentials")
         .upsert({ judge_id: judge.id, current_password: password, updated_at: new Date().toISOString() });
       if (credentialError) throw new Error("保存新密码失败");
+    } else {
+      await supabaseAdmin
+        .from("admin_credentials")
+        .upsert({ user_id: data.userId, current_password: password, updated_at: new Date().toISOString() });
     }
 
     return { password };
+  });
+
+export const getAdminPasswords = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertSuperadmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin.from("admin_credentials").select("user_id, current_password");
+    return {
+      entries: (data ?? []).map((r) => ({ user_id: r.user_id, password: r.current_password })),
+    };
   });
 
 export const setAdminPermissions = createServerFn({ method: "POST" })

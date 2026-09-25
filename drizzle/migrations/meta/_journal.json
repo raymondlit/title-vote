@@ -43,6 +43,13 @@
       "when": 1790245133560,
       "tag": "0005_admin_dashboard_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790314386055,
+      "tag": "0006_admin_credentials",
+      "breakpoints": true
     }
   ]
 }

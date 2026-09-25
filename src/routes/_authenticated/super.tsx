@@ -14,6 +14,7 @@ import {
   createSchoolAdmin,
   deleteSchool,
   resetUserPassword,
+  getAdminPasswords,
   setAdminPermissions,
   setUserActive,
 } from "@/lib/admin.functions";
@@ -69,6 +70,7 @@ function SuperPage() {
 
   const createAdminFn = useServerFn(createSchoolAdmin);
   const resetPwFn = useServerFn(resetUserPassword);
+  const getAdminPasswordsFn = useServerFn(getAdminPasswords);
   const setPermsFn = useServerFn(setAdminPermissions);
   const setActiveFn = useServerFn(setUserActive);
   const deleteSchoolFn = useServerFn(deleteSchool);
@@ -84,14 +86,17 @@ function SuperPage() {
   const admins = useQuery({
     queryKey: ["admins"],
     queryFn: async () => {
-      const [{ data: roles }, { data: profiles }, { data: permissions }] = await Promise.all([
-        supabase.from("user_roles").select("user_id, role").eq("role", "admin"),
-        supabase.from("profiles").select("*"),
+      const [{ data: profiles }, { data: permissions }, { data: judges }, pw] = await Promise.all([
+        supabase.from("profiles").select("*").not("school_id", "is", null),
         supabase.from("admin_permissions").select("user_id, permission"),
+        supabase.from("judges").select("profile_id").not("profile_id", "is", null),
+        getAdminPasswordsFn().catch(() => ({ entries: [] as { user_id: string; password: string }[] })),
       ]);
-      const ids = new Set((roles ?? []).map((r) => r.user_id));
+      const judgeIds = new Set((judges ?? []).map((j) => j.profile_id));
+      const pwMap = new Map(pw.entries.map((e) => [e.user_id, e.password]));
       return (profiles ?? [])
-        .filter((p) => ids.has(p.id))
+        .filter((p) => !judgeIds.has(p.id))
+        .map((p) => ({ ...p, password: pwMap.get(p.id) ?? null }))
         .map((p) => ({
           ...p,
           permissions: (permissions ?? [])
@@ -359,6 +364,14 @@ function SuperPage() {
                         <span className="ml-4 text-[11px] text-muted-foreground">
                           {school?.name ?? "—"}
                         </span>
+                        <span className="ml-4 text-[11px] text-muted-foreground">
+                          密码：
+                          {a.password ? (
+                            <span className="font-mono text-foreground">{a.password}</span>
+                          ) : (
+                            "未记录（请重置密码）"
+                          )}
+                        </span>
                         {!a.is_active ? (
                           <span className="ml-4 text-[11px] text-destructive">已停用</span>
                         ) : null}
@@ -369,6 +382,7 @@ function SuperPage() {
                           onClick={async () => {
                             const res = await resetPwFn({ data: { userId: a.id } });
                             setCredential({ username: a.username ?? "", password: res.password });
+                            admins.refetch();
                             toast.success("新密码已生成，见上方提示框");
                           }}
                         >
