@@ -83,6 +83,39 @@ async function resolveSchool(context: { supabase: any; userId: string }, schoolI
   return profile.school_id as string;
 }
 
+export const deleteSchoolAdmin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ userId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertSuperadmin(context);
+    if (data.userId === context.userId) throw new Error("不能删除自己的账号");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, school_id")
+      .eq("id", data.userId)
+      .maybeSingle();
+    if (!profile || !profile.school_id) throw new Error("该账号不存在或不是高校管理员");
+
+    const { data: judge } = await supabaseAdmin
+      .from("judges")
+      .select("id")
+      .eq("profile_id", data.userId)
+      .maybeSingle();
+    if (judge) throw new Error("该账号为评委账号，请在评委管理页删除");
+
+    await supabaseAdmin.from("admin_credentials").delete().eq("user_id", data.userId);
+    await supabaseAdmin.from("admin_permissions").delete().eq("user_id", data.userId);
+    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
+    await supabaseAdmin.from("profiles").delete().eq("id", data.userId);
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
 export const createSchoolAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
