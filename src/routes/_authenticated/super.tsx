@@ -84,14 +84,17 @@ function SuperPage() {
   const admins = useQuery({
     queryKey: ["admins"],
     queryFn: async () => {
-      const [{ data: roles }, { data: profiles }, { data: permissions }] = await Promise.all([
-        supabase.from("user_roles").select("user_id, role").eq("role", "admin"),
-        supabase.from("profiles").select("*"),
+      const [{ data: profiles }, { data: permissions }, { data: judges }, pw] = await Promise.all([
+        supabase.from("profiles").select("*").not("school_id", "is", null),
         supabase.from("admin_permissions").select("user_id, permission"),
+        supabase.from("judges").select("profile_id").not("profile_id", "is", null),
+        getAdminPasswordsFn().catch(() => ({ entries: [] as { user_id: string; password: string }[] })),
       ]);
-      const ids = new Set((roles ?? []).map((r) => r.user_id));
+      const judgeIds = new Set((judges ?? []).map((j) => j.profile_id));
+      const pwMap = new Map(pw.entries.map((e) => [e.user_id, e.password]));
       return (profiles ?? [])
-        .filter((p) => ids.has(p.id))
+        .filter((p) => !judgeIds.has(p.id))
+        .map((p) => ({ ...p, password: pwMap.get(p.id) ?? null }))
         .map((p) => ({
           ...p,
           permissions: (permissions ?? [])
