@@ -13,6 +13,7 @@ import { ALL_PERMISSIONS, PERMISSION_LABELS } from "@/lib/account";
 import {
   createSchoolAdmin,
   deleteSchool,
+  deleteSchoolAdmin,
   resetUserPassword,
   getAdminPasswords,
   setAdminPermissions,
