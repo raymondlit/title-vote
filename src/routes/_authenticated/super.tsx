@@ -75,6 +75,7 @@ function SuperPage() {
   const setPermsFn = useServerFn(setAdminPermissions);
   const setActiveFn = useServerFn(setUserActive);
   const deleteSchoolFn = useServerFn(deleteSchool);
+  const deleteAdminFn = useServerFn(deleteSchoolAdmin);
 
   const schools = useQuery({
     queryKey: ["schools"],
