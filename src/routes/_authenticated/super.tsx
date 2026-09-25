@@ -397,6 +397,28 @@ function SuperPage() {
                         >
                           {a.is_active ? "停用" : "启用"}
                         </button>
+                        <button
+                          className="text-destructive hover:opacity-70"
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `删除管理员「${a.full_name}」？`,
+                              description:
+                                "将永久删除该管理员的登录账号、权限与密码记录，且无法恢复。该校的评委、评审对象等数据不受影响。",
+                              confirmLabel: "确认删除",
+                              destructive: true,
+                            });
+                            if (!ok) return;
+                            try {
+                              await deleteAdminFn({ data: { userId: a.id } });
+                              toast.success("管理员已删除");
+                              queryClient.invalidateQueries({ queryKey: ["admins"] });
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                            }
+                          }}
+                        >
+                          删除
+                        </button>
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-5">
