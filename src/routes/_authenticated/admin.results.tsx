@@ -13,7 +13,7 @@ type ArchiveSnapshot = {
   sheets: {
     judgeName: string;
     judgeUnit: string | null;
-    submittedAt: string;
+    submittedAt: string | null;
     rows: { name: string; choice: string | null }[];
   }[];
 };
@@ -410,7 +410,10 @@ function ResultsPage() {
       archived_by: session?.userId ?? null,
     });
     setArchiving(false);
-    if (error) return toast.error("归档失败：" + error.message);
+    if (error) {
+      toast.error("归档失败：" + error.message);
+      return;
+    }
     toast.success("已归档，可在页面底部「归档记录」随时查看");
     queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
   }
@@ -424,7 +427,10 @@ function ResultsPage() {
     });
     if (!ok) return;
     const { error } = await supabase.from("vote_archives").delete().eq("id", id);
-    if (error) return toast.error("删除失败");
+    if (error) {
+      toast.error("删除失败");
+      return;
+    }
     toast.success("已删除");
     queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
   }
@@ -439,7 +445,7 @@ function ResultsPage() {
     const sheets = snap.sheets
       .map(
         (s) => `<div style="page-break-before:always"><h2>评委个人投票确认单 · ${escapeHtml(s.judgeName)}</h2>
-<p class="sub">${escapeHtml(s.judgeUnit ?? "")} · 提交时间 ${escapeHtml(new Date(s.submittedAt).toLocaleString("zh-CN"))}</p>
+<p class="sub">${escapeHtml(s.judgeUnit ?? "")} · 提交时间 ${escapeHtml(s.submittedAt ? new Date(s.submittedAt).toLocaleString("zh-CN") : "—")}</p>
 <table><thead><tr><th style="width:64px">序号</th><th>姓名</th><th>表决</th></tr></thead><tbody>${s.rows
           .map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(label(r.choice))}</td></tr>`)
           .join("")}</tbody></table><p class="foot">评委签字：________________ &nbsp;&nbsp; 日期：____________</p></div>`,
