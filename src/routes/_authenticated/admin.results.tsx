@@ -1,7 +1,22 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Eye, Printer, Settings2 } from "lucide-react";
+import { Archive, Download, Eye, Printer, Settings2 } from "lucide-react";
+import { useConfirm } from "@/components/ConfirmDialog";
+
+type ArchiveSnapshot = {
+  schoolName: string;
+  labels: { recommend: string; not_recommend: string };
+  judgeCount: number;
+  submitted: number;
+  summary: { rank: number; name: string; group: string; recommend: number }[];
+  sheets: {
+    judgeName: string;
+    judgeUnit: string | null;
+    submittedAt: string | null;
+    rows: { name: string; choice: string | null }[];
+  }[];
+};
 import { toast } from "sonner";
 import {
   Bar,
@@ -70,6 +85,21 @@ function ResultsPage() {
   const [showPrintLayout, setShowPrintLayout] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [previewJudgeId, setPreviewJudgeId] = useState("");
+  const [archiving, setArchiving] = useState(false);
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const { data: archives } = useQuery({
+    queryKey: ["vote-archives", schoolId],
+    enabled: !!schoolId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vote_archives")
+        .select("id, title, snapshot, created_at")
+        .eq("school_id", schoolId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
   const [config, setConfig] = useState<ResultSheetConfig>(() =>
     structuredClone(DEFAULT_RESULT_SHEET_CONFIG),
   );
@@ -355,6 +385,82 @@ function ResultsPage() {
     }
   }
 
+  async function archiveCurrent() {
+    if (!current || !result || !schoolId) return;
+    const labels = voteLabels(school);
+    const snapshot: ArchiveSnapshot = {
+      schoolName: school?.name ?? "",
+      labels,
+      judgeCount: result.judgeCount,
+      submitted: result.submitted,
+      summary: result.summary,
+      sheets: result.sheets.map((s) => ({
+        judgeName: s.judgeName,
+        judgeUnit: s.judgeUnit ?? null,
+        submittedAt: s.submittedAt,
+        rows: s.rows.map((r) => ({ name: r.name, choice: r.choice })),
+      })),
+    };
+    setArchiving(true);
+    const { error } = await supabase.from("vote_archives").insert({
+      school_id: schoolId,
+      session_id: current.id,
+      title: current.title,
+      snapshot: snapshot as never,
+      archived_by: session?.userId ?? null,
+    });
+    setArchiving(false);
+    if (error) {
+      toast.error("归档失败：" + error.message);
+      return;
+    }
+    toast.success("已归档，可在页面底部「归档记录」随时查看");
+    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
+  }
+
+  async function removeArchive(id: string, title: string) {
+    const ok = await confirm({
+      title: "删除归档",
+      description: `确定删除「${title}」的归档记录吗？删除后无法恢复。`,
+      confirmLabel: "确认删除",
+      destructive: true,
+    });
+    if (!ok) return;
+    const { error } = await supabase.from("vote_archives").delete().eq("id", id);
+    if (error) {
+      toast.error("删除失败");
+      return;
+    }
+    toast.success("已删除");
+    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
+  }
+
+  function printArchive(title: string, snap: ArchiveSnapshot) {
+    const L = snap.labels ?? { recommend: "推荐", not_recommend: "不推荐" };
+    const label = (c: string | null) =>
+      c === "recommend" ? L.recommend : c === "not_recommend" ? L.not_recommend : c === "abstain" ? "弃权" : "—";
+    const summary = snap.summary
+      .map((r) => `<tr><td>${r.rank}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.group)}</td><td>${r.recommend}</td></tr>`)
+      .join("");
+    const sheets = snap.sheets
+      .map(
+        (s) => `<div style="page-break-before:always"><h2>评委个人投票确认单 · ${escapeHtml(s.judgeName)}</h2>
+<p class="sub">${escapeHtml(s.judgeUnit ?? "")} · 提交时间 ${escapeHtml(s.submittedAt ? new Date(s.submittedAt).toLocaleString("zh-CN") : "—")}</p>
+<table><thead><tr><th style="width:64px">序号</th><th>姓名</th><th>表决</th></tr></thead><tbody>${s.rows
+          .map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(label(r.choice))}</td></tr>`)
+          .join("")}</tbody></table><p class="foot">评委签字：________________ &nbsp;&nbsp; 日期：____________</p></div>`,
+      )
+      .join("");
+    const body = `<h1>${escapeHtml(snap.schoolName)}</h1>
+<p class="sub">${escapeHtml(title)} · 归档投票结果（应到评委 ${snap.judgeCount} 人 · 已提交 ${snap.submitted} 人）</p>
+<table><thead><tr><th style="width:64px">序号</th><th>姓名</th><th>学科</th><th style="width:120px">${escapeHtml(L.recommend)}票数</th></tr></thead><tbody>${summary}</tbody></table>
+<p class="foot">主任委员签字：________________ &nbsp;&nbsp; 委员签字：________________________________</p>${sheets}`;
+    if (!openPrintWindow(printDocumentHtml({ title: `${title} 归档`, body }))) {
+      toast.error("浏览器阻止了打印窗口，请允许弹出窗口后重试");
+    }
+  }
+
+
   const chartData = (result?.rows ?? []).map((r) => ({ name: r.name, 推荐: r.recommend }));
   const previewSheet =
     result?.sheets.find((sheet) => sheet.judgeId === previewJudgeId) ?? result?.sheets[0] ?? null;
@@ -631,9 +737,59 @@ function ResultsPage() {
             >
               <Download /> 导出 Word
             </Button>
+            <Button
+              variant="outline"
+              onClick={archiveCurrent}
+              disabled={archiving || current.status !== "closed"}
+              title={current.status !== "closed" ? "请先在「投票场次」页结束本场后再归档" : undefined}
+              className="h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
+            >
+              <Archive /> {current.status === "closed" ? "归档本场结果" : "结束场次后可归档"}
+            </Button>
           </div>
         </>
       ) : null}
+
+      <div className="no-print mt-12">
+        <Panel>
+          <div className="mb-6 text-[12px] tracking-[0.16em]">归档记录</div>
+          {(archives ?? []).length === 0 ? (
+            <p className="text-[12px] text-muted-foreground">暂无归档。场次结束后，在结果页点「归档本场结果」即可永久保存。</p>
+          ) : (
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="bg-muted/50">
+                  <th className="border border-border px-3 py-2 text-left font-normal">场次</th>
+                  <th className="border border-border px-3 py-2 text-left font-normal">归档时间</th>
+                  <th className="border border-border px-3 py-2 font-normal">评委提交</th>
+                  <th className="w-56 border border-border px-3 py-2 font-normal">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(archives ?? []).map((a) => {
+                  const snap = a.snapshot as unknown as ArchiveSnapshot;
+                  return (
+                    <tr key={a.id}>
+                      <td className="border border-border px-3 py-2">{a.title}</td>
+                      <td className="border border-border px-3 py-2">{new Date(a.created_at).toLocaleString("zh-CN")}</td>
+                      <td className="border border-border px-3 py-2 text-center">{snap.submitted}/{snap.judgeCount}</td>
+                      <td className="border border-border px-3 py-2 text-center">
+                        <Button size="sm" variant="outline" className="mr-2 rounded-none" onClick={() => printArchive(a.title, snap)}>
+                          <Printer /> 查看/打印
+                        </Button>
+                        <Button size="sm" variant="ghost" className="rounded-none text-destructive" onClick={() => removeArchive(a.id, a.title)}>
+                          删除
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </Panel>
+      </div>
+      {confirmDialog}
     </>
   );
 }
