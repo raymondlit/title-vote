@@ -590,6 +590,44 @@ export type Database = {
         }
         Relationships: []
       }
+      vote_archives: {
+        Row: {
+          archived_by: string | null
+          created_at: string
+          id: string
+          school_id: string
+          session_id: string | null
+          snapshot: Json
+          title: string
+        }
+        Insert: {
+          archived_by?: string | null
+          created_at?: string
+          id?: string
+          school_id: string
+          session_id?: string | null
+          snapshot?: Json
+          title: string
+        }
+        Update: {
+          archived_by?: string | null
+          created_at?: string
+          id?: string
+          school_id?: string
+          session_id?: string | null
+          snapshot?: Json
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vote_archives_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vote_sessions: {
         Row: {
           category_id: string | null
