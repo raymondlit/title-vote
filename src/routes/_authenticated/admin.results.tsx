@@ -426,11 +426,31 @@ function ResultsPage() {
   async function archiveCurrent() {
     if (!current || !result || !schoolId) return;
     const labels = voteLabels(school);
+    let categoryName: string | undefined;
+    let groupName: string | undefined;
+    if (current.category_id) {
+      const { data } = await supabase
+        .from("review_categories")
+        .select("name")
+        .eq("id", current.category_id)
+        .maybeSingle();
+      categoryName = data?.name ?? undefined;
+    }
+    if (current.group_id) {
+      const { data } = await supabase
+        .from("subject_groups")
+        .select("name")
+        .eq("id", current.group_id)
+        .maybeSingle();
+      groupName = data?.name ?? undefined;
+    }
     const snapshot: ArchiveSnapshot = {
       schoolName: school?.name ?? "",
       labels,
       judgeCount: result.judgeCount,
       submitted: result.submitted,
+      categoryName,
+      groupName,
       summary: result.summary,
       sheets: result.sheets.map((s) => ({
         judgeName: s.judgeName,
@@ -444,6 +464,8 @@ function ResultsPage() {
       school_id: schoolId,
       session_id: current.id,
       title: current.title,
+      category_id: current.category_id,
+      group_id: current.group_id,
       snapshot: snapshot as never,
       archived_by: session?.userId ?? null,
     });
