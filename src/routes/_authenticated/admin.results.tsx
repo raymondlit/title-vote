@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Download, Eye, Printer, Settings2 } from "lucide-react";
@@ -9,6 +9,8 @@ type ArchiveSnapshot = {
   labels: { recommend: string; not_recommend: string };
   judgeCount: number;
   submitted: number;
+  categoryName?: string | undefined;
+  groupName?: string | undefined;
   summary: { rank: number; name: string; group: string; recommend: number }[];
   sheets: {
     judgeName: string;
@@ -16,6 +18,16 @@ type ArchiveSnapshot = {
     submittedAt: string | null;
     rows: { name: string; choice: string | null }[];
   }[];
+};
+
+type ArchiveRow = {
+  id: string;
+  title: string;
+  snapshot: unknown;
+  created_at: string;
+  school_id: string | null;
+  category_id: string | null;
+  group_id: string | null;
 };
 import { toast } from "sonner";
 import {
@@ -88,18 +100,106 @@ function ResultsPage() {
   const [archiving, setArchiving] = useState(false);
   const { confirm, dialog: confirmDialog } = useConfirm();
   const { data: archives } = useQuery({
-    queryKey: ["vote-archives", schoolId],
-    enabled: !!schoolId,
+    queryKey: ["vote-archives", schoolId ?? "all"],
+    enabled: !!schoolId || !!session?.isSuper,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vote_archives")
-        .select("id, title, snapshot, created_at")
-        .eq("school_id", schoolId!)
-        .order("created_at", { ascending: false });
+        .select("id, title, snapshot, created_at, school_id, category_id, group_id")
+        .order("created_at", { ascending: false })
+        .returns<ArchiveRow[]>();
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      return schoolId ? rows.filter((a) => a.school_id === schoolId) : rows;
     },
   });
+
+  // 归档筛选所需名称：高校、评审类别、学科组
+  const { data: scopeNames } = useQuery({
+    queryKey: ["archive-scope-names", schoolId ?? "all"],
+    enabled: !!schoolId || !!session?.isSuper,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const [cats, grps, schools] = await Promise.all([
+        schoolId
+          ? supabase.from("review_categories").select("id, name").eq("school_id", schoolId)
+          : supabase.from("review_categories").select("id, name"),
+        schoolId
+          ? supabase.from("subject_groups").select("id, name").eq("school_id", schoolId)
+          : supabase.from("subject_groups").select("id, name"),
+        supabase.from("schools").select("id, name"),
+      ]);
+      return {
+        categoryNames: new Map(
+          (cats.data ?? []).map((c) => [c.id as string, c.name as string]),
+        ),
+        groupNames: new Map((grps.data ?? []).map((g) => [g.id as string, g.name as string])),
+        schoolNames: new Map((schools.data ?? []).map((s) => [s.id as string, s.name as string])),
+      };
+    },
+  });
+
+  const [filterSchool, setFilterSchool] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterGroup, setFilterGroup] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const archiveRows = useMemo(() => {
+    return (archives ?? []).map((a) => {
+      const snap = a.snapshot as ArchiveSnapshot | null;
+      return {
+        ...a,
+        snap,
+        schoolName:
+          (a.school_id ? scopeNames?.schoolNames.get(a.school_id) : null) ??
+          snap?.schoolName ??
+          "—",
+        categoryName:
+          (a.category_id ? scopeNames?.categoryNames.get(a.category_id) : null) ??
+          snap?.categoryName ??
+          null,
+        groupName:
+          (a.group_id ? scopeNames?.groupNames.get(a.group_id) : null) ?? snap?.groupName ?? null,
+      };
+    });
+  }, [archives, scopeNames]);
+
+  const filterOptions = useMemo(() => {
+    const schools = new Map<string, string>();
+    const cats = new Map<string, string>();
+    const grps = new Map<string, string>();
+    for (const a of archiveRows) {
+      if (a.school_id) schools.set(a.school_id, a.schoolName);
+      if (a.category_id) cats.set(a.category_id, a.categoryName ?? "未知类别");
+      if (a.group_id) grps.set(a.group_id, a.groupName ?? "未知学科组");
+    }
+    const sortByName = (m: Map<string, string>) =>
+      [...m.entries()].sort((x, y) => x[1].localeCompare(y[1], "zh-Hans-CN"));
+    return { schools: sortByName(schools), categories: sortByName(cats), groups: sortByName(grps) };
+  }, [archiveRows]);
+
+  const filteredArchives = useMemo(
+    () =>
+      archiveRows.filter((a) => {
+        if (filterSchool && a.school_id !== filterSchool) return false;
+        if (filterCategory && a.category_id !== filterCategory) return false;
+        if (filterGroup && a.group_id !== filterGroup) return false;
+        const day = a.created_at.slice(0, 10);
+        if (dateFrom && day < dateFrom) return false;
+        if (dateTo && day > dateTo) return false;
+        return true;
+      }),
+    [archiveRows, filterSchool, filterCategory, filterGroup, dateFrom, dateTo],
+  );
+
+  const hasArchiveFilter = !!(
+    filterSchool ||
+    filterCategory ||
+    filterGroup ||
+    dateFrom ||
+    dateTo
+  );
   const [config, setConfig] = useState<ResultSheetConfig>(() =>
     structuredClone(DEFAULT_RESULT_SHEET_CONFIG),
   );
@@ -388,11 +488,31 @@ function ResultsPage() {
   async function archiveCurrent() {
     if (!current || !result || !schoolId) return;
     const labels = voteLabels(school);
+    let categoryName: string | undefined;
+    let groupName: string | undefined;
+    if (current.category_id) {
+      const { data } = await supabase
+        .from("review_categories")
+        .select("name")
+        .eq("id", current.category_id)
+        .maybeSingle();
+      categoryName = data?.name ?? undefined;
+    }
+    if (current.group_id) {
+      const { data } = await supabase
+        .from("subject_groups")
+        .select("name")
+        .eq("id", current.group_id)
+        .maybeSingle();
+      groupName = data?.name ?? undefined;
+    }
     const snapshot: ArchiveSnapshot = {
       schoolName: school?.name ?? "",
       labels,
       judgeCount: result.judgeCount,
       submitted: result.submitted,
+      categoryName,
+      groupName,
       summary: result.summary,
       sheets: result.sheets.map((s) => ({
         judgeName: s.judgeName,
@@ -406,6 +526,8 @@ function ResultsPage() {
       school_id: schoolId,
       session_id: current.id,
       title: current.title,
+      category_id: current.category_id,
+      group_id: current.group_id,
       snapshot: snapshot as never,
       archived_by: session?.userId ?? null,
     });
@@ -415,7 +537,7 @@ function ResultsPage() {
       return;
     }
     toast.success("已归档，可在页面底部「归档记录」随时查看");
-    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
+    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId ?? "all"] });
   }
 
   async function removeArchive(id: string, title: string) {
@@ -432,7 +554,7 @@ function ResultsPage() {
       return;
     }
     toast.success("已删除");
-    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
+    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId ?? "all"] });
   }
 
   function printArchive(title: string, snap: ArchiveSnapshot) {
@@ -756,36 +878,124 @@ function ResultsPage() {
           {(archives ?? []).length === 0 ? (
             <p className="text-[12px] text-muted-foreground">暂无归档。场次结束后，在结果页点「归档本场结果」即可永久保存。</p>
           ) : (
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="border border-border px-3 py-2 text-left font-normal">场次</th>
-                  <th className="border border-border px-3 py-2 text-left font-normal">归档时间</th>
-                  <th className="border border-border px-3 py-2 font-normal">评委提交</th>
-                  <th className="w-56 border border-border px-3 py-2 font-normal">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(archives ?? []).map((a) => {
-                  const snap = a.snapshot as unknown as ArchiveSnapshot;
-                  return (
-                    <tr key={a.id}>
-                      <td className="border border-border px-3 py-2">{a.title}</td>
-                      <td className="border border-border px-3 py-2">{new Date(a.created_at).toLocaleString("zh-CN")}</td>
-                      <td className="border border-border px-3 py-2 text-center">{snap.submitted}/{snap.judgeCount}</td>
-                      <td className="border border-border px-3 py-2 text-center">
-                        <Button size="sm" variant="outline" className="mr-2 rounded-none" onClick={() => printArchive(a.title, snap)}>
-                          <Printer /> 查看/打印
-                        </Button>
-                        <Button size="sm" variant="ghost" className="rounded-none text-destructive" onClick={() => removeArchive(a.id, a.title)}>
-                          删除
-                        </Button>
-                      </td>
+            <>
+              <div className="mb-6 flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">高校</label>
+                  <Select value={filterSchool} onValueChange={setFilterSchool}>
+                    <SelectTrigger className="w-48 rounded-none">
+                      <SelectValue placeholder="全部高校" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      {filterOptions.schools.map(([id, name]) => (
+                        <SelectItem key={id} value={id}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">评审类别</label>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-44 rounded-none">
+                      <SelectValue placeholder="全部类别" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      {filterOptions.categories.map(([id, name]) => (
+                        <SelectItem key={id} value={id}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">学科组</label>
+                  <Select value={filterGroup} onValueChange={setFilterGroup}>
+                    <SelectTrigger className="w-44 rounded-none">
+                      <SelectValue placeholder="全部学科组" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      {filterOptions.groups.map(([id, name]) => (
+                        <SelectItem key={id} value={id}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">归档时间从</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-9 rounded-none border border-input bg-transparent px-3 text-[12px]"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">至</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="h-9 rounded-none border border-input bg-transparent px-3 text-[12px]"
+                  />
+                </div>
+                {hasArchiveFilter ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="rounded-none"
+                    onClick={() => {
+                      setFilterSchool("");
+                      setFilterCategory("");
+                      setFilterGroup("");
+                      setDateFrom("");
+                      setDateTo("");
+                    }}
+                  >
+                    清除筛选
+                  </Button>
+                ) : null}
+                <div className="ml-auto text-[11px] tracking-[0.1em] text-muted-foreground">
+                  共 {filteredArchives.length} 条
+                  {hasArchiveFilter ? ` / ${archiveRows.length} 条` : ""}
+                </div>
+              </div>
+              {filteredArchives.length === 0 ? (
+                <p className="text-[12px] text-muted-foreground">没有符合筛选条件的归档记录，请调整筛选条件。</p>
+              ) : (
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="border border-border px-3 py-2 text-left font-normal">场次</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">高校</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">评审类别</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">学科组</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">归档时间</th>
+                      <th className="border border-border px-3 py-2 font-normal">评委提交</th>
+                      <th className="w-56 border border-border px-3 py-2 font-normal">操作</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {filteredArchives.map((a) => (
+                      <tr key={a.id}>
+                        <td className="border border-border px-3 py-2">{a.title}</td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">{a.schoolName}</td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">{a.categoryName ?? "—"}</td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">{a.groupName ?? "—"}</td>
+                        <td className="border border-border px-3 py-2">{new Date(a.created_at).toLocaleString("zh-CN")}</td>
+                        <td className="border border-border px-3 py-2 text-center">{a.snap?.submitted ?? "—"}/{a.snap?.judgeCount ?? "—"}</td>
+                        <td className="border border-border px-3 py-2 text-center">
+                          <Button size="sm" variant="outline" className="mr-2 rounded-none" onClick={() => printArchive(a.title, a.snap!)}>
+                            <Printer /> 查看/打印
+                          </Button>
+                          <Button size="sm" variant="ghost" className="rounded-none text-destructive" onClick={() => removeArchive(a.id, a.title)}>
+                            删除
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
           )}
         </Panel>
       </div>
