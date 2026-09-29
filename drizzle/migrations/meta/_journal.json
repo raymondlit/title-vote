@@ -64,6 +64,13 @@
       "when": 1790651285044,
       "tag": "0008_add_archive_scope_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790651621024,
+      "tag": "0009_grant_vote_archives_access",
+      "breakpoints": true
     }
   ]
 }
