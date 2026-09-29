@@ -106,6 +106,7 @@ function ResultsPage() {
       const { data, error } = await supabase
         .from("vote_archives")
         .select("id, title, snapshot, created_at, school_id, category_id, group_id")
+        .order("created_at", { ascending: false })
         .returns<ArchiveRow[]>();
       if (error) throw error;
       const rows = data ?? [];
