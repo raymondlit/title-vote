@@ -475,7 +475,7 @@ function ResultsPage() {
       return;
     }
     toast.success("已归档，可在页面底部「归档记录」随时查看");
-    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
+    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId ?? "all"] });
   }
 
   async function removeArchive(id: string, title: string) {
@@ -492,7 +492,7 @@ function ResultsPage() {
       return;
     }
     toast.success("已删除");
-    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId] });
+    queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId ?? "all"] });
   }
 
   function printArchive(title: string, snap: ArchiveSnapshot) {
