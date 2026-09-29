@@ -878,36 +878,124 @@ function ResultsPage() {
           {(archives ?? []).length === 0 ? (
             <p className="text-[12px] text-muted-foreground">暂无归档。场次结束后，在结果页点「归档本场结果」即可永久保存。</p>
           ) : (
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="border border-border px-3 py-2 text-left font-normal">场次</th>
-                  <th className="border border-border px-3 py-2 text-left font-normal">归档时间</th>
-                  <th className="border border-border px-3 py-2 font-normal">评委提交</th>
-                  <th className="w-56 border border-border px-3 py-2 font-normal">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(archives ?? []).map((a) => {
-                  const snap = a.snapshot as unknown as ArchiveSnapshot;
-                  return (
-                    <tr key={a.id}>
-                      <td className="border border-border px-3 py-2">{a.title}</td>
-                      <td className="border border-border px-3 py-2">{new Date(a.created_at).toLocaleString("zh-CN")}</td>
-                      <td className="border border-border px-3 py-2 text-center">{snap.submitted}/{snap.judgeCount}</td>
-                      <td className="border border-border px-3 py-2 text-center">
-                        <Button size="sm" variant="outline" className="mr-2 rounded-none" onClick={() => printArchive(a.title, snap)}>
-                          <Printer /> 查看/打印
-                        </Button>
-                        <Button size="sm" variant="ghost" className="rounded-none text-destructive" onClick={() => removeArchive(a.id, a.title)}>
-                          删除
-                        </Button>
-                      </td>
+            <>
+              <div className="mb-6 flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">高校</label>
+                  <Select value={filterSchool} onValueChange={setFilterSchool}>
+                    <SelectTrigger className="w-48 rounded-none">
+                      <SelectValue placeholder="全部高校" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      {filterOptions.schools.map(([id, name]) => (
+                        <SelectItem key={id} value={id}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">评审类别</label>
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-44 rounded-none">
+                      <SelectValue placeholder="全部类别" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      {filterOptions.categories.map(([id, name]) => (
+                        <SelectItem key={id} value={id}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">学科组</label>
+                  <Select value={filterGroup} onValueChange={setFilterGroup}>
+                    <SelectTrigger className="w-44 rounded-none">
+                      <SelectValue placeholder="全部学科组" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      {filterOptions.groups.map(([id, name]) => (
+                        <SelectItem key={id} value={id}>{name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">归档时间从</label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="h-9 rounded-none border border-input bg-transparent px-3 text-[12px]"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] tracking-[0.16em] text-muted-foreground">至</label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="h-9 rounded-none border border-input bg-transparent px-3 text-[12px]"
+                  />
+                </div>
+                {hasArchiveFilter ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="rounded-none"
+                    onClick={() => {
+                      setFilterSchool("");
+                      setFilterCategory("");
+                      setFilterGroup("");
+                      setDateFrom("");
+                      setDateTo("");
+                    }}
+                  >
+                    清除筛选
+                  </Button>
+                ) : null}
+                <div className="ml-auto text-[11px] tracking-[0.1em] text-muted-foreground">
+                  共 {filteredArchives.length} 条
+                  {hasArchiveFilter ? ` / ${archiveRows.length} 条` : ""}
+                </div>
+              </div>
+              {filteredArchives.length === 0 ? (
+                <p className="text-[12px] text-muted-foreground">没有符合筛选条件的归档记录，请调整筛选条件。</p>
+              ) : (
+                <table className="w-full border-collapse text-[13px]">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="border border-border px-3 py-2 text-left font-normal">场次</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">高校</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">评审类别</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">学科组</th>
+                      <th className="border border-border px-3 py-2 text-left font-normal">归档时间</th>
+                      <th className="border border-border px-3 py-2 font-normal">评委提交</th>
+                      <th className="w-56 border border-border px-3 py-2 font-normal">操作</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {filteredArchives.map((a) => (
+                      <tr key={a.id}>
+                        <td className="border border-border px-3 py-2">{a.title}</td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">{a.schoolName}</td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">{a.categoryName ?? "—"}</td>
+                        <td className="border border-border px-3 py-2 text-muted-foreground">{a.groupName ?? "—"}</td>
+                        <td className="border border-border px-3 py-2">{new Date(a.created_at).toLocaleString("zh-CN")}</td>
+                        <td className="border border-border px-3 py-2 text-center">{a.snap?.submitted ?? "—"}/{a.snap?.judgeCount ?? "—"}</td>
+                        <td className="border border-border px-3 py-2 text-center">
+                          <Button size="sm" variant="outline" className="mr-2 rounded-none" onClick={() => printArchive(a.title, a.snap!)}>
+                            <Printer /> 查看/打印
+                          </Button>
+                          <Button size="sm" variant="ghost" className="rounded-none text-destructive" onClick={() => removeArchive(a.id, a.title)}>
+                            删除
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
           )}
         </Panel>
       </div>
