@@ -9,8 +9,8 @@ type ArchiveSnapshot = {
   labels: { recommend: string; not_recommend: string };
   judgeCount: number;
   submitted: number;
-  categoryName?: string;
-  groupName?: string;
+  categoryName?: string | undefined;
+  groupName?: string | undefined;
   summary: { rank: number; name: string; group: string; recommend: number }[];
   sheets: {
     judgeName: string;
