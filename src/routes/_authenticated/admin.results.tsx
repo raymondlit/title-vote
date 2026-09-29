@@ -138,6 +138,68 @@ function ResultsPage() {
       };
     },
   });
+
+  const [filterSchool, setFilterSchool] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterGroup, setFilterGroup] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const archiveRows = useMemo(() => {
+    return (archives ?? []).map((a) => {
+      const snap = a.snapshot as ArchiveSnapshot | null;
+      return {
+        ...a,
+        snap,
+        schoolName:
+          (a.school_id ? scopeNames?.schoolNames.get(a.school_id) : null) ??
+          snap?.schoolName ??
+          "—",
+        categoryName:
+          (a.category_id ? scopeNames?.categoryNames.get(a.category_id) : null) ??
+          snap?.categoryName ??
+          null,
+        groupName:
+          (a.group_id ? scopeNames?.groupNames.get(a.group_id) : null) ?? snap?.groupName ?? null,
+      };
+    });
+  }, [archives, scopeNames]);
+
+  const filterOptions = useMemo(() => {
+    const schools = new Map<string, string>();
+    const cats = new Map<string, string>();
+    const grps = new Map<string, string>();
+    for (const a of archiveRows) {
+      if (a.school_id) schools.set(a.school_id, a.schoolName);
+      if (a.category_id) cats.set(a.category_id, a.categoryName ?? "未知类别");
+      if (a.group_id) grps.set(a.group_id, a.groupName ?? "未知学科组");
+    }
+    const sortByName = (m: Map<string, string>) =>
+      [...m.entries()].sort((x, y) => x[1].localeCompare(y[1], "zh-Hans-CN"));
+    return { schools: sortByName(schools), categories: sortByName(cats), groups: sortByName(grps) };
+  }, [archiveRows]);
+
+  const filteredArchives = useMemo(
+    () =>
+      archiveRows.filter((a) => {
+        if (filterSchool && a.school_id !== filterSchool) return false;
+        if (filterCategory && a.category_id !== filterCategory) return false;
+        if (filterGroup && a.group_id !== filterGroup) return false;
+        const day = a.created_at.slice(0, 10);
+        if (dateFrom && day < dateFrom) return false;
+        if (dateTo && day > dateTo) return false;
+        return true;
+      }),
+    [archiveRows, filterSchool, filterCategory, filterGroup, dateFrom, dateTo],
+  );
+
+  const hasArchiveFilter = !!(
+    filterSchool ||
+    filterCategory ||
+    filterGroup ||
+    dateFrom ||
+    dateTo
+  );
   const [config, setConfig] = useState<ResultSheetConfig>(() =>
     structuredClone(DEFAULT_RESULT_SHEET_CONFIG),
   );
