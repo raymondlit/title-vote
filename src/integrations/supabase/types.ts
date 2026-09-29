@@ -593,7 +593,9 @@ export type Database = {
       vote_archives: {
         Row: {
           archived_by: string | null
+          category_id: string | null
           created_at: string
+          group_id: string | null
           id: string
           school_id: string
           session_id: string | null
@@ -602,7 +604,9 @@ export type Database = {
         }
         Insert: {
           archived_by?: string | null
+          category_id?: string | null
           created_at?: string
+          group_id?: string | null
           id?: string
           school_id: string
           session_id?: string | null
@@ -611,7 +615,9 @@ export type Database = {
         }
         Update: {
           archived_by?: string | null
+          category_id?: string | null
           created_at?: string
+          group_id?: string | null
           id?: string
           school_id?: string
           session_id?: string | null
@@ -619,6 +625,20 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vote_archives_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "review_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vote_archives_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "subject_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vote_archives_school_id_fkey"
             columns: ["school_id"]

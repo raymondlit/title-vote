@@ -57,6 +57,13 @@
       "when": 1790387431239,
       "tag": "0007_vote_archives",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790651285044,
+      "tag": "0008_add_archive_scope_columns",
+      "breakpoints": true
     }
   ]
 }
