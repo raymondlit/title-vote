@@ -100,16 +100,41 @@ function ResultsPage() {
   const [archiving, setArchiving] = useState(false);
   const { confirm, dialog: confirmDialog } = useConfirm();
   const { data: archives } = useQuery({
-    queryKey: ["vote-archives", schoolId],
-    enabled: !!schoolId,
+    queryKey: ["vote-archives", schoolId ?? "all"],
+    enabled: !!schoolId || !!session?.isSuper,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vote_archives")
-        .select("id, title, snapshot, created_at")
-        .eq("school_id", schoolId!)
-        .order("created_at", { ascending: false });
+        .select("id, title, snapshot, created_at, school_id, category_id, group_id")
+        .returns<ArchiveRow[]>();
       if (error) throw error;
-      return data ?? [];
+      const rows = data ?? [];
+      return schoolId ? rows.filter((a) => a.school_id === schoolId) : rows;
+    },
+  });
+
+  // 归档筛选所需名称：高校、评审类别、学科组
+  const { data: scopeNames } = useQuery({
+    queryKey: ["archive-scope-names", schoolId ?? "all"],
+    enabled: !!schoolId || !!session?.isSuper,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const [cats, grps, schools] = await Promise.all([
+        schoolId
+          ? supabase.from("review_categories").select("id, name").eq("school_id", schoolId)
+          : supabase.from("review_categories").select("id, name"),
+        schoolId
+          ? supabase.from("subject_groups").select("id, name").eq("school_id", schoolId)
+          : supabase.from("subject_groups").select("id, name"),
+        supabase.from("schools").select("id, name"),
+      ]);
+      return {
+        categoryNames: new Map(
+          (cats.data ?? []).map((c) => [c.id as string, c.name as string]),
+        ),
+        groupNames: new Map((grps.data ?? []).map((g) => [g.id as string, g.name as string])),
+        schoolNames: new Map((schools.data ?? []).map((s) => [s.id as string, s.name as string])),
+      };
     },
   });
   const [config, setConfig] = useState<ResultSheetConfig>(() =>
