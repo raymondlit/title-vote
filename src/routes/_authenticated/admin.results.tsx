@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Download, Eye, Printer, Settings2 } from "lucide-react";
@@ -9,6 +9,8 @@ type ArchiveSnapshot = {
   labels: { recommend: string; not_recommend: string };
   judgeCount: number;
   submitted: number;
+  categoryName?: string;
+  groupName?: string;
   summary: { rank: number; name: string; group: string; recommend: number }[];
   sheets: {
     judgeName: string;
@@ -16,6 +18,16 @@ type ArchiveSnapshot = {
     submittedAt: string | null;
     rows: { name: string; choice: string | null }[];
   }[];
+};
+
+type ArchiveRow = {
+  id: string;
+  title: string;
+  snapshot: unknown;
+  created_at: string;
+  school_id: string | null;
+  category_id: string | null;
+  group_id: string | null;
 };
 import { toast } from "sonner";
 import {
