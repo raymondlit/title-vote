@@ -71,6 +71,13 @@
       "when": 1790651621024,
       "tag": "0009_grant_vote_archives_access",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790652011141,
+      "tag": "0010_rewrite_scope_policies_without_helper_functions",
+      "breakpoints": true
     }
   ]
 }
