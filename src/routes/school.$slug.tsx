@@ -20,14 +20,8 @@ function SchoolLogin() {
   const { data: school, isLoading } = useQuery({
     queryKey: ["school-by-slug", slug],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("schools")
-        .select(
-          "name, subtitle, logo_url, accent_color, font_family, font_scale, color_scheme, display_mode, layout_density",
-        )
-        .eq("slug", slug)
-        .maybeSingle();
-      return data;
+      const { data } = await supabase.rpc("get_school_branding", { _slug: slug });
+      return data?.[0] ?? null;
     },
   });
 
