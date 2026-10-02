@@ -780,6 +780,20 @@ export type Database = {
       ballot_school_id: { Args: { _ballot_id: string }; Returns: string }
       candidate_school_id: { Args: { _candidate_id: string }; Returns: string }
       current_school_id: { Args: never; Returns: string }
+      get_school_branding: {
+        Args: { _slug: string }
+        Returns: {
+          accent_color: string
+          color_scheme: string
+          display_mode: string
+          font_family: string
+          font_scale: string
+          layout_density: string
+          logo_url: string
+          name: string
+          subtitle: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
