@@ -9,6 +9,7 @@ import { useSession, useSchool } from "@/lib/session";
 import { submitBallot } from "@/lib/vote.functions";
 import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { pickVotingRule } from "@/lib/voteRules";
+import { effectiveRoundRule, hasFixedPool } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,7 +69,7 @@ function VotePage() {
       const { data: vs } = await supabase
         .from("vote_sessions")
         .select(
-          "id, title, status, category_id, group_id, school_id, opened_at, closed_at, voter_scope",
+          "id, title, status, category_id, group_id, school_id, opened_at, closed_at, voter_scope, round_number, candidate_ids, max_recommend",
         )
         .eq("id", sessionId)
         .maybeSingle();
@@ -79,24 +80,34 @@ function VotePage() {
       if (!vs || !judge || vs.school_id !== judge.school_id || outOfScope)
         return { judge, vs: null, candidates: [], rule: null, ballot: null, items: [] };
 
-
-
-      let cq = supabase
-        .from("candidates")
-        .select("id, full_name, unit, current_title, group_id")
-        .eq("school_id", vs.school_id)
-        .order("full_name");
-      if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
-      if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
-      const { data: candidatesRaw } = await cq;
-      let base = candidatesRaw ?? [];
-      if (isCommittee) {
-        const recommended = await fetchRecommendedCandidateIds(
-          supabase,
-          vs.school_id,
-          vs.category_id,
-        );
-        base = base.filter((c) => recommended.has(c.id));
+      let base: { id: string; full_name: string; unit: string | null; current_title: string | null; group_id: string | null }[];
+      if (hasFixedPool(vs)) {
+        // 多轮遴选：本轮只展示固定名单内人员
+        const { data: pooled } = await supabase
+          .from("candidates")
+          .select("id, full_name, unit, current_title, group_id")
+          .eq("school_id", vs.school_id)
+          .in("id", vs.candidate_ids ?? [])
+          .order("full_name");
+        base = pooled ?? [];
+      } else {
+        let cq = supabase
+          .from("candidates")
+          .select("id, full_name, unit, current_title, group_id")
+          .eq("school_id", vs.school_id)
+          .order("full_name");
+        if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
+        if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
+        const { data: candidatesRaw } = await cq;
+        base = candidatesRaw ?? [];
+        if (isCommittee) {
+          const recommended = await fetchRecommendedCandidateIds(
+            supabase,
+            vs.school_id,
+            vs.category_id,
+          );
+          base = base.filter((c) => recommended.has(c.id));
+        }
       }
 
       // 学科组线下推荐票数：有票数时按票数从高到低排序
@@ -154,7 +165,11 @@ function VotePage() {
         .from("voting_rules")
         .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
         .eq("school_id", vs.school_id);
-      const rule = pickVotingRule(rules, vs.category_id, vs.group_id);
+      const rule = effectiveRoundRule(
+        pickVotingRule(rules, vs.category_id, vs.group_id),
+        vs,
+        candidates.length,
+      );
 
       const { data: ballot } = judge
         ? await supabase
@@ -389,9 +404,10 @@ function VotePage() {
       <PageTitle
         title={data.vs.title}
         description={
-          rule
+          ((data.vs.round_number ?? 1) > 1 ? `第 ${data.vs.round_number} 轮 · ` : "") +
+          (rule
             ? `本场参评 ${data.candidates.length} 人，${labels.recommend}名额 ${maxRecommend} 人，实时显示剩余名额，超出名额无法提交。${mustVoteAll ? "须对每位评审对象表态。" : ""}`
-            : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`
+            : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`)
         }
       />
 

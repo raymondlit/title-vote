@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { pickVotingRule } from "@/lib/voteRules";
 import { COMMITTEE_SCOPE, fetchRecommendedCandidateIds } from "@/lib/committee";
+import { effectiveRoundRule, hasFixedPool } from "@/lib/rounds";
 
 const choiceEnum = z.enum(["recommend", "not_recommend", "abstain"]);
 
@@ -30,7 +31,7 @@ export const submitBallot = createServerFn({ method: "POST" })
 
     const { data: session } = await supabase
       .from("vote_sessions")
-      .select("id, school_id, category_id, group_id, status, voter_scope")
+      .select("id, school_id, category_id, group_id, status, voter_scope, candidate_ids, max_recommend")
       .eq("id", data.sessionId)
       .maybeSingle();
     if (!session || session.school_id !== judge.school_id) throw new Error("投票不存在");
@@ -63,18 +64,29 @@ export const submitBallot = createServerFn({ method: "POST" })
       .maybeSingle();
     if (existing) throw new Error("您已提交过本场投票，不能重复提交");
 
-    let candQuery = supabase.from("candidates").select("id").eq("school_id", session.school_id);
-    if (session.category_id) candQuery = candQuery.eq("category_id", session.category_id);
-    if (session.group_id) candQuery = candQuery.eq("group_id", session.group_id);
-    const { data: candidates } = await candQuery;
-    let validIds = new Set((candidates ?? []).map((c) => c.id));
-    if (session.voter_scope === COMMITTEE_SCOPE) {
-      const recommended = await fetchRecommendedCandidateIds(
-        supabase,
-        session.school_id,
-        session.category_id,
-      );
-      validIds = new Set([...validIds].filter((id) => recommended.has(id)));
+    let validIds: Set<string>;
+    if (hasFixedPool(session)) {
+      // 多轮遴选：本轮参评名单固定，仅接受名单内人员
+      const { data: candidates } = await supabase
+        .from("candidates")
+        .select("id")
+        .eq("school_id", session.school_id)
+        .in("id", session.candidate_ids ?? []);
+      validIds = new Set((candidates ?? []).map((c) => c.id));
+    } else {
+      let candQuery = supabase.from("candidates").select("id").eq("school_id", session.school_id);
+      if (session.category_id) candQuery = candQuery.eq("category_id", session.category_id);
+      if (session.group_id) candQuery = candQuery.eq("group_id", session.group_id);
+      const { data: candidates } = await candQuery;
+      validIds = new Set((candidates ?? []).map((c) => c.id));
+      if (session.voter_scope === COMMITTEE_SCOPE) {
+        const recommended = await fetchRecommendedCandidateIds(
+          supabase,
+          session.school_id,
+          session.category_id,
+        );
+        validIds = new Set([...validIds].filter((id) => recommended.has(id)));
+      }
     }
 
     for (const item of data.choices) {
@@ -87,7 +99,11 @@ export const submitBallot = createServerFn({ method: "POST" })
       .from("voting_rules")
       .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
       .eq("school_id", session.school_id);
-    const rule = pickVotingRule(rules, session.category_id, session.group_id);
+    const rule = effectiveRoundRule(
+      pickVotingRule(rules, session.category_id, session.group_id),
+      session,
+      validIds.size,
+    );
 
     if (rule) {
       const recommends = data.choices.filter((c) => c.choice === "recommend").length;

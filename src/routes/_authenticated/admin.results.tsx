@@ -42,6 +42,9 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchRecommendedCandidateIds } from "@/lib/committee";
+import { effectiveRoundRule, fetchAllBallotItems, hasFixedPool } from "@/lib/rounds";
+import { pickVotingRule } from "@/lib/voteRules";
+import { RoundPanel } from "@/components/RoundPanel";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -214,7 +217,9 @@ function ResultsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("vote_sessions")
-        .select("id, title, status, category_id, group_id, school_id, voter_scope")
+        .select(
+          "id, title, status, category_id, group_id, school_id, voter_scope, round_number, parent_session_id, candidate_ids, passed_candidate_ids, max_recommend",
+        )
         .eq("school_id", schoolId!)
         .order("created_at", { ascending: false });
       return data ?? [];
@@ -263,18 +268,24 @@ function ResultsPage() {
     queryKey: ["result", sessionId, submittedIdsLive ?? ""],
     enabled: !!current,
     queryFn: async () => {
+      const fixedPool = hasFixedPool(current!);
       let cq = supabase
         .from("candidates")
         .select("id, full_name, unit, current_title, group_id")
         .eq("school_id", current!.school_id);
-      if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
-      if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
+      if (fixedPool) {
+        cq = cq.in("id", current!.candidate_ids ?? []);
+      } else {
+        if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
+        if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
+      }
 
       const [
         { data: candidates },
         { data: ballots },
         { data: judges },
         { data: groups },
+        { data: rules },
       ] = await Promise.all([
         cq,
         supabase
@@ -287,10 +298,14 @@ function ResultsPage() {
           .eq("school_id", current!.school_id)
           .order("full_name"),
         supabase.from("subject_groups").select("id, name").eq("school_id", current!.school_id),
+        supabase
+          .from("voting_rules")
+          .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
+          .eq("school_id", current!.school_id),
       ]);
 
       const scopedCandidates =
-        current!.voter_scope === "committee"
+        !fixedPool && current!.voter_scope === "committee"
           ? await (async () => {
               const recommended = await fetchRecommendedCandidateIds(
                 supabase,
@@ -300,6 +315,11 @@ function ResultsPage() {
               return (candidates ?? []).filter((c) => recommended.has(c.id));
             })()
           : candidates ?? [];
+      const rule = effectiveRoundRule(
+        pickVotingRule(rules, current!.category_id, current!.group_id),
+        current!,
+        scopedCandidates.length,
+      );
 
       const eligibleJudges = (judges ?? []).filter((j) =>
         current!.voter_scope === "committee"
@@ -310,12 +330,7 @@ function ResultsPage() {
       );
 
       const ballotIds = (ballots ?? []).map((b) => b.id);
-      const { data: items } = ballotIds.length
-        ? await supabase
-            .from("ballot_items")
-            .select("ballot_id, candidate_id, choice")
-            .in("ballot_id", ballotIds)
-        : { data: [] as { ballot_id: string; candidate_id: string; choice: string }[] };
+      const items = await fetchAllBallotItems(supabase, ballotIds);
 
       const rows: ResultSheetRow[] = scopedCandidates.map((c) => ({
         id: c.id,
@@ -397,6 +412,8 @@ function ResultsPage() {
         judgeCount: eligibleJudges.length,
         sheets,
         pendingJudges,
+        quota: rule?.max_recommend ?? 0,
+        poolIds: scopedCandidates.map((c) => c.id),
       };
     },
   });
@@ -835,6 +852,16 @@ function ResultsPage() {
             </Panel>
           </div>
 
+          <RoundPanel
+            current={current}
+            sessions={sessions ?? []}
+            rows={result.rows}
+            poolIds={result.poolIds}
+            quota={result.quota}
+            schoolName={school?.name ?? ""}
+            recommendLabel={voteLabels(school).recommend}
+            onCreated={(id) => setSessionId(id)}
+          />
 
           <ResultSheet
             config={config}

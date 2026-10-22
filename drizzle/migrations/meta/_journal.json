@@ -85,6 +85,13 @@
       "when": 1790933985827,
       "tag": "0011_replace_public_school_branding_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792638830750,
+      "tag": "0012_vote_session_rounds",
+      "breakpoints": true
     }
   ]
 }

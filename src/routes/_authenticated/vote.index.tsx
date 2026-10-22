@@ -31,7 +31,7 @@ function VoteList() {
         ? await supabase
             .from("vote_sessions")
             .select(
-              "id, title, status, opened_at, closed_at, category_id, group_id, voter_scope",
+              "id, title, status, opened_at, closed_at, category_id, group_id, voter_scope, round_number",
             )
             .eq("school_id", judge.school_id)
             .in("status", ["open", "closed"])
@@ -94,6 +94,7 @@ function VoteList() {
                     <div>
                       <div className="text-[13px] tracking-[0.12em] text-foreground">{s.title}</div>
                       <div className="mt-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+                        {`第 ${s.round_number ?? 1} 轮 · `}
                         {STATUS_LABEL[s.status] ?? s.status}
                         {done ? " · 已提交" : s.status === "open" ? " · 待投票" : ""}
                       </div>
