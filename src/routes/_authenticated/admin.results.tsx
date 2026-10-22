@@ -263,18 +263,24 @@ function ResultsPage() {
     queryKey: ["result", sessionId, submittedIdsLive ?? ""],
     enabled: !!current,
     queryFn: async () => {
+      const fixedPool = hasFixedPool(current!);
       let cq = supabase
         .from("candidates")
         .select("id, full_name, unit, current_title, group_id")
         .eq("school_id", current!.school_id);
-      if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
-      if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
+      if (fixedPool) {
+        cq = cq.in("id", current!.candidate_ids ?? []);
+      } else {
+        if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
+        if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
+      }
 
       const [
         { data: candidates },
         { data: ballots },
         { data: judges },
         { data: groups },
+        { data: rules },
       ] = await Promise.all([
         cq,
         supabase
@@ -287,10 +293,14 @@ function ResultsPage() {
           .eq("school_id", current!.school_id)
           .order("full_name"),
         supabase.from("subject_groups").select("id, name").eq("school_id", current!.school_id),
+        supabase
+          .from("voting_rules")
+          .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
+          .eq("school_id", current!.school_id),
       ]);
 
       const scopedCandidates =
-        current!.voter_scope === "committee"
+        !fixedPool && current!.voter_scope === "committee"
           ? await (async () => {
               const recommended = await fetchRecommendedCandidateIds(
                 supabase,
@@ -300,6 +310,11 @@ function ResultsPage() {
               return (candidates ?? []).filter((c) => recommended.has(c.id));
             })()
           : candidates ?? [];
+      const rule = effectiveRoundRule(
+        pickVotingRule(rules, current!.category_id, current!.group_id),
+        current!,
+        scopedCandidates.length,
+      );
 
       const eligibleJudges = (judges ?? []).filter((j) =>
         current!.voter_scope === "committee"
@@ -310,12 +325,7 @@ function ResultsPage() {
       );
 
       const ballotIds = (ballots ?? []).map((b) => b.id);
-      const { data: items } = ballotIds.length
-        ? await supabase
-            .from("ballot_items")
-            .select("ballot_id, candidate_id, choice")
-            .in("ballot_id", ballotIds)
-        : { data: [] as { ballot_id: string; candidate_id: string; choice: string }[] };
+      const items = await fetchAllBallotItems(supabase, ballotIds);
 
       const rows: ResultSheetRow[] = scopedCandidates.map((c) => ({
         id: c.id,
