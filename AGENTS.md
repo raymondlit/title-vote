@@ -8,3 +8,8 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+## Project rules
+- Multi-round voting: a session's fixed candidate pool (`vote_sessions.candidate_ids`) and per-round quota (`max_recommend`) take precedence over category/group/committee scoping and voting rules; always resolve via `src/lib/rounds.ts` helpers in client pages and `submitBallot` so judges, server validation and results stay consistent.
+- Read ballot_items through `fetchAllBallotItems` (paged) — single queries cap at 1000 rows and would silently drop votes.
+- Tests: `bunx vitest run --root . --dir src/lib`.

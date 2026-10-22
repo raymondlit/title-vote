@@ -553,6 +553,11 @@ function CandidatesPage() {
             </span>
           </div>
           <div className="no-print space-y-3">
+            {candidateList.length === 0 && allCandidates.length > 0 ? (
+              <p className="hairline-t pt-6 text-[12px] tracking-[0.1em] text-muted-foreground">
+                该参评类型下暂无评审对象。
+              </p>
+            ) : null}
             {visibleCandidates.map((c) => (
 
               <div
