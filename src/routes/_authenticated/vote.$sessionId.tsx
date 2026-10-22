@@ -9,6 +9,7 @@ import { useSession, useSchool } from "@/lib/session";
 import { submitBallot } from "@/lib/vote.functions";
 import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { pickVotingRule } from "@/lib/voteRules";
+import { effectiveRoundRule, hasFixedPool } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
 import { Button } from "@/components/ui/button";
 import {
@@ -164,7 +165,11 @@ function VotePage() {
         .from("voting_rules")
         .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
         .eq("school_id", vs.school_id);
-      const rule = pickVotingRule(rules, vs.category_id, vs.group_id);
+      const rule = effectiveRoundRule(
+        pickVotingRule(rules, vs.category_id, vs.group_id),
+        vs,
+        candidates.length,
+      );
 
       const { data: ballot } = judge
         ? await supabase
