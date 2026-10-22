@@ -404,9 +404,10 @@ function VotePage() {
       <PageTitle
         title={data.vs.title}
         description={
-          rule
+          ((data.vs.round_number ?? 1) > 1 ? `第 ${data.vs.round_number} 轮 · ` : "") +
+          (rule
             ? `本场参评 ${data.candidates.length} 人，${labels.recommend}名额 ${maxRecommend} 人，实时显示剩余名额，超出名额无法提交。${mustVoteAll ? "须对每位评审对象表态。" : ""}`
-            : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`
+            : `本场参评 ${data.candidates.length} 人，请对每位评审对象逐一表态后方可提交。`)
         }
       />
 
