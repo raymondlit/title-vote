@@ -210,7 +210,7 @@ function SessionsPage() {
     <>
       <PageTitle
         title="投票场次"
-        description="按评审类别与学科小组发起投票，开启后评委端可见，结束后不再接受提交。"
+        description="按评审类别与学科小组发起投票，开启后评委端可见，结束后不再接受提交。多轮遴选：本轮结束后在「投票结果」确认通过名单，再由剩余人员发起下一轮。"
       />
 
       <Panel className="mb-10">
@@ -326,10 +326,23 @@ function SessionsPage() {
                 <div>
                   <div className="text-[13px] tracking-[0.12em]">{s.title}</div>
                   <div className="mt-2 text-[11px] tracking-[0.16em] text-muted-foreground">
-                    {STATUS_LABEL[s.status]} · 类别 {nameOf(data?.categories, s.category_id)} · 小组{" "}
+                    第 {s.round_number ?? 1} 轮 · {STATUS_LABEL[s.status]} · 类别{" "}
+                    {nameOf(data?.categories, s.category_id)} · 小组{" "}
                     {nameOf(data?.groups, s.group_id)} · 参与评委{" "}
-                    {!s.group_id || s.voter_scope === "all" ? "全体" : "本组"} · 评审对象{" "}
-                    {countFor(s.category_id, s.group_id)} 人
+                    {s.voter_scope === "committee"
+                      ? "大评审委员会"
+                      : !s.group_id || s.voter_scope === "all"
+                        ? "全体"
+                        : "本组"}{" "}
+                    · 评审对象{" "}
+                    {Array.isArray(s.candidate_ids)
+                      ? s.candidate_ids.length
+                      : countFor(s.category_id, s.group_id)}{" "}
+                    人
+                    {s.max_recommend ? ` · 本轮名额 ${s.max_recommend} 人` : ""}
+                    {Array.isArray(s.passed_candidate_ids)
+                      ? ` · 已确认通过 ${s.passed_candidate_ids.length} 人`
+                      : ""}
                   </div>
 
                 </div>
