@@ -49,6 +49,7 @@ function CandidatesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
+  const [filterCategory, setFilterCategory] = useState("all");
   const [printing, setPrinting] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
@@ -219,7 +220,13 @@ function CandidatesPage() {
     return "—";
   }
 
-  const candidateList = candidates.data ?? [];
+  const allCandidates = candidates.data ?? [];
+  const candidateList =
+    filterCategory === "all"
+      ? allCandidates
+      : filterCategory === "none"
+        ? allCandidates.filter((c) => !c.category_id)
+        : allCandidates.filter((c) => c.category_id === filterCategory);
   const totalPages = Math.max(1, Math.ceil(candidateList.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * pageSize;
@@ -495,8 +502,29 @@ function CandidatesPage() {
         <Panel>
           <div className="no-print mb-6 flex flex-wrap items-center gap-6">
             <h2 className="text-[12px] tracking-[0.2em] text-muted-foreground">
-              评审对象（{candidates.data?.length ?? 0}）
+              评审对象（共 {allCandidates.length} 人
+              {filterCategory !== "all" ? `，筛选出 ${candidateList.length} 人` : ""}）
             </h2>
+            <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
+              参评类型
+              <select
+                aria-label="按参评类型筛选"
+                value={filterCategory}
+                onChange={(e) => {
+                  setFilterCategory(e.target.value);
+                  setPage(1);
+                }}
+                className="h-8 border border-border bg-card px-2 text-[12px] text-foreground"
+              >
+                <option value="all">全部参评类型</option>
+                {(categories.data ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value="none">未分类</option>
+              </select>
+            </label>
             <label className="flex items-center gap-2 text-[11px] tracking-[0.16em] text-muted-foreground">
               <input
                 type="checkbox"
