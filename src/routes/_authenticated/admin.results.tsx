@@ -852,6 +852,16 @@ function ResultsPage() {
             </Panel>
           </div>
 
+          <RoundPanel
+            current={current}
+            sessions={sessions ?? []}
+            rows={result.rows}
+            poolIds={result.poolIds}
+            quota={result.quota}
+            schoolName={school?.name ?? ""}
+            recommendLabel={voteLabels(school).recommend}
+            onCreated={(id) => setSessionId(id)}
+          />
 
           <ResultSheet
             config={config}
