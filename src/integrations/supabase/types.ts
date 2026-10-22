@@ -650,12 +650,17 @@ export type Database = {
       }
       vote_sessions: {
         Row: {
+          candidate_ids: string[] | null
           category_id: string | null
           closed_at: string | null
           created_at: string
           group_id: string | null
           id: string
+          max_recommend: number | null
           opened_at: string | null
+          parent_session_id: string | null
+          passed_candidate_ids: string[] | null
+          round_number: number
           school_id: string
           status: string
           title: string
@@ -663,12 +668,17 @@ export type Database = {
           voter_scope: string
         }
         Insert: {
+          candidate_ids?: string[] | null
           category_id?: string | null
           closed_at?: string | null
           created_at?: string
           group_id?: string | null
           id?: string
+          max_recommend?: number | null
           opened_at?: string | null
+          parent_session_id?: string | null
+          passed_candidate_ids?: string[] | null
+          round_number?: number
           school_id: string
           status?: string
           title: string
@@ -676,12 +686,17 @@ export type Database = {
           voter_scope?: string
         }
         Update: {
+          candidate_ids?: string[] | null
           category_id?: string | null
           closed_at?: string | null
           created_at?: string
           group_id?: string | null
           id?: string
+          max_recommend?: number | null
           opened_at?: string | null
+          parent_session_id?: string | null
+          passed_candidate_ids?: string[] | null
+          round_number?: number
           school_id?: string
           status?: string
           title?: string
@@ -701,6 +716,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "subject_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vote_sessions_parent_session_id_fkey"
+            columns: ["parent_session_id"]
+            isOneToOne: false
+            referencedRelation: "vote_sessions"
             referencedColumns: ["id"]
           },
           {
