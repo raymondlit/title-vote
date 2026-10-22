@@ -68,7 +68,7 @@ function VotePage() {
       const { data: vs } = await supabase
         .from("vote_sessions")
         .select(
-          "id, title, status, category_id, group_id, school_id, opened_at, closed_at, voter_scope",
+          "id, title, status, category_id, group_id, school_id, opened_at, closed_at, voter_scope, round_number, candidate_ids, max_recommend",
         )
         .eq("id", sessionId)
         .maybeSingle();
@@ -79,24 +79,34 @@ function VotePage() {
       if (!vs || !judge || vs.school_id !== judge.school_id || outOfScope)
         return { judge, vs: null, candidates: [], rule: null, ballot: null, items: [] };
 
-
-
-      let cq = supabase
-        .from("candidates")
-        .select("id, full_name, unit, current_title, group_id")
-        .eq("school_id", vs.school_id)
-        .order("full_name");
-      if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
-      if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
-      const { data: candidatesRaw } = await cq;
-      let base = candidatesRaw ?? [];
-      if (isCommittee) {
-        const recommended = await fetchRecommendedCandidateIds(
-          supabase,
-          vs.school_id,
-          vs.category_id,
-        );
-        base = base.filter((c) => recommended.has(c.id));
+      let base: { id: string; full_name: string; unit: string | null; current_title: string | null; group_id: string | null }[];
+      if (hasFixedPool(vs)) {
+        // 多轮遴选：本轮只展示固定名单内人员
+        const { data: pooled } = await supabase
+          .from("candidates")
+          .select("id, full_name, unit, current_title, group_id")
+          .eq("school_id", vs.school_id)
+          .in("id", vs.candidate_ids ?? [])
+          .order("full_name");
+        base = pooled ?? [];
+      } else {
+        let cq = supabase
+          .from("candidates")
+          .select("id, full_name, unit, current_title, group_id")
+          .eq("school_id", vs.school_id)
+          .order("full_name");
+        if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
+        if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
+        const { data: candidatesRaw } = await cq;
+        base = candidatesRaw ?? [];
+        if (isCommittee) {
+          const recommended = await fetchRecommendedCandidateIds(
+            supabase,
+            vs.school_id,
+            vs.category_id,
+          );
+          base = base.filter((c) => recommended.has(c.id));
+        }
       }
 
       // 学科组线下推荐票数：有票数时按票数从高到低排序
