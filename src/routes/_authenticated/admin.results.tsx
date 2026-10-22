@@ -42,6 +42,9 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchRecommendedCandidateIds } from "@/lib/committee";
+import { effectiveRoundRule, fetchAllBallotItems, hasFixedPool } from "@/lib/rounds";
+import { pickVotingRule } from "@/lib/voteRules";
+import { RoundPanel } from "@/components/RoundPanel";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { Button } from "@/components/ui/button";
@@ -214,7 +217,9 @@ function ResultsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("vote_sessions")
-        .select("id, title, status, category_id, group_id, school_id, voter_scope")
+        .select(
+          "id, title, status, category_id, group_id, school_id, voter_scope, round_number, parent_session_id, candidate_ids, passed_candidate_ids, max_recommend",
+        )
         .eq("school_id", schoolId!)
         .order("created_at", { ascending: false });
       return data ?? [];
@@ -407,6 +412,8 @@ function ResultsPage() {
         judgeCount: eligibleJudges.length,
         sheets,
         pendingJudges,
+        quota: rule?.max_recommend ?? 0,
+        poolIds: scopedCandidates.map((c) => c.id),
       };
     },
   });
