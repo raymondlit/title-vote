@@ -1,8 +1,18 @@
 export const ACCOUNT_EMAIL_DOMAIN = "vote.local";
 
+/**
+ * 清洗输入的账号：去掉所有空白（含全角空格、零宽字符），
+ * 并把中文输入法下误打的全角字母/数字/符号（如 ＠ ＿）转为半角。
+ */
+export function normalizeAccount(raw: string): string {
+  return raw
+    .replace(/[\uFF01-\uFF5E]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/[\s\u3000\u200B-\u200D\uFEFF]/g, "");
+}
+
 /** 账号可以是邮箱（超级用户）或用户名（管理员 / 评委） */
 export function accountToEmail(account: string): string {
-  const value = account.trim();
+  const value = normalizeAccount(account);
   if (value.includes("@")) return value.toLowerCase();
   return `${value.toLowerCase()}@${ACCOUNT_EMAIL_DOMAIN}`;
 }
