@@ -1,13 +1,25 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession } from "@/lib/session";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { deleteVoteSession } from "@/lib/admin.functions";
+import { canArchive, canDelete, splitByArchive } from "@/lib/sessionArchive";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -26,15 +38,25 @@ const STATUS_LABEL: Record<string, string> = {
   closed: "已结束",
 };
 
+type DeleteTarget = { id: string; title: string; ballots: number; children: number };
+
 function SessionsPage() {
   const { data: session } = useSession();
   const schoolId = session?.schoolId ?? null;
   const queryClient = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const deleteFn = useServerFn(deleteVoteSession);
 
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [groupId, setGroupId] = useState("all");
   const [voterScope, setVoterScope] = useState<"group" | "all">("group");
+  const [tab, setTab] = useState<"active" | "archived">("active");
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [password, setPassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
 
 
   const { data } = useQuery({
