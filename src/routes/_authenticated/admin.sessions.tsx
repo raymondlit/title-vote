@@ -481,15 +481,40 @@ function SessionsPage() {
         </div>
       </Panel>
 
+      <div role="tablist" className="mb-6 flex items-center gap-8 text-[12px] tracking-[0.2em]">
+        {(
+          [
+            ["active", `当前场次 ${active.length}`],
+            ["archived", `归档区 ${archived.length}`],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`border-b pb-2 transition-colors ${
+              tab === key
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <Panel className="p-0">
-        {(data?.sessions ?? []).length === 0 ? (
-          <p className="p-8 text-[12px] tracking-[0.1em] text-muted-foreground">暂无投票场次。</p>
+        {visible.length === 0 ? (
+          <p className="p-8 text-[12px] tracking-[0.1em] text-muted-foreground">
+            {tab === "active" ? "暂无投票场次。" : "归档区为空。已结束的场次可点击「归档」移入此处。"}
+          </p>
         ) : (
           <ul>
-            {(data?.sessions ?? []).map((s) => (
+            {visible.map((s) => (
               <li
                 key={s.id}
-                className="hairline-b flex items-center justify-between px-8 py-6 last:border-b-0"
+                className="hairline-b flex items-center justify-between gap-6 px-8 py-6 last:border-b-0"
               >
                 <div>
                   <div className="text-[13px] tracking-[0.12em]">{s.title}</div>
@@ -511,26 +536,44 @@ function SessionsPage() {
                     {Array.isArray(s.passed_candidate_ids)
                       ? ` · 已确认通过 ${s.passed_candidate_ids.length} 人`
                       : ""}
+                    {s.archived_at
+                      ? ` · 归档于 ${new Date(s.archived_at).toLocaleString("zh-CN", { hour12: false })}`
+                      : ""}
                   </div>
-
                 </div>
-                <div className="flex items-center gap-5 text-[11px] tracking-[0.16em]">
-                  {s.status === "draft" ? (
+                <div className="flex shrink-0 items-center gap-5 text-[11px] tracking-[0.16em]">
+                  {!s.archived_at && s.status === "draft" ? (
                     <button onClick={() => setStatus(s.id, "open")} className="hover:underline">
                       开启投票
                     </button>
                   ) : null}
-                  {s.status === "open" ? (
+                  {!s.archived_at && s.status === "open" ? (
                     <button onClick={() => setStatus(s.id, "closed")} className="hover:underline">
                       结束投票
                     </button>
                   ) : null}
-                  <button
-                    onClick={() => remove(s.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    删除
-                  </button>
+                  {canArchive(s) ? (
+                    <button onClick={() => setArchived(s, true)} className="hover:underline">
+                      归档
+                    </button>
+                  ) : null}
+                  {s.archived_at ? (
+                    <button onClick={() => setArchived(s, false)} className="hover:underline">
+                      取回
+                    </button>
+                  ) : null}
+                  {canDelete(s) ? (
+                    <button
+                      onClick={() => openDelete(s)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      删除
+                    </button>
+                  ) : (
+                    <span className="text-muted-foreground/60" title="投票进行中，请先结束投票">
+                      删除
+                    </span>
+                  )}
                 </div>
               </li>
             ))}
