@@ -147,7 +147,9 @@ function SessionsPage() {
       categoryId === "all" ? "" : nameOf(data?.categories, categoryId);
     const base = title.trim() || catName || "评审投票";
     const existing = new Set(
-      (data?.sessions ?? []).map((s) => `${s.category_id ?? ""}|${s.group_id ?? ""}`),
+      (data?.sessions ?? [])
+        .filter((s) => !s.archived_at)
+        .map((s) => `${s.category_id ?? ""}|${s.group_id ?? ""}`),
     );
     const rows = groupIds
       .filter((g) => !existing.has(`${categoryId === "all" ? "" : categoryId}|${g}`))
