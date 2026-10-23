@@ -221,6 +221,7 @@ function ResultsPage() {
           "id, title, status, category_id, group_id, school_id, voter_scope, round_number, parent_session_id, candidate_ids, passed_candidate_ids, max_recommend",
         )
         .eq("school_id", schoolId!)
+        .is("archived_at", null)
         .order("created_at", { ascending: false });
       return data ?? [];
     },
