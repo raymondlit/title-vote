@@ -214,25 +214,169 @@ function SessionsPage() {
     queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
   }
 
-  async function remove(id: string) {
+  function refreshAll() {
+    queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["result-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["round-summary"] });
+  }
+
+  async function setArchived(s: { id: string; title: string }, archive: boolean) {
+    const ok = await confirm(
+      archive
+        ? {
+            title: `归档「${s.title}」？`,
+            description:
+              "归档后该场次从当前列表和评委端隐藏，选票与确认单全部保留，可随时从「归档区」取回。",
+            confirmLabel: "归档",
+          }
+        : {
+            title: `取回「${s.title}」？`,
+            description: "取回后该场次恢复到当前列表，评委端重新可见，原有选票不变。",
+            confirmLabel: "取回",
+          },
+    );
+    if (!ok) return;
     const { error } = await supabase
       .from("vote_sessions")
-      .delete()
-      .eq("id", id)
+      .update(
+        archive
+          ? { archived_at: new Date().toISOString(), archived_by: session?.userId ?? null }
+          : { archived_at: null, archived_by: null },
+      )
+      .eq("id", s.id)
       .eq("school_id", schoolId!);
-
     if (error) {
       toast.error(error.message);
       return;
     }
-    queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
+    toast.success(archive ? "已归档，可在「归档区」取回" : "已取回到当前列表");
+    refreshAll();
   }
+
+  async function openDelete(s: { id: string; title: string }) {
+    const [{ count: ballots }, { count: children }] = await Promise.all([
+      supabase.from("ballots").select("id", { count: "exact", head: true }).eq("session_id", s.id),
+      supabase
+        .from("vote_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_session_id", s.id),
+    ]);
+    setPassword("");
+    setDeleteError("");
+    setDeleteTarget({ id: s.id, title: s.title, ballots: ballots ?? 0, children: children ?? 0 });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    if (!password) {
+      setDeleteError("请输入您的登录密码");
+      return;
+    }
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteFn({ data: { sessionId: deleteTarget.id, password } });
+      toast.success(`已删除「${deleteTarget.title}」及其 ${deleteTarget.ballots} 份选票`);
+      setDeleteTarget(null);
+      setPassword("");
+      refreshAll();
+    } catch (err) {
+      setDeleteError((err as Error).message || "删除失败，请重试");
+    }
+    setDeleting(false);
+  }
+
+  const { active, archived } = splitByArchive(data?.sessions ?? []);
+  const visible = tab === "active" ? active : archived;
 
   return (
     <>
+      {confirmDialog}
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="rounded-none sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="text-[14px] font-normal tracking-[0.16em]">
+              永久删除投票场次
+            </DialogTitle>
+            <DialogDescription className="text-[12px] leading-loose tracking-[0.1em]">
+              「{deleteTarget?.title}」
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-[12px] leading-loose tracking-[0.1em]">
+            <p className="text-destructive">
+              本场次已有 {deleteTarget?.ballots ?? 0} 份评委选票，删除后选票与确认单将一并永久清除，无法恢复。
+            </p>
+            {deleteTarget && deleteTarget.children > 0 ? (
+              <p className="text-muted-foreground">
+                另有 {deleteTarget.children} 个后续轮次场次由本场派生，它们会保留，但不再关联本轮。
+              </p>
+            ) : null}
+            <p className="text-muted-foreground">如只是不想在当前列表显示，建议改用「归档」。</p>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void confirmDelete();
+            }}
+            className="space-y-2"
+          >
+            <Label htmlFor="del-pwd" className="text-[11px] tracking-[0.2em] text-muted-foreground">
+              请输入您的管理员登录密码以确认
+            </Label>
+            <Input
+              id="del-pwd"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-none"
+              autoFocus
+            />
+            {deleteError ? (
+              <p className="text-[11px] tracking-[0.1em] text-destructive">{deleteError}</p>
+            ) : null}
+          </form>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setDeleteTarget(null)}
+              className="rounded-none text-[12px] tracking-[0.16em]"
+            >
+              取消
+            </Button>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => {
+                const t = deleteTarget;
+                setDeleteTarget(null);
+                if (t) void setArchived(t, true);
+              }}
+              className="rounded-none text-[12px] tracking-[0.16em]"
+              hidden={tab === "archived"}
+            >
+              改为归档
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting || !password}
+              onClick={() => void confirmDelete()}
+              className="rounded-none text-[12px] tracking-[0.16em]"
+            >
+              {deleting ? "核验中…" : "核验密码并删除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <PageTitle
         title="投票场次"
-        description="按评审类别与学科小组发起投票，开启后评委端可见，结束后不再接受提交。多轮遴选：本轮结束后在「投票结果」确认通过名单，再由剩余人员发起下一轮。"
+        description="按评审类别与学科小组发起投票，开启后评委端可见，结束后不再接受提交。多轮遴选：本轮结束后在「投票结果」确认通过名单，再由剩余人员发起下一轮。不再关注的场次可归档，删除须输入管理员密码。"
       />
 
       <Panel className="mb-10">
