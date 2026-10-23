@@ -14,10 +14,16 @@ export type SessionInfo = {
   isJudge: boolean;
 };
 
-export async function fetchSession(): Promise<SessionInfo | null> {
-  // 读取本地会话（无网络往返）；令牌有效性仍由数据库 RLS 校验。
-  const { data: sessionData } = await supabase.auth.getSession();
-  const user = sessionData.session?.user ?? null;
+export async function fetchSession(
+  knownUser?: { id: string; email?: string | null } | null,
+): Promise<SessionInfo | null> {
+  // 登录时直接复用登录返回的用户；否则读取本地会话（无网络往返）。
+  // 令牌有效性仍由数据库 RLS 校验。
+  let user = knownUser ?? null;
+  if (!user) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    user = sessionData.session?.user ?? null;
+  }
   if (!user) return null;
 
   const [{ data: profile }, { data: roles }, { data: perms }] = await Promise.all([
@@ -48,7 +54,7 @@ export async function fetchSession(): Promise<SessionInfo | null> {
 export function useSession() {
   return useQuery({
     queryKey: ["session"],
-    queryFn: fetchSession,
+    queryFn: () => fetchSession(),
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
   });
