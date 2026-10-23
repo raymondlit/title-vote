@@ -54,7 +54,7 @@ export async function fetchSession(
 export function useSession() {
   return useQuery({
     queryKey: ["session"],
-    queryFn: fetchSession,
+    queryFn: () => fetchSession(),
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
   });
