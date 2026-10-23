@@ -1,13 +1,25 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession } from "@/lib/session";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { deleteVoteSession } from "@/lib/admin.functions";
+import { canArchive, canDelete, splitByArchive } from "@/lib/sessionArchive";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -26,15 +38,25 @@ const STATUS_LABEL: Record<string, string> = {
   closed: "已结束",
 };
 
+type DeleteTarget = { id: string; title: string; ballots: number; children: number };
+
 function SessionsPage() {
   const { data: session } = useSession();
   const schoolId = session?.schoolId ?? null;
   const queryClient = useQueryClient();
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const deleteFn = useServerFn(deleteVoteSession);
 
   const [title, setTitle] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [groupId, setGroupId] = useState("all");
   const [voterScope, setVoterScope] = useState<"group" | "all">("group");
+  const [tab, setTab] = useState<"active" | "archived">("active");
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [password, setPassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
 
 
   const { data } = useQuery({
@@ -125,7 +147,9 @@ function SessionsPage() {
       categoryId === "all" ? "" : nameOf(data?.categories, categoryId);
     const base = title.trim() || catName || "评审投票";
     const existing = new Set(
-      (data?.sessions ?? []).map((s) => `${s.category_id ?? ""}|${s.group_id ?? ""}`),
+      (data?.sessions ?? [])
+        .filter((s) => !s.archived_at)
+        .map((s) => `${s.category_id ?? ""}|${s.group_id ?? ""}`),
     );
     const rows = groupIds
       .filter((g) => !existing.has(`${categoryId === "all" ? "" : categoryId}|${g}`))
@@ -192,25 +216,169 @@ function SessionsPage() {
     queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
   }
 
-  async function remove(id: string) {
+  function refreshAll() {
+    queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["result-sessions"] });
+    queryClient.invalidateQueries({ queryKey: ["round-summary"] });
+  }
+
+  async function setArchived(s: { id: string; title: string }, archive: boolean) {
+    const ok = await confirm(
+      archive
+        ? {
+            title: `归档「${s.title}」？`,
+            description:
+              "归档后该场次从当前列表和评委端隐藏，选票与确认单全部保留，可随时从「归档区」取回。",
+            confirmLabel: "归档",
+          }
+        : {
+            title: `取回「${s.title}」？`,
+            description: "取回后该场次恢复到当前列表，评委端重新可见，原有选票不变。",
+            confirmLabel: "取回",
+          },
+    );
+    if (!ok) return;
     const { error } = await supabase
       .from("vote_sessions")
-      .delete()
-      .eq("id", id)
+      .update(
+        archive
+          ? { archived_at: new Date().toISOString(), archived_by: session?.userId ?? null }
+          : { archived_at: null, archived_by: null },
+      )
+      .eq("id", s.id)
       .eq("school_id", schoolId!);
-
     if (error) {
       toast.error(error.message);
       return;
     }
-    queryClient.invalidateQueries({ queryKey: ["admin-sessions"] });
+    toast.success(archive ? "已归档，可在「归档区」取回" : "已取回到当前列表");
+    refreshAll();
   }
+
+  async function openDelete(s: { id: string; title: string }) {
+    const [{ count: ballots }, { count: children }] = await Promise.all([
+      supabase.from("ballots").select("id", { count: "exact", head: true }).eq("session_id", s.id),
+      supabase
+        .from("vote_sessions")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_session_id", s.id),
+    ]);
+    setPassword("");
+    setDeleteError("");
+    setDeleteTarget({ id: s.id, title: s.title, ballots: ballots ?? 0, children: children ?? 0 });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    if (!password) {
+      setDeleteError("请输入您的登录密码");
+      return;
+    }
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await deleteFn({ data: { sessionId: deleteTarget.id, password } });
+      toast.success(`已删除「${deleteTarget.title}」及其 ${deleteTarget.ballots} 份选票`);
+      setDeleteTarget(null);
+      setPassword("");
+      refreshAll();
+    } catch (err) {
+      setDeleteError((err as Error).message || "删除失败，请重试");
+    }
+    setDeleting(false);
+  }
+
+  const { active, archived } = splitByArchive(data?.sessions ?? []);
+  const visible = tab === "active" ? active : archived;
 
   return (
     <>
+      {confirmDialog}
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o && !deleting) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="rounded-none sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="text-[14px] font-normal tracking-[0.16em]">
+              永久删除投票场次
+            </DialogTitle>
+            <DialogDescription className="text-[12px] leading-loose tracking-[0.1em]">
+              「{deleteTarget?.title}」
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-[12px] leading-loose tracking-[0.1em]">
+            <p className="text-destructive">
+              本场次已有 {deleteTarget?.ballots ?? 0} 份评委选票，删除后选票与确认单将一并永久清除，无法恢复。
+            </p>
+            {deleteTarget && deleteTarget.children > 0 ? (
+              <p className="text-muted-foreground">
+                另有 {deleteTarget.children} 个后续轮次场次由本场派生，它们会保留，但不再关联本轮。
+              </p>
+            ) : null}
+            <p className="text-muted-foreground">如只是不想在当前列表显示，建议改用「归档」。</p>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void confirmDelete();
+            }}
+            className="space-y-2"
+          >
+            <Label htmlFor="del-pwd" className="text-[11px] tracking-[0.2em] text-muted-foreground">
+              请输入您的管理员登录密码以确认
+            </Label>
+            <Input
+              id="del-pwd"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-none"
+              autoFocus
+            />
+            {deleteError ? (
+              <p className="text-[11px] tracking-[0.1em] text-destructive">{deleteError}</p>
+            ) : null}
+          </form>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setDeleteTarget(null)}
+              className="rounded-none text-[12px] tracking-[0.16em]"
+            >
+              取消
+            </Button>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => {
+                const t = deleteTarget;
+                setDeleteTarget(null);
+                if (t) void setArchived(t, true);
+              }}
+              className="rounded-none text-[12px] tracking-[0.16em]"
+              hidden={tab === "archived"}
+            >
+              改为归档
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting || !password}
+              onClick={() => void confirmDelete()}
+              className="rounded-none text-[12px] tracking-[0.16em]"
+            >
+              {deleting ? "核验中…" : "核验密码并删除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <PageTitle
         title="投票场次"
-        description="按评审类别与学科小组发起投票，开启后评委端可见，结束后不再接受提交。多轮遴选：本轮结束后在「投票结果」确认通过名单，再由剩余人员发起下一轮。"
+        description="按评审类别与学科小组发起投票，开启后评委端可见，结束后不再接受提交。多轮遴选：本轮结束后在「投票结果」确认通过名单，再由剩余人员发起下一轮。不再关注的场次可归档，删除须输入管理员密码。"
       />
 
       <Panel className="mb-10">
@@ -313,15 +481,40 @@ function SessionsPage() {
         </div>
       </Panel>
 
+      <div role="tablist" className="mb-6 flex items-center gap-8 text-[12px] tracking-[0.2em]">
+        {(
+          [
+            ["active", `当前场次 ${active.length}`],
+            ["archived", `归档区 ${archived.length}`],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={tab === key}
+            onClick={() => setTab(key)}
+            className={`border-b pb-2 transition-colors ${
+              tab === key
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <Panel className="p-0">
-        {(data?.sessions ?? []).length === 0 ? (
-          <p className="p-8 text-[12px] tracking-[0.1em] text-muted-foreground">暂无投票场次。</p>
+        {visible.length === 0 ? (
+          <p className="p-8 text-[12px] tracking-[0.1em] text-muted-foreground">
+            {tab === "active" ? "暂无投票场次。" : "归档区为空。已结束的场次可点击「归档」移入此处。"}
+          </p>
         ) : (
           <ul>
-            {(data?.sessions ?? []).map((s) => (
+            {visible.map((s) => (
               <li
                 key={s.id}
-                className="hairline-b flex items-center justify-between px-8 py-6 last:border-b-0"
+                className="hairline-b flex items-center justify-between gap-6 px-8 py-6 last:border-b-0"
               >
                 <div>
                   <div className="text-[13px] tracking-[0.12em]">{s.title}</div>
@@ -343,26 +536,44 @@ function SessionsPage() {
                     {Array.isArray(s.passed_candidate_ids)
                       ? ` · 已确认通过 ${s.passed_candidate_ids.length} 人`
                       : ""}
+                    {s.archived_at
+                      ? ` · 归档于 ${new Date(s.archived_at).toLocaleString("zh-CN", { hour12: false })}`
+                      : ""}
                   </div>
-
                 </div>
-                <div className="flex items-center gap-5 text-[11px] tracking-[0.16em]">
-                  {s.status === "draft" ? (
+                <div className="flex shrink-0 items-center gap-5 text-[11px] tracking-[0.16em]">
+                  {!s.archived_at && s.status === "draft" ? (
                     <button onClick={() => setStatus(s.id, "open")} className="hover:underline">
                       开启投票
                     </button>
                   ) : null}
-                  {s.status === "open" ? (
+                  {!s.archived_at && s.status === "open" ? (
                     <button onClick={() => setStatus(s.id, "closed")} className="hover:underline">
                       结束投票
                     </button>
                   ) : null}
-                  <button
-                    onClick={() => remove(s.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    删除
-                  </button>
+                  {canArchive(s) ? (
+                    <button onClick={() => setArchived(s, true)} className="hover:underline">
+                      归档
+                    </button>
+                  ) : null}
+                  {s.archived_at ? (
+                    <button onClick={() => setArchived(s, false)} className="hover:underline">
+                      取回
+                    </button>
+                  ) : null}
+                  {canDelete(s) ? (
+                    <button
+                      onClick={() => openDelete(s)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      删除
+                    </button>
+                  ) : (
+                    <span className="text-muted-foreground/60" title="投票进行中，请先结束投票">
+                      删除
+                    </span>
+                  )}
                 </div>
               </li>
             ))}

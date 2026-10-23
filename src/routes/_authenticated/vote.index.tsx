@@ -35,6 +35,7 @@ function VoteList() {
             )
             .eq("school_id", judge.school_id)
             .in("status", ["open", "closed"])
+            .is("archived_at", null)
             .order("created_at", { ascending: false })
         : { data: [] };
 

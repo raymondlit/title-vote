@@ -650,6 +650,8 @@ export type Database = {
       }
       vote_sessions: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           candidate_ids: string[] | null
           category_id: string | null
           closed_at: string | null
@@ -668,6 +670,8 @@ export type Database = {
           voter_scope: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           candidate_ids?: string[] | null
           category_id?: string | null
           closed_at?: string | null
@@ -686,6 +690,8 @@ export type Database = {
           voter_scope?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           candidate_ids?: string[] | null
           category_id?: string | null
           closed_at?: string | null

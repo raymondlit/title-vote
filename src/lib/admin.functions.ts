@@ -525,3 +525,69 @@ export const deleteJudge = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+/** 删除投票场次：须本校管理员输入本人登录密码，服务端核验后连同全部选票一并删除 */
+export const deleteVoteSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        sessionId: z.string().uuid(),
+        password: z.string().min(1, "请输入登录密码").max(200),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: vs } = await supabaseAdmin
+      .from("vote_sessions")
+      .select("id, school_id, status")
+      .eq("id", data.sessionId)
+      .maybeSingle();
+    if (!vs) throw new Error("投票场次不存在或已删除");
+    const schoolId = await resolveSchool(context, vs.school_id);
+    if (schoolId !== vs.school_id) throw new Error("没有权限执行该操作");
+    if (vs.status === "open") throw new Error("投票进行中，请先结束投票再删除");
+
+    // 核验本人登录密码
+    const { data: me } = await supabaseAdmin.auth.admin.getUserById(context.userId);
+    const email = me?.user?.email;
+    if (!email) throw new Error("无法核验当前账号");
+    const url = process.env["SUPABASE_URL"]!;
+    const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
+    const { createClient } = await import("@supabase/supabase-js");
+    const verifier = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+      global: {
+        fetch: (input, init) => {
+          const h = new Headers(init?.headers);
+          if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+          h.set("apikey", key);
+          return fetch(input, { ...init, headers: h });
+        },
+      },
+    });
+    const { data: signIn, error: signInError } = await verifier.auth.signInWithPassword({
+      email,
+      password: data.password,
+    });
+    if (signInError || signIn.user?.id !== context.userId) {
+      throw new Error("密码不正确，未删除");
+    }
+    await verifier.auth.signOut({ scope: "local" });
+
+    const { count } = await supabaseAdmin
+      .from("ballots")
+      .select("id", { count: "exact", head: true })
+      .eq("session_id", vs.id);
+
+    // 选票及选票明细随场次级联删除
+    const { error } = await supabaseAdmin
+      .from("vote_sessions")
+      .delete()
+      .eq("id", vs.id)
+      .eq("school_id", vs.school_id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const, ballots: count ?? 0 };
+  });
