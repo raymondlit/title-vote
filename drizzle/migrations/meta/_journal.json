@@ -92,6 +92,13 @@
       "when": 1792638830750,
       "tag": "0012_vote_session_rounds",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792715599572,
+      "tag": "0013_vote_session_archive_and_guarded_delete",
+      "breakpoints": true
     }
   ]
 }
