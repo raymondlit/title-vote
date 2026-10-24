@@ -30,12 +30,12 @@ export function PasswordConfirmDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  subject?: string;
+  subject?: string | undefined;
   children?: ReactNode;
   /** 提示管理员可以改用归档管理 */
   archiveHint: ReactNode;
   /** 可选：直接改为归档 */
-  archiveAction?: { label: string; onClick: () => void };
+  archiveAction?: { label: string; onClick: () => void } | undefined;
   confirmLabel?: string;
   /** 核验失败时抛出错误，错误信息显示在密码框下方 */
   onConfirm: (password: string) => Promise<void>;
