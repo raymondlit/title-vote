@@ -99,6 +99,13 @@
       "when": 1792715599572,
       "tag": "0013_vote_session_archive_and_guarded_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792801368725,
+      "tag": "0014_vote_archives_delete_requires_password",
+      "breakpoints": true
     }
   ]
 }

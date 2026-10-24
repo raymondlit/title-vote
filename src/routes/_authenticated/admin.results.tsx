@@ -3,6 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Download, Eye, Printer, Settings2 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { PasswordConfirmDialog } from "@/components/PasswordConfirmDialog";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteVoteArchive } from "@/lib/admin.functions";
 
 type ArchiveSnapshot = {
   schoolName: string;
@@ -102,6 +105,8 @@ function ResultsPage() {
   const [previewJudgeId, setPreviewJudgeId] = useState("");
   const [archiving, setArchiving] = useState(false);
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const deleteArchiveFn = useServerFn(deleteVoteArchive);
+  const [archiveDelete, setArchiveDelete] = useState<{ id: string; title: string } | null>(null);
   const { data: archives } = useQuery({
     queryKey: ["vote-archives", schoolId ?? "all"],
     enabled: !!schoolId || !!session?.isSuper,
@@ -558,20 +563,15 @@ function ResultsPage() {
     queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId ?? "all"] });
   }
 
-  async function removeArchive(id: string, title: string) {
-    const ok = await confirm({
-      title: "删除归档",
-      description: `确定删除「${title}」的归档记录吗？删除后无法恢复。`,
-      confirmLabel: "确认删除",
-      destructive: true,
-    });
-    if (!ok) return;
-    const { error } = await supabase.from("vote_archives").delete().eq("id", id);
-    if (error) {
-      toast.error("删除失败");
-      return;
-    }
-    toast.success("已删除");
+  function removeArchive(id: string, title: string) {
+    setArchiveDelete({ id, title });
+  }
+
+  async function confirmRemoveArchive(password: string) {
+    if (!archiveDelete) return;
+    await deleteArchiveFn({ data: { archiveId: archiveDelete.id, password } });
+    toast.success(`已删除「${archiveDelete.title}」的归档记录`);
+    setArchiveDelete(null);
     queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId ?? "all"] });
   }
 
@@ -1028,6 +1028,20 @@ function ResultsPage() {
         </Panel>
       </div>
       {confirmDialog}
+      <PasswordConfirmDialog
+        open={!!archiveDelete}
+        onOpenChange={(o) => {
+          if (!o) setArchiveDelete(null);
+        }}
+        title="永久删除投票结果归档"
+        subject={archiveDelete?.title}
+        onConfirm={confirmRemoveArchive}
+        archiveHint="归档记录是本场投票结果（总表与每位评委确认单）的长期存档，建议保留以备复核。如只是不想看到原场次，请到「投票场次」把场次归档，可随时从归档区取回。"
+      >
+        <p className="text-destructive">
+          删除后该场次的结果总表与评委个人确认单存档将永久清除，无法恢复。
+        </p>
+      </PasswordConfirmDialog>
     </>
   );
 }

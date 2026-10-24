@@ -550,32 +550,8 @@ export const deleteVoteSession = createServerFn({ method: "POST" })
     if (schoolId !== vs.school_id) throw new Error("没有权限执行该操作");
     if (vs.status === "open") throw new Error("投票进行中，请先结束投票再删除");
 
-    // 核验本人登录密码
-    const { data: me } = await supabaseAdmin.auth.admin.getUserById(context.userId);
-    const email = me?.user?.email;
-    if (!email) throw new Error("无法核验当前账号");
-    const url = process.env["SUPABASE_URL"]!;
-    const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
-    const { createClient } = await import("@supabase/supabase-js");
-    const verifier = createClient(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
-      global: {
-        fetch: (input, init) => {
-          const h = new Headers(init?.headers);
-          if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
-          h.set("apikey", key);
-          return fetch(input, { ...init, headers: h });
-        },
-      },
-    });
-    const { data: signIn, error: signInError } = await verifier.auth.signInWithPassword({
-      email,
-      password: data.password,
-    });
-    if (signInError || signIn.user?.id !== context.userId) {
-      throw new Error("密码不正确，未删除");
-    }
-    await verifier.auth.signOut({ scope: "local" });
+
+    await verifyOwnPassword(supabaseAdmin, context.userId, data.password);
 
     const { count } = await supabaseAdmin
       .from("ballots")
@@ -590,4 +566,80 @@ export const deleteVoteSession = createServerFn({ method: "POST" })
       .eq("school_id", vs.school_id);
     if (error) throw new Error(error.message);
     return { ok: true as const, ballots: count ?? 0 };
+  });
+
+/** 核验当前登录账号本人的密码；不正确时抛出「密码不正确，未删除」 */
+async function verifyOwnPassword(supabaseAdmin: any, userId: string, password: string) {
+  const { data: me } = await supabaseAdmin.auth.admin.getUserById(userId);
+  const email = me?.user?.email;
+  if (!email) throw new Error("无法核验当前账号");
+  const url = process.env["SUPABASE_URL"]!;
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
+  const { createClient } = await import("@supabase/supabase-js");
+  const verifier = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+    global: {
+      fetch: (input, init) => {
+        const h = new Headers(init?.headers);
+        if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+        h.set("apikey", key);
+        return fetch(input, { ...init, headers: h });
+      },
+    },
+  });
+  const { data: signIn, error } = await verifier.auth.signInWithPassword({ email, password });
+  if (error || signIn.user?.id !== userId) throw new Error("密码不正确，未删除");
+  await verifier.auth.signOut({ scope: "local" });
+}
+
+const passwordField = z.string().min(1, "请输入登录密码").max(200);
+
+/** 删除投票结果归档记录：须输入本人登录密码 */
+export const deleteVoteArchive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ archiveId: z.string().uuid(), password: passwordField }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: va } = await supabaseAdmin
+      .from("vote_archives")
+      .select("id, school_id")
+      .eq("id", data.archiveId)
+      .maybeSingle();
+    if (!va?.school_id) throw new Error("归档记录不存在或已删除");
+    const schoolId = await resolveSchool(context, va.school_id);
+    if (schoolId !== va.school_id) throw new Error("没有权限执行该操作");
+    await verifyOwnPassword(supabaseAdmin, context.userId, data.password);
+    const { error } = await supabaseAdmin
+      .from("vote_archives")
+      .delete()
+      .eq("id", va.id)
+      .eq("school_id", va.school_id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+/** 清除某学科小组的线下推荐结果：须输入本人登录密码（历史上传记录保留） */
+export const clearOfflineGroupResults = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        schoolId: z.string().uuid(),
+        groupId: z.string().uuid().nullable(),
+        password: passwordField,
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const schoolId = await resolveSchool(context, data.schoolId);
+    if (schoolId !== data.schoolId) throw new Error("没有权限执行该操作");
+    await verifyOwnPassword(supabaseAdmin, context.userId, data.password);
+    let q = supabaseAdmin.from("offline_group_results").delete({ count: "exact" }).eq("school_id", schoolId);
+    q = data.groupId ? q.eq("group_id", data.groupId) : q.is("group_id", null);
+    const { error, count } = await q;
+    if (error) throw new Error(error.message);
+    return { ok: true as const, removed: count ?? 0 };
   });
