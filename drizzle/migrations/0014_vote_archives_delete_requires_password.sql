@@ -1,0 +1,2 @@
+REVOKE DELETE ON public.vote_archives FROM authenticated;
+COMMENT ON POLICY va_delete ON public.vote_archives IS 'DEPRECATED: authenticated has no DELETE grant; deletion goes through deleteVoteArchive server function after password verification';
