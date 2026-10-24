@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Panel } from "@/components/Shell";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { PasswordConfirmDialog } from "@/components/PasswordConfirmDialog";
+import { useServerFn } from "@tanstack/react-start";
+import { clearOfflineGroupResults } from "@/lib/admin.functions";
 import {
   parseSheet,
   downloadCsv,
@@ -64,6 +67,9 @@ export function OfflineGroupRecommend({
 }) {
   const queryClient = useQueryClient();
   const { confirm, dialog } = useConfirm();
+  const clearFn = useServerFn(clearOfflineGroupResults);
+  /** undefined = 未打开；null = 未分组 */
+  const [clearTarget, setClearTarget] = useState<string | null | undefined>(undefined);
   const [design, setDesign] = useState<Design>(DEFAULT_DESIGN);
   const [newCol, setNewCol] = useState("");
   const [newEditable, setNewEditable] = useState("");
@@ -362,23 +368,18 @@ tr{page-break-inside:avoid;}
     await queryClient.refetchQueries({ queryKey: ["offline-group-results"] });
   }
 
-  async function clearGroup(gid: string | null) {
-    const ok = await confirm({
-      title: "清除该学科小组的线下推荐结果",
-      description: "清除后该组人员将不再进入大评审范围，历史上传记录仍会保留可查。",
-      confirmLabel: "确认清除",
-      destructive: true,
-    });
-    if (!ok) return;
-    let q = supabase.from("offline_group_results").delete().eq("school_id", schoolId!);
-    q = gid ? q.eq("group_id", gid) : q.is("group_id", null);
-    const { error } = await q;
-    if (error) {
-      toast.error(error.message);
-      return;
+  function clearGroup(gid: string | null) {
+    setClearTarget(gid);
+  }
+
+  async function confirmClearGroup(password: string) {
+    if (!schoolId || clearTarget === undefined) return;
+    const res = await clearFn({ data: { schoolId, groupId: clearTarget, password } });
+    setClearTarget(undefined);
+    toast.success(`已清除该组 ${res.removed} 条线下推荐结果，历史上传记录仍保留`);
+    for (const key of [["offline-group-results"], ["offline-batches"], ["judge-sessions"], ["vote-session"]]) {
+      queryClient.invalidateQueries({ queryKey: key });
     }
-    toast.success("已清除该组结果");
-    queryClient.invalidateQueries({ queryKey: ["offline-group-results"] });
   }
 
   const byGroup = new Map<string, typeof results.data>();
@@ -801,6 +802,21 @@ tr{page-break-inside:avoid;}
         )}
       </div>
       {dialog}
+      <PasswordConfirmDialog
+        open={clearTarget !== undefined}
+        onOpenChange={(o) => {
+          if (!o) setClearTarget(undefined);
+        }}
+        title="清除学科小组线下推荐结果"
+        subject={clearTarget === undefined ? "" : clearTarget ? nameOf(groups, clearTarget) : "未分组"}
+        confirmLabel="核验密码并清除"
+        onConfirm={confirmClearGroup}
+        archiveHint="如只是需要更正结果，直接重新上传新的推荐表即可覆盖，本次及以往的上传记录都会保留在历史中，便于复核。"
+      >
+        <p className="text-destructive">
+          清除后该组 {clearTarget === undefined ? 0 : (byGroup.get(clearTarget ?? "") ?? []).length} 人的线下推荐结果将被删除，推荐通过者不再进入大评审范围。
+        </p>
+      </PasswordConfirmDialog>
     </Panel>
   );
 }
