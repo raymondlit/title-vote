@@ -14,3 +14,4 @@
 - Read ballot_items through `fetchAllBallotItems` (paged) — single queries cap at 1000 rows and would silently drop votes.
 - Tests: `bunx vitest run --root . --dir src/lib`.
 - Vote sessions: archiving is a soft hide via `vote_sessions.archived_at` (judges' RLS hides archived rows; ballots cannot be inserted); hard deletion is only possible through the `deleteVoteSession` server function after re-verifying the admin's password — authenticated users have no DELETE grant on vote_sessions.
+- Any admin deletion of vote records (sessions, `vote_archives`, clearing offline group results) goes through a server function that calls `verifyOwnPassword`, and the UI uses `PasswordConfirmDialog` with an archive/keep hint — so destructive actions are re-authenticated server-side and consistently steer admins toward archiving. Authenticated users have no DELETE grant on vote_archives.
