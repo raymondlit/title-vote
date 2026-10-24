@@ -548,6 +548,8 @@ export const deleteVoteSession = createServerFn({ method: "POST" })
     if (!vs) throw new Error("投票场次不存在或已删除");
     const schoolId = await resolveSchool(context, vs.school_id);
     if (schoolId !== vs.school_id) throw new Error("没有权限执行该操作");
+    if (vs.status === "open") throw new Error("投票进行中，请先结束投票再删除");
+
 
     await verifyOwnPassword(supabaseAdmin, context.userId, data.password);
 
