@@ -20,7 +20,7 @@ export function nextPendingId(
   if (n === 0) return null;
   const start = afterId ? orderedIds.indexOf(afterId) + 1 : 0;
   for (let k = 0; k < n; k++) {
-    const id = orderedIds[(start + k) % n];
+    const id = orderedIds[(start + k) % n]!;
     if (!choices[id]) return id;
   }
   return null;
