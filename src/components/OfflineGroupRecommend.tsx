@@ -112,6 +112,8 @@ export function OfflineGroupRecommend({
   const results = useQuery({
     queryKey: ["offline-group-results", schoolId],
     enabled: !!schoolId,
+    // 实时推送连不上（如国内网络）时，每 15 秒自动刷新兜底
+    refetchInterval: () => (document.visibilityState === "visible" ? 15000 : false),
     queryFn: async () => {
       const { data } = await supabase
         .from("offline_group_results")
