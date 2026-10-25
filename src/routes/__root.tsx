@@ -13,6 +13,10 @@ import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { installBackendProxy } from "../lib/backendProxy";
+
+// 浏览器端所有登录与数据请求改走本站同源地址，国内无需 VPN
+installBackendProxy();
 
 function NotFoundComponent() {
   return (
