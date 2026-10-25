@@ -11,14 +11,9 @@ import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { pickVotingRule } from "@/lib/voteRules";
 import { effectiveRoundRule, hasFixedPool } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
+import { matchesFilter, nextPendingId, type VoteFilter } from "@/lib/voteNav";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Crosshair } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +48,19 @@ function VotePage() {
   );
   const [saving, setSaving] = useState(false);
   const [ruleFloat, setRuleFloat] = useState<{ x: number; y: number } | null>(null);
+  // 表态状态筛选：切换筛选时记录名单快照，表态后的人员不会立即从当前列表消失，避免误点
+  const [filter, setFilter] = useState<VoteFilter>("all");
+  const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
+  const [locatedId, setLocatedId] = useState<string | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  const flashTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ["vote-session", sessionId, session?.userId],
@@ -399,6 +407,79 @@ function VotePage() {
     }
   }
 
+  function pick(candidateId: string, value: "recommend" | "not_recommend") {
+    if (choices[candidateId] === value) {
+      // 再次点击已选项：撤销为未表态
+      setChoices((p) => {
+        const next = { ...p };
+        delete next[candidateId];
+        return next;
+      });
+      return;
+    }
+    if (value === "recommend" && maxRecommend > 0 && recommendCount >= maxRecommend) {
+      setOverPick({ candidateId, nextCount: recommendCount + 1 });
+      return;
+    }
+    setChoices((p) => ({ ...p, [candidateId]: value }));
+  }
+
+  function applyFilter(next: VoteFilter) {
+    setFilter(next);
+    setFilterIds(
+      next === "all"
+        ? null
+        : new Set(data!.candidates.filter((c) => matchesFilter(choices[c.id], next)).map((c) => c.id)),
+    );
+  }
+
+  function locateNextPending() {
+    const id = nextPendingId(
+      data!.candidates.map((c) => c.id),
+      choices,
+      locatedId,
+    );
+    if (!id) {
+      toast.success("已全部表态");
+      return;
+    }
+    // 当前筛选看不到该人员时切回「未表态」视图
+    if (filterIds && !filterIds.has(id)) applyFilter("pending");
+    setLocatedId(id);
+    setFlashId(id);
+    if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlashId(null), 1800);
+    window.requestAnimationFrame(() => {
+      const el = rowRefs.current.get(id);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.querySelector<HTMLButtonElement>('button[data-choice="recommend"]')?.focus({
+        preventScroll: true,
+      });
+    });
+  }
+
+  const visibleCandidates = filterIds
+    ? data.candidates.filter((c) => filterIds.has(c.id))
+    : data.candidates;
+  const countRecommend = recommendCount;
+  const countReject = data.candidates.filter((c) => choices[c.id] === "not_recommend").length;
+  const filterTabs: { key: VoteFilter; label: string; count: number; activeClass: string }[] = [
+    { key: "all", label: "全部", count: data.candidates.length, activeClass: "bg-foreground text-background" },
+    { key: "pending", label: "未表态", count: missing, activeClass: "bg-primary text-primary-foreground" },
+    {
+      key: "recommend",
+      label: `已${labels.recommend}`,
+      count: countRecommend,
+      activeClass: "bg-vote-recommend-bg text-vote-recommend",
+    },
+    {
+      key: "not_recommend",
+      label: labels.not_recommend,
+      count: countReject,
+      activeClass: "bg-vote-reject-bg text-vote-reject",
+    },
+  ];
+
   return (
     <>
       <PageTitle
@@ -468,6 +549,48 @@ function VotePage() {
         </div>
       </Panel>
 
+      {/* 表态状态切换 + 未表态人员快速定位：常驻顶部，滚动时不消失 */}
+      <div className="sticky top-0 z-20 -mx-1 mb-3 flex flex-wrap items-center gap-2 bg-background/95 px-1 py-2 backdrop-blur">
+        <div role="tablist" aria-label="按表态状态筛选" className="flex flex-wrap border">
+          {filterTabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === t.key}
+              onClick={() => applyFilter(t.key)}
+              className={`h-10 px-4 text-[12px] tracking-[0.12em] transition-colors [&+&]:border-l ${
+                filter === t.key
+                  ? t.activeClass
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              {t.label}
+              <span className="ml-1.5 tabular-nums">{t.count}</span>
+            </button>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={locateNextPending}
+          disabled={missing === 0}
+          className="h-10 rounded-none text-[12px] tracking-[0.14em]"
+        >
+          <Crosshair className="mr-1.5 h-4 w-4" />
+          {missing === 0 ? "已全部表态" : `定位下一个未表态（${missing}）`}
+        </Button>
+        {filterIds && filter !== "all" ? (
+          <button
+            type="button"
+            onClick={() => applyFilter(filter)}
+            className="text-[11px] tracking-[0.1em] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            刷新筛选结果
+          </button>
+        ) : null}
+      </div>
+
       <div
         onMouseMove={(event) => {
           if (!showFloatingRule) return;
@@ -492,10 +615,27 @@ function VotePage() {
             </tr>
           </thead>
           <tbody>
-            {data.candidates.flatMap((c, idx) => {
-              const prev = idx > 0 ? data.candidates[idx - 1] : null;
+            {visibleCandidates.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={hasGroupVotes ? 5 : 4}
+                  className="px-8 py-10 text-center text-[12px] tracking-[0.12em] text-muted-foreground"
+                >
+                  {filter === "pending" ? "已全部表态" : "当前筛选下没有人员"}
+                  <button
+                    type="button"
+                    onClick={() => applyFilter("all")}
+                    className="ml-3 underline underline-offset-4 hover:text-foreground"
+                  >
+                    查看全部
+                  </button>
+                </td>
+              </tr>
+            ) : null}
+            {visibleCandidates.flatMap((c, idx) => {
+              const prev = idx > 0 ? visibleCandidates[idx - 1] : null;
               const newGroup =
-                showGroupHeaders && (prev?.group_id ?? null) !== (c.group_id ?? null);
+                showGroupHeaders && (idx === 0 || (prev?.group_id ?? null) !== (c.group_id ?? null));
               const groupHeader = newGroup ? (
                 <tr key={`group-${c.group_id ?? "none"}-${idx}`} className="bg-muted/40">
                   <td
@@ -506,9 +646,27 @@ function VotePage() {
                   </td>
                 </tr>
               ) : null;
+              const current = choices[c.id];
               const row = (
-              <tr key={c.id} className="hairline-b last:border-b-0">
-                <td className="px-8 py-4 tracking-[0.1em]">{c.full_name}</td>
+              <tr
+                key={c.id}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(c.id, el);
+                  else rowRefs.current.delete(c.id);
+                }}
+                className={`hairline-b scroll-mt-24 transition-colors duration-500 last:border-b-0 ${
+                  flashId === c.id ? "bg-primary/10" : ""
+                }`}
+              >
+                <td className="px-8 py-4 tracking-[0.1em]">
+                  {!current ? (
+                    <span
+                      aria-label="未表态"
+                      className="mr-2 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-primary"
+                    />
+                  ) : null}
+                  {c.full_name}
+                </td>
                 <td className="py-4 text-muted-foreground">{c.unit ?? "—"}</td>
                 <td className="py-4 text-muted-foreground">{c.current_title ?? "—"}</td>
                 {hasGroupVotes ? (
@@ -520,40 +678,35 @@ function VotePage() {
                   </td>
                 ) : null}
                 <td className="px-8 py-3 text-right">
-                  <Select
-                     value={choices[c.id] ?? ""}
-                     onValueChange={(v) => {
-                       if (
-                         v === "recommend" &&
-                         choices[c.id] !== "recommend" &&
-                         maxRecommend > 0 &&
-                         recommendCount >= maxRecommend
-                       ) {
-                         setOverPick({
-                           candidateId: c.id,
-                           nextCount: recommendCount + 1,
-                         });
-                         return;
-                       }
-                       setChoices((p) => ({ ...p, [c.id]: v as Choice }));
-                     }}
-                   >
-                    <SelectTrigger
-                      className={`ml-auto h-9 w-32 rounded-none text-[12px] ${
-                        choices[c.id] === "recommend"
-                          ? "border-vote-recommend/40 bg-vote-recommend-bg text-vote-recommend data-[state=open]:border-vote-recommend/60"
-                          : choices[c.id] === "not_recommend"
-                            ? "border-vote-reject/40 bg-vote-reject-bg text-vote-reject data-[state=open]:border-vote-reject/60"
-                            : ""
-                      }`}
-                    >
-                      <SelectValue placeholder="请选择" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-none">
-                      <SelectItem value="recommend">{labels.recommend}</SelectItem>
-                      <SelectItem value="not_recommend">{labels.not_recommend}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* 双态直选：一次点击完成表态，再次点击已选项可撤销 */}
+                  <div
+                    role="radiogroup"
+                    aria-label={`${c.full_name} 表决`}
+                    className="ml-auto inline-flex border"
+                  >
+                    {(["recommend", "not_recommend"] as const).map((opt) => {
+                      const active = current === opt;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          data-choice={opt}
+                          onClick={() => pick(c.id, opt)}
+                          className={`h-10 min-w-[4.5rem] px-3 text-[12px] tracking-[0.14em] transition-colors [&+&]:border-l ${
+                            active
+                              ? opt === "recommend"
+                                ? "bg-vote-recommend-bg text-vote-recommend ring-1 ring-inset ring-vote-recommend/50"
+                                : "bg-vote-reject-bg text-vote-reject ring-1 ring-inset ring-vote-reject/50"
+                              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                          }`}
+                        >
+                          {labels[opt]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </td>
               </tr>
               );
