@@ -407,6 +407,79 @@ function VotePage() {
     }
   }
 
+  function pick(candidateId: string, value: "recommend" | "not_recommend") {
+    if (choices[candidateId] === value) {
+      // 再次点击已选项：撤销为未表态
+      setChoices((p) => {
+        const next = { ...p };
+        delete next[candidateId];
+        return next;
+      });
+      return;
+    }
+    if (value === "recommend" && maxRecommend > 0 && recommendCount >= maxRecommend) {
+      setOverPick({ candidateId, nextCount: recommendCount + 1 });
+      return;
+    }
+    setChoices((p) => ({ ...p, [candidateId]: value }));
+  }
+
+  function applyFilter(next: VoteFilter) {
+    setFilter(next);
+    setFilterIds(
+      next === "all"
+        ? null
+        : new Set(data!.candidates.filter((c) => matchesFilter(choices[c.id], next)).map((c) => c.id)),
+    );
+  }
+
+  function locateNextPending() {
+    const id = nextPendingId(
+      data!.candidates.map((c) => c.id),
+      choices,
+      locatedId,
+    );
+    if (!id) {
+      toast.success("已全部表态");
+      return;
+    }
+    // 当前筛选看不到该人员时切回「未表态」视图
+    if (filterIds && !filterIds.has(id)) applyFilter("pending");
+    setLocatedId(id);
+    setFlashId(id);
+    if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    flashTimer.current = window.setTimeout(() => setFlashId(null), 1800);
+    window.requestAnimationFrame(() => {
+      const el = rowRefs.current.get(id);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.querySelector<HTMLButtonElement>('button[data-choice="recommend"]')?.focus({
+        preventScroll: true,
+      });
+    });
+  }
+
+  const visibleCandidates = filterIds
+    ? data.candidates.filter((c) => filterIds.has(c.id))
+    : data.candidates;
+  const countRecommend = recommendCount;
+  const countReject = data.candidates.filter((c) => choices[c.id] === "not_recommend").length;
+  const filterTabs: { key: VoteFilter; label: string; count: number; activeClass: string }[] = [
+    { key: "all", label: "全部", count: data.candidates.length, activeClass: "bg-foreground text-background" },
+    { key: "pending", label: "未表态", count: missing, activeClass: "bg-primary text-primary-foreground" },
+    {
+      key: "recommend",
+      label: `已${labels.recommend}`,
+      count: countRecommend,
+      activeClass: "bg-vote-recommend-bg text-vote-recommend",
+    },
+    {
+      key: "not_recommend",
+      label: labels.not_recommend,
+      count: countReject,
+      activeClass: "bg-vote-reject-bg text-vote-reject",
+    },
+  ];
+
   return (
     <>
       <PageTitle
