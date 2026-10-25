@@ -40,6 +40,10 @@ function JudgesPage() {
   const { confirm, dialog } = useConfirm();
   const session = useSession();
   const school = useSchool(session.data?.schoolId);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const schoolSlug = (school.data as any)?.slug as string | undefined;
+  const loginUrl = schoolSlug ? `${origin}/school/${schoolSlug}` : origin;
   const [preview, setPreview] = useState<SheetRow[]>([]);
   const [accounts, setAccounts] = useState<
     { full_name: string; username: string; password: string }[]
@@ -304,10 +308,13 @@ function JudgesPage() {
   function passwordBookHtml(
     entries: { full_name: string; username: string; password: string | null }[],
   ) {
+    const esc = (s: string) =>
+      s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+    const url = esc(loginUrl);
     const rows = entries
       .map(
         (e, i) =>
-          `<tr><td>${i + 1}</td><td>${e.full_name}</td><td>${e.username}</td><td>${e.password ?? "（未记录）"}</td></tr>`,
+          `<tbody class="slip"><tr><td>${i + 1}</td><td>${esc(e.full_name)}</td><td>${esc(e.username)}</td><td>${esc(e.password ?? "（未记录）")}</td></tr><tr class="url"><td></td><td colspan="3">评审登录网址：${url}</td></tr></tbody>`,
       )
       .join("");
     return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>评委密码本</title>
@@ -315,12 +322,15 @@ function JudgesPage() {
 body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;color:#2b2b2b;margin:32px;}
 h1{font-size:16px;font-weight:400;letter-spacing:.2em;margin:0 0 24px;}
 table{width:100%;border-collapse:collapse;font-size:12px;letter-spacing:.06em;}
-th,td{border-bottom:1px solid #d9d7d2;padding:8px 6px;text-align:left;font-weight:400;}
+th,td{padding:8px 6px;text-align:left;font-weight:400;}
+th{border-bottom:1px solid #d9d7d2;}
+tbody.slip{break-inside:avoid;page-break-inside:avoid;}
+tr.url td{padding-top:0;padding-bottom:12px;border-bottom:1px dashed #9a9893;word-break:break-all;}
 @page{margin:16mm;}
 </style></head><body>
 <h1>评委密码本</h1>
 <table><thead><tr><th style="width:48px">序号</th><th style="width:96px">姓名</th><th>用户名</th><th>密码</th></tr></thead>
-<tbody>${rows}</tbody></table>
+${rows}</table>
 </body></html>`;
   }
 
