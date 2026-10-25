@@ -393,6 +393,27 @@ ${rows}</table>
     setBusy(false);
   }
 
+  async function exportPasswordBookPdf() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) {
+      toast.error("请先勾选需要导出的评委");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await bookFn({ data: { judgeIds: ids } });
+      setBook(res.entries);
+      const { buildPasswordBookPdf, downloadBlob } = await import("@/lib/passwordBookPdf");
+      const schoolName = (school.data as any)?.name ?? "";
+      const blob = await buildPasswordBookPdf(res.entries, { schoolName, loginUrl });
+      downloadBlob(blob, `${schoolName}评委密码本_${res.entries.length}人.pdf`);
+      toast.success(`已导出 ${res.entries.length} 位评委的密码本 PDF`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+    setBusy(false);
+  }
+
   async function togglePasswordPolicy(on: boolean) {
     const id = session.data?.schoolId;
     if (!id) return;
@@ -748,6 +769,13 @@ ${rows}</table>
               disabled={busy || selected.size === 0}
             >
               打印密码本（已选 {selected.size} 人）
+            </button>
+            <button
+              className="text-[11px] tracking-[0.2em] underline disabled:text-muted-foreground"
+              onClick={exportPasswordBookPdf}
+              disabled={busy || selected.size === 0}
+            >
+              导出密码本 PDF
             </button>
             <button
               className="text-[11px] tracking-[0.2em] text-destructive underline disabled:text-muted-foreground"
