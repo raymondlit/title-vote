@@ -11,14 +11,9 @@ import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { pickVotingRule } from "@/lib/voteRules";
 import { effectiveRoundRule, hasFixedPool } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
+import { matchesFilter, nextPendingId, type VoteFilter } from "@/lib/voteNav";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Crosshair } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,6 +48,19 @@ function VotePage() {
   );
   const [saving, setSaving] = useState(false);
   const [ruleFloat, setRuleFloat] = useState<{ x: number; y: number } | null>(null);
+  // 表态状态筛选：切换筛选时记录名单快照，表态后的人员不会立即从当前列表消失，避免误点
+  const [filter, setFilter] = useState<VoteFilter>("all");
+  const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
+  const [locatedId, setLocatedId] = useState<string | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  const flashTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ["vote-session", sessionId, session?.userId],
