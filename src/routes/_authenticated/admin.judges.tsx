@@ -944,14 +944,23 @@ ${rows}</table>
                   </tr>
                 </thead>
                 <tbody>
-                  {book.map((e, i) => (
+                  {book.flatMap((e, i) => [
                     <tr key={e.username}>
-                      <td className="hairline-b py-2">{i + 1}</td>
-                      <td className="hairline-b py-2">{e.full_name}</td>
-                      <td className="hairline-b py-2">{e.username}</td>
-                      <td className="hairline-b py-2">{e.password ?? "（未记录）"}</td>
-                    </tr>
-                  ))}
+                      <td className="py-2">{i + 1}</td>
+                      <td className="py-2">{e.full_name}</td>
+                      <td className="py-2">{e.username}</td>
+                      <td className="py-2">{e.password ?? "（未记录）"}</td>
+                    </tr>,
+                    <tr key={`${e.username}-url`}>
+                      <td className="border-b border-dashed border-border pb-3" />
+                      <td
+                        colSpan={3}
+                        className="break-all border-b border-dashed border-border pb-3 text-muted-foreground"
+                      >
+                        评审登录网址：{loginUrl}
+                      </td>
+                    </tr>,
+                  ])}
                 </tbody>
               </table>
             </div>
