@@ -27,6 +27,7 @@ import { Route as AuthenticatedVoteIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedVoteSessionIdRouteImport } from './routes/_authenticated/vote.$sessionId'
 import { Route as AuthenticatedVotePasswordRouteImport } from './routes/_authenticated/vote.password'
 import { Route as ApiPublicBootstrapRouteImport } from './routes/api/public/bootstrap'
+import { Route as ApiPublicSbSplatRouteImport } from './routes/api/public/sb/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -125,6 +126,11 @@ const ApiPublicBootstrapRoute = ApiPublicBootstrapRouteImport.update({
   path: '/api/public/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSbSplatRoute = ApiPublicSbSplatRouteImport.update({
+  id: '/api/public/sb/$',
+  path: '/api/public/sb/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
   '/vote/': typeof AuthenticatedVoteIndexRoute
+  '/api/public/sb/$': typeof ApiPublicSbSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByTo {
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
   '/vote': typeof AuthenticatedVoteIndexRoute
+  '/api/public/sb/$': typeof ApiPublicSbSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/api/public/bootstrap': typeof ApiPublicBootstrapRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/vote/': typeof AuthenticatedVoteIndexRoute
+  '/api/public/sb/$': typeof ApiPublicSbSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/api/public/bootstrap'
     | '/admin/'
     | '/vote/'
+    | '/api/public/sb/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/api/public/bootstrap'
     | '/admin'
     | '/vote'
+    | '/api/public/sb/$'
   id:
     | '__root__'
     | '/'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/api/public/bootstrap'
     | '/_authenticated/admin/'
     | '/_authenticated/vote/'
+    | '/api/public/sb/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -247,6 +259,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   SchoolSlugRoute: typeof SchoolSlugRoute
   ApiPublicBootstrapRoute: typeof ApiPublicBootstrapRoute
+  ApiPublicSbSplatRoute: typeof ApiPublicSbSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -377,6 +390,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/sb/$': {
+      id: '/api/public/sb/$'
+      path: '/api/public/sb/$'
+      fullPath: '/api/public/sb/$'
+      preLoaderRoute: typeof ApiPublicSbSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -440,6 +460,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   SchoolSlugRoute: SchoolSlugRoute,
   ApiPublicBootstrapRoute: ApiPublicBootstrapRoute,
+  ApiPublicSbSplatRoute: ApiPublicSbSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
