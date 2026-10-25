@@ -47,7 +47,7 @@ async function forward(request: Request): Promise<Response> {
   if (clientIp) headers.set("sb-forwarded-for", clientIp);
 
   const method = request.method.toUpperCase();
-  const body = method === "GET" || method === "HEAD" ? undefined : await request.arrayBuffer();
+  const body = method === "GET" || method === "HEAD" ? null : await request.arrayBuffer();
 
   let upstream: Response;
   try {
