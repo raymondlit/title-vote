@@ -106,6 +106,20 @@
       "when": 1792801368725,
       "tag": "0014_vote_archives_delete_requires_password",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793252331404,
+      "tag": "0015_submit_ballot_atomic",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793252383741,
+      "tag": "0016_submit_ballot_atomic_fix",
+      "breakpoints": true
     }
   ]
 }
