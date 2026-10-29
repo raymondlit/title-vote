@@ -835,6 +835,10 @@ export type Database = {
       judge_school_id: { Args: { _judge_id: string }; Returns: string }
       session_is_open: { Args: { _session_id: string }; Returns: boolean }
       session_school_id: { Args: { _session_id: string }; Returns: string }
+      submit_ballot: {
+        Args: { _choices: Json; _session_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       admin_permission:
