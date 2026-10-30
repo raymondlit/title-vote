@@ -88,21 +88,23 @@ function VotePage() {
       if (!vs || !judge || vs.school_id !== judge.school_id || outOfScope)
         return { judge, vs: null, candidates: [], rule: null, ballot: null, items: [] };
 
-      let base: { id: string; full_name: string; unit: string | null; current_title: string | null; group_id: string | null }[];
+      let base: { id: string; full_name: string; unit: string | null; current_title: string | null; group_id: string | null; sort_order: number }[];
       if (hasFixedPool(vs)) {
         // 多轮遴选：本轮只展示固定名单内人员
         const { data: pooled } = await supabase
           .from("candidates")
-          .select("id, full_name, unit, current_title, group_id")
+          .select("id, full_name, unit, current_title, group_id, sort_order")
           .eq("school_id", vs.school_id)
           .in("id", vs.candidate_ids ?? [])
+          .order("sort_order")
           .order("full_name");
         base = pooled ?? [];
       } else {
         let cq = supabase
           .from("candidates")
-          .select("id, full_name, unit, current_title, group_id")
+          .select("id, full_name, unit, current_title, group_id, sort_order")
           .eq("school_id", vs.school_id)
+          .order("sort_order")
           .order("full_name");
         if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
         if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
@@ -160,13 +162,9 @@ function VotePage() {
           const nb = b ? (groupName.get(b) ?? "") : "￿";
           return na.localeCompare(nb, "zh-CN");
         });
-        candidates = orderedGroups.flatMap(([, arr]) =>
-          [...arr].sort(
-            (a, b) =>
-              (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
-              a.full_name.localeCompare(b.full_name, "zh-CN"),
-          ),
-        );
+        candidates = orderedGroups.flatMap(([, arr]) => [...arr].sort(byVotesThenOrder));
+      } else {
+        candidates = [...candidates].sort(byVotesThenOrder);
       }
 
       const { data: rules } = await supabase
