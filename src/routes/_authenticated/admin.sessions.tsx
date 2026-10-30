@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/ConfirmDialog";
 import { PasswordConfirmDialog } from "@/components/PasswordConfirmDialog";
 import { deleteVoteSession } from "@/lib/admin.functions";
 import { canArchive, canDelete, splitByArchive } from "@/lib/sessionArchive";
+import { JudgeListPreview } from "@/components/JudgeListPreview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +47,7 @@ function SessionsPage() {
   const [voterScope, setVoterScope] = useState<"group" | "all">("group");
   const [tab, setTab] = useState<"active" | "archived">("active");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
 
 
@@ -270,6 +272,10 @@ function SessionsPage() {
   return (
     <>
       {confirmDialog}
+      <JudgeListPreview
+        session={(data?.sessions ?? []).find((x) => x.id === previewId) ?? null}
+        onClose={() => setPreviewId(null)}
+      />
       <PasswordConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => {
@@ -471,6 +477,9 @@ function SessionsPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-5 text-[11px] tracking-[0.16em]">
+                  <button onClick={() => setPreviewId(s.id)} className="hover:underline">
+                    预览名单
+                  </button>
                   {!s.archived_at && s.status === "draft" ? (
                     <button onClick={() => setStatus(s.id, "open")} className="hover:underline">
                       开启投票
