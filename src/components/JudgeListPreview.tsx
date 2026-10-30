@@ -1,4 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { buildJudgeListPdf, downloadBlob, type ListLine } from "@/lib/judgeListPdf";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { loadJudgeCandidates } from "@/lib/judgeOrder";
 import {
@@ -40,6 +44,44 @@ export function JudgeListPreview({
   const groupCounts = new Map<string, number>();
   list.forEach((c) => groupCounts.set(c.group_id ?? "", (groupCounts.get(c.group_id ?? "") ?? 0) + 1));
 
+  const [exporting, setExporting] = useState(false);
+
+  async function exportPdf() {
+    if (!session || list.length === 0) return;
+    setExporting(true);
+    try {
+      const lines: ListLine[] = [];
+      list.forEach((c, i) => {
+        if (multiGroup && (i === 0 || list[i - 1]?.group_id !== c.group_id))
+          lines.push({
+            kind: "group",
+            label: `${groupLabel(c.group_id)}（${groupCounts.get(c.group_id ?? "")} 人）`,
+          });
+        lines.push({
+          kind: "row",
+          no: i + 1,
+          name: c.full_name,
+          unit: c.unit ?? "—",
+          title: c.current_title ?? "—",
+          votes: c.agree_votes != null ? `${c.agree_votes}/${c.total_votes ?? "—"}` : "",
+        });
+      });
+      const stamp = new Date().toLocaleString("zh-CN", { hour12: false });
+      const blob = await buildJudgeListPdf(lines, {
+        title: `${session.title} · 评委端名单`,
+        subtitle: `第 ${session.round_number ?? 1} 轮 · 共 ${list.length} 人${
+          multiGroup ? ` · ${groupCounts.size} 个学科组` : ""
+        } · 导出时间 ${stamp}`,
+      });
+      downloadBlob(blob, `${session.title}-评委端名单.pdf`);
+      toast.success("名单 PDF 已导出");
+    } catch (e) {
+      toast.error(`导出失败：${(e as Error).message}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <Dialog open={!!session} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden rounded-none p-0">
@@ -52,6 +94,17 @@ export function JudgeListPreview({
             {multiGroup ? `，分 ${groupCounts.size} 个学科组` : ""}。
             有学科组推荐票数的按票数优先，其余按「评审对象」页设定的顺序；如需调整请到「评审对象」页选择参评类型后排序。
           </DialogDescription>
+          <div className="pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportPdf}
+              disabled={exporting || isLoading || list.length === 0}
+              className="h-8 rounded-none px-5 text-[11px] tracking-[0.16em]"
+            >
+              {exporting ? "正在生成…" : "导出名单 PDF"}
+            </Button>
+          </div>
         </DialogHeader>
         <div className="max-h-[60vh] overflow-auto px-8 pb-8">
           {isLoading ? (
