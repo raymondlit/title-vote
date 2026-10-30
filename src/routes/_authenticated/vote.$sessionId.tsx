@@ -7,9 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
 import { submitBallot } from "@/lib/vote.functions";
-import { fetchRecommendedCandidateIds } from "@/lib/committee";
+import { loadJudgeCandidates } from "@/lib/judgeOrder";
 import { pickVotingRule } from "@/lib/voteRules";
-import { effectiveRoundRule, hasFixedPool } from "@/lib/rounds";
+import { effectiveRoundRule } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
 import { matchesFilter, nextPendingId, type VoteFilter } from "@/lib/voteNav";
 import { Button } from "@/components/ui/button";
@@ -88,89 +88,7 @@ function VotePage() {
       if (!vs || !judge || vs.school_id !== judge.school_id || outOfScope)
         return { judge, vs: null, candidates: [], rule: null, ballot: null, items: [] };
 
-      let base: { id: string; full_name: string; unit: string | null; current_title: string | null; group_id: string | null; sort_order: number }[];
-      if (hasFixedPool(vs)) {
-        // 多轮遴选：本轮只展示固定名单内人员
-        const { data: pooled } = await supabase
-          .from("candidates")
-          .select("id, full_name, unit, current_title, group_id, sort_order")
-          .eq("school_id", vs.school_id)
-          .in("id", vs.candidate_ids ?? [])
-          .order("sort_order")
-          .order("full_name");
-        base = pooled ?? [];
-      } else {
-        let cq = supabase
-          .from("candidates")
-          .select("id, full_name, unit, current_title, group_id, sort_order")
-          .eq("school_id", vs.school_id)
-          .order("sort_order")
-          .order("full_name");
-        if (vs.category_id) cq = cq.eq("category_id", vs.category_id);
-        if (vs.group_id) cq = cq.eq("group_id", vs.group_id);
-        const { data: candidatesRaw } = await cq;
-        base = candidatesRaw ?? [];
-        if (isCommittee) {
-          const recommended = await fetchRecommendedCandidateIds(
-            supabase,
-            vs.school_id,
-            vs.category_id,
-          );
-          base = base.filter((c) => recommended.has(c.id));
-        }
-      }
-
-      // 学科组线下推荐票数：有票数时按票数从高到低排序
-      const { data: offline } = await supabase
-        .from("offline_group_results")
-        .select("candidate_id, agree_votes, total_votes")
-        .eq("school_id", vs.school_id)
-        .in(
-          "candidate_id",
-          base.map((c) => c.id),
-        );
-      const voteMap = new Map(
-        (offline ?? []).map((o) => [
-          o.candidate_id,
-          { agree: o.agree_votes ?? 0, total: o.total_votes ?? 0 },
-        ]),
-      );
-      let candidates = base.map((c) => ({
-        ...c,
-        agree_votes: voteMap.get(c.id)?.agree ?? null,
-        total_votes: voteMap.get(c.id)?.total ?? null,
-      }));
-      // 学科组信息：分组排序时显示组名
-      const { data: subjectGroups } = await supabase
-        .from("subject_groups")
-        .select("id, name")
-        .eq("school_id", vs.school_id);
-      const groupName = new Map((subjectGroups ?? []).map((g) => [g.id, g.name]));
-
-      // 推荐票数高者在前；票数相同按管理员设定的顺序
-      const byVotesThenOrder = (a: (typeof candidates)[number], b: (typeof candidates)[number]) =>
-        (b.agree_votes ?? 0) - (a.agree_votes ?? 0) ||
-        (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
-        a.full_name.localeCompare(b.full_name, "zh-CN");
-      const multiGroup = new Set(candidates.map((c) => c.group_id ?? "none")).size > 1;
-      if (multiGroup) {
-        // 自动按学科分类分组排序：组间按组名排序，组内按推荐票数从高到低、票数相同按姓名
-        const byGroup = new Map<string | null, typeof candidates>();
-        for (const c of candidates) {
-          const key = c.group_id ?? null;
-          const arr = byGroup.get(key) ?? [];
-          arr.push(c);
-          byGroup.set(key, arr);
-        }
-        const orderedGroups = [...byGroup.entries()].sort(([a], [b]) => {
-          const na = a ? (groupName.get(a) ?? "") : "￿"; // 未分组排最后
-          const nb = b ? (groupName.get(b) ?? "") : "￿";
-          return na.localeCompare(nb, "zh-CN");
-        });
-        candidates = orderedGroups.flatMap(([, arr]) => [...arr].sort(byVotesThenOrder));
-      } else {
-        candidates = [...candidates].sort(byVotesThenOrder);
-      }
+      const { candidates, groupNames } = await loadJudgeCandidates(supabase, vs);
 
       const { data: rules } = await supabase
         .from("voting_rules")
@@ -205,7 +123,7 @@ function VotePage() {
         rule,
         ballot,
         items: items ?? [],
-        groupNames: Object.fromEntries(groupName),
+        groupNames,
       };
     },
   });
