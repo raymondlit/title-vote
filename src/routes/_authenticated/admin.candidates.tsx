@@ -108,7 +108,7 @@ function CandidatesPage() {
   const candidates = useQuery({
     queryKey: ["candidates"],
     queryFn: async () => {
-      const { data } = await supabase.from("candidates").select("*").order("created_at");
+      const { data } = await supabase.from("candidates").select("*").order("sort_order").order("created_at");
       return data ?? [];
     },
   });
@@ -144,6 +144,41 @@ function CandidatesPage() {
     return data.id;
   }
 
+  function nextOrder() {
+    return Math.max(0, ...(candidates.data ?? []).map((c) => c.sort_order ?? 0)) + 1;
+  }
+
+  // 在当前参评类型内移动到目标位置（0 起），整体重排序号并保存变化项
+  async function moveTo(id: string, target: number) {
+    const ids = candidateList.map((c) => c.id);
+    const from = ids.indexOf(id);
+    const to = Math.max(0, Math.min(ids.length - 1, target));
+    if (from < 0 || from === to) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, id);
+    const old = new Map(candidateList.map((c) => [c.id, c.sort_order]));
+    const changed = ids
+      .map((cid, i) => ({ id: cid, sort_order: i + 1 }))
+      .filter((x) => old.get(x.id) !== x.sort_order);
+    queryClient.setQueryData(["candidates"], (prev: typeof candidates.data) =>
+      (prev ?? [])
+        .map((c) => {
+          const hit = changed.find((x) => x.id === c.id);
+          return hit ? { ...c, sort_order: hit.sort_order } : c;
+        })
+        .sort((a, b) => a.sort_order - b.sort_order),
+    );
+    const results = await Promise.all(
+      changed.map((x) =>
+        supabase.from("candidates").update({ sort_order: x.sort_order }).eq("id", x.id),
+      ),
+    );
+    const failed = results.find((res) => res.error);
+    if (failed?.error) toast.error(`顺序保存失败：${failed.error.message}`);
+    else toast.success("顺序已更新");
+    queryClient.invalidateQueries({ queryKey: ["candidates"] });
+  }
+
   async function doCreate() {
     if (!session?.schoolId) return;
     if (!form.full_name.trim()) {
@@ -159,6 +194,7 @@ function CandidatesPage() {
       category_id: form.category_id || null,
       group_id: form.group_id || null,
       notes: form.notes.trim() || null,
+      sort_order: nextOrder(),
     });
     setBusy(false);
     if (error) {
@@ -177,6 +213,7 @@ function CandidatesPage() {
     const cats = [...(categories.data ?? [])].map((c) => ({ id: c.id, name: c.name }));
     const grps = [...(groups.data ?? [])].map((g) => ({ id: g.id, name: g.name }));
     const payload = [];
+    let order = nextOrder();
     for (const row of preview) {
       const categoryId = row["category"]
         ? await ensure("review_categories", row["category"], cats)
@@ -190,6 +227,7 @@ function CandidatesPage() {
         notes: row["notes"] || null,
         category_id: categoryId,
         group_id: groupId,
+        sort_order: order++,
       });
     }
     const { error } = await supabase.from("candidates").insert(payload);
@@ -227,6 +265,7 @@ function CandidatesPage() {
       : filterCategory === "none"
         ? allCandidates.filter((c) => !c.category_id)
         : allCandidates.filter((c) => c.category_id === filterCategory);
+  const reorderable = filterCategory !== "all" && filterCategory !== "none" && candidateList.length > 1;
   const totalPages = Math.max(1, Math.ceil(candidateList.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageStart = (currentPage - 1) * pageSize;
@@ -558,7 +597,16 @@ function CandidatesPage() {
                 该参评类型下暂无评审对象。
               </p>
             ) : null}
-            {visibleCandidates.map((c) => (
+            {reorderable ? (
+              <p className="text-[11px] tracking-[0.12em] text-muted-foreground">
+                可用 ↑↓、置顶或直接输入序号（回车确认）调整顺序，此顺序即评委端显示顺序（有学科组推荐票数时按票数优先）。
+              </p>
+            ) : filterCategory === "all" && allCandidates.length > 1 ? (
+              <p className="text-[11px] tracking-[0.12em] text-muted-foreground">
+                选择具体参评类型后可调整评审对象顺序。
+              </p>
+            ) : null}
+            {visibleCandidates.map((c, idx) => (
 
               <div
                 key={c.id}
@@ -576,6 +624,27 @@ function CandidatesPage() {
                     })
                   }
                 />
+                {reorderable ? (
+                  <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <input
+                      key={`${c.id}-${idx}`}
+                      aria-label={`${c.full_name}的序号`}
+                      defaultValue={pageStart + idx + 1}
+                      className="h-7 w-10 border border-border bg-card text-center tabular-nums text-foreground"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      }}
+                      onBlur={(e) => {
+                        const n = Number(e.target.value);
+                        if (Number.isInteger(n) && n >= 1) moveTo(c.id, n - 1);
+                        else e.target.value = String(pageStart + idx + 1);
+                      }}
+                    />
+                    <button aria-label="上移" disabled={pageStart + idx === 0} className="disabled:opacity-30 hover:text-foreground" onClick={() => moveTo(c.id, pageStart + idx - 1)}>↑</button>
+                    <button aria-label="下移" disabled={pageStart + idx === candidateList.length - 1} className="disabled:opacity-30 hover:text-foreground" onClick={() => moveTo(c.id, pageStart + idx + 1)}>↓</button>
+                    <button aria-label="置顶" disabled={pageStart + idx === 0} className="disabled:opacity-30 hover:text-foreground" onClick={() => moveTo(c.id, 0)}>置顶</button>
+                  </span>
+                ) : null}
                 <span className="w-20">{c.full_name}</span>
                 <span className="w-40 text-muted-foreground">{c.unit ?? "—"}</span>
                 <span className="w-24 text-muted-foreground">{c.current_title ?? "—"}</span>
