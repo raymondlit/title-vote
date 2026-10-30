@@ -120,6 +120,13 @@
       "when": 1793252383741,
       "tag": "0016_submit_ballot_atomic_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793340013160,
+      "tag": "0017_candidates_sort_order",
+      "breakpoints": true
     }
   ]
 }

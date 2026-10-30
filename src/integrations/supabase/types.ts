@@ -138,6 +138,7 @@ export type Database = {
           id: string
           notes: string | null
           school_id: string
+          sort_order: number
           unit: string | null
         }
         Insert: {
@@ -149,6 +150,7 @@ export type Database = {
           id?: string
           notes?: string | null
           school_id: string
+          sort_order?: number
           unit?: string | null
         }
         Update: {
@@ -160,6 +162,7 @@ export type Database = {
           id?: string
           notes?: string | null
           school_id?: string
+          sort_order?: number
           unit?: string | null
         }
         Relationships: [
