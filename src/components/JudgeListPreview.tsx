@@ -63,7 +63,7 @@ export function JudgeListPreview({
           ) : (
             <ol className="text-[12px] tracking-[0.1em]">
               {list.map((c, i) => {
-                const newGroup = multiGroup && (i === 0 || list[i - 1].group_id !== c.group_id);
+                const newGroup = multiGroup && (i === 0 || list[i - 1]?.group_id !== c.group_id);
                 return (
                   <li key={c.id}>
                     {newGroup ? (
