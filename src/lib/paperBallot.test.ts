@@ -80,10 +80,10 @@ describe("paginateBallot", () => {
   });
 
   it("签名栏放不下时把最后一人移到新页，签名栏不单独成页", () => {
-    // 正常行高首页可放 18 行；第 18 行后签名栏放不下
-    const docs = buildBallotDocs({ candidates: many(18), scope: "group", groupId: "g1", groupName, quotaFor: () => null });
+    // 正常行高首页可放 21 行，含签名栏只能放 20 行
+    const docs = buildBallotDocs({ candidates: many(21), scope: "group", groupId: "g1", groupName, quotaFor: () => null });
     const pages = paginateBallot(docs[0]!.lines, { rowH: ROW_HEIGHTS.normal, signEveryPage: false, grouped: false });
-    expect(pages.map((p) => p.length)).toEqual([17, 1]);
+    expect(pages.map((p) => p.length)).toEqual([20, 1]);
   });
 });
 
