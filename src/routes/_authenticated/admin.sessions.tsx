@@ -11,6 +11,7 @@ import { PasswordConfirmDialog } from "@/components/PasswordConfirmDialog";
 import { deleteVoteSession } from "@/lib/admin.functions";
 import { canArchive, canDelete, splitByArchive } from "@/lib/sessionArchive";
 import { JudgeListPreview } from "@/components/JudgeListPreview";
+import { PaperBallotWorkbench } from "@/components/PaperBallotWorkbench";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,7 @@ function SessionsPage() {
   const [tab, setTab] = useState<"active" | "archived">("active");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [ballotId, setBallotId] = useState<string | null>(null);
 
 
 
@@ -276,6 +278,12 @@ function SessionsPage() {
         session={(data?.sessions ?? []).find((x) => x.id === previewId) ?? null}
         onClose={() => setPreviewId(null)}
       />
+      <PaperBallotWorkbench
+        open={!!ballotId}
+        onOpenChange={(o) => !o && setBallotId(null)}
+        schoolId={schoolId}
+        session={(data?.sessions ?? []).find((x) => x.id === ballotId) ?? null}
+      />
       <PasswordConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => {
@@ -479,6 +487,9 @@ function SessionsPage() {
                 <div className="flex shrink-0 items-center gap-5 text-[11px] tracking-[0.16em]">
                   <button onClick={() => setPreviewId(s.id)} className="hover:underline">
                     预览名单
+                  </button>
+                  <button onClick={() => setBallotId(s.id)} className="hover:underline">
+                    纸质选票
                   </button>
                   {!s.archived_at && s.status === "draft" ? (
                     <button onClick={() => setStatus(s.id, "open")} className="hover:underline">

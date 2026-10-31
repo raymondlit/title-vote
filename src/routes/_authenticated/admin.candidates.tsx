@@ -8,6 +8,7 @@ import { ADMIN_NAV } from "@/components/adminNav";
 import { useSession } from "@/lib/session";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { OfflineGroupRecommend } from "@/components/OfflineGroupRecommend";
+import { PaperBallotWorkbench } from "@/components/PaperBallotWorkbench";
 import { Button } from "@/components/ui/button";
 import {
   parseSheet,
@@ -51,6 +52,7 @@ function CandidatesPage() {
   const [page, setPage] = useState(1);
   const [filterCategory, setFilterCategory] = useState("all");
   const [printing, setPrinting] = useState(false);
+  const [ballotOpen, setBallotOpen] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({
     full_name: "",
@@ -590,6 +592,18 @@ function CandidatesPage() {
             <span className="text-[11px] tracking-[0.16em] text-muted-foreground">
               打印内容按上方勾选的栏目生成
             </span>
+            <button
+              className="text-[11px] tracking-[0.2em] underline"
+              onClick={() => setBallotOpen(true)}
+            >
+              应急纸质选票
+            </button>
+            <PaperBallotWorkbench
+              open={ballotOpen}
+              onOpenChange={setBallotOpen}
+              schoolId={session?.schoolId ?? null}
+              defaultCategoryId={filterCategory}
+            />
           </div>
           <div className="no-print space-y-3">
             {candidateList.length === 0 && allCandidates.length > 0 ? (
