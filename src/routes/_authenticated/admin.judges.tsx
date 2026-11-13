@@ -1,3 +1,4 @@
+import { groupsQueryOptions } from "@/lib/metadata";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -167,13 +168,7 @@ function JudgesPage() {
     },
   });
 
-  const groups = useQuery({
-    queryKey: ["subject_groups"],
-    queryFn: async () => {
-      const { data } = await supabase.from("subject_groups").select("*").order("sort_order");
-      return data ?? [];
-    },
-  });
+  const groups = useQuery({ ...groupsQueryOptions(session.data?.schoolId), enabled: !!session.data?.schoolId });
 
   const judgeList = judges.data ?? [];
   const totalPages = Math.max(1, Math.ceil(judgeList.length / pageSize));

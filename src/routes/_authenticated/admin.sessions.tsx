@@ -1,3 +1,4 @@
+import { categoriesQueryOptions, groupsQueryOptions } from "@/lib/metadata";
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -61,14 +62,14 @@ function SessionsPage() {
 
 
 
-  const { data } = useQuery({
+  const categories = useQuery({ ...categoriesQueryOptions(schoolId), enabled: !!schoolId });
+  const groups = useQuery({ ...groupsQueryOptions(schoolId), enabled: !!schoolId });
+  const { data: sessionData } = useQuery({
     queryKey: ["admin-sessions", schoolId],
     enabled: !!schoolId,
     queryFn: async () => {
       const [
         { data: sessions },
-        { data: categories },
-        { data: groups },
         { data: candidates },
         { data: offline },
       ] = await Promise.all([
@@ -77,8 +78,6 @@ function SessionsPage() {
             .select("*")
             .eq("school_id", schoolId!)
             .order("created_at", { ascending: false }),
-          supabase.from("review_categories").select("id, name").eq("school_id", schoolId!),
-          supabase.from("subject_groups").select("id, name").eq("school_id", schoolId!),
           supabase
             .from("candidates")
             .select("id, category_id, group_id")
@@ -91,13 +90,12 @@ function SessionsPage() {
         ]);
       return {
         sessions: sessions ?? [],
-        categories: categories ?? [],
-        groups: groups ?? [],
         candidates: candidates ?? [],
         offline: offline ?? [],
       };
     },
   });
+  const data = sessionData ? { ...sessionData, categories: categories.data ?? [], groups: groups.data ?? [] } : undefined;
 
   const countFor = (categoryId: string | null, groupId: string | null) =>
     (data?.candidates ?? []).filter(

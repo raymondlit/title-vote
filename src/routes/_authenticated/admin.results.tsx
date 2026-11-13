@@ -1,3 +1,4 @@
+import { categoriesQueryOptions, groupsQueryOptions, METADATA_CACHE } from "@/lib/metadata";
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -123,29 +124,23 @@ function ResultsPage() {
   });
 
   // 归档筛选所需名称：高校、评审类别、学科组
-  const { data: scopeNames } = useQuery({
-    queryKey: ["archive-scope-names", schoolId ?? "all"],
+  const categoryMetadata = useQuery({ ...categoriesQueryOptions(schoolId), enabled: !!schoolId || !!session?.isSuper });
+  const groupMetadata = useQuery({ ...groupsQueryOptions(schoolId), enabled: !!schoolId || !!session?.isSuper });
+  const schoolNamesMetadata = useQuery({
+    ...METADATA_CACHE,
+    queryKey: ["school-names", schoolId ?? "all"],
     enabled: !!schoolId || !!session?.isSuper,
-    staleTime: 5 * 60_000,
     queryFn: async () => {
-      const [cats, grps, schools] = await Promise.all([
-        schoolId
-          ? supabase.from("review_categories").select("id, name").eq("school_id", schoolId)
-          : supabase.from("review_categories").select("id, name"),
-        schoolId
-          ? supabase.from("subject_groups").select("id, name").eq("school_id", schoolId)
-          : supabase.from("subject_groups").select("id, name"),
-        supabase.from("schools").select("id, name"),
-      ]);
-      return {
-        categoryNames: new Map(
-          (cats.data ?? []).map((c) => [c.id as string, c.name as string]),
-        ),
-        groupNames: new Map((grps.data ?? []).map((g) => [g.id as string, g.name as string])),
-        schoolNames: new Map((schools.data ?? []).map((s) => [s.id as string, s.name as string])),
-      };
+      const { data, error } = await supabase.from("schools").select("id, name");
+      if (error) throw error;
+      return data ?? [];
     },
   });
+  const scopeNames = {
+    categoryNames: new Map((categoryMetadata.data ?? []).map((c) => [c.id, c.name])),
+    groupNames: new Map((groupMetadata.data ?? []).map((g) => [g.id, g.name])),
+    schoolNames: new Map((schoolNamesMetadata.data ?? []).map((s) => [s.id, s.name])),
+  };
 
   const [filterSchool, setFilterSchool] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
@@ -303,7 +298,7 @@ function ResultsPage() {
           .select("id, full_name, unit, group_id, is_committee_member")
           .eq("school_id", current!.school_id)
           .order("full_name"),
-        supabase.from("subject_groups").select("id, name").eq("school_id", current!.school_id),
+        queryClient.fetchQuery(groupsQueryOptions(current?.school_id)).then((data) => ({ data })),
         supabase
           .from("voting_rules")
           .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
