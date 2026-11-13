@@ -12,7 +12,7 @@ type Delivery = { entries: QueueEntry[]; enqueue: (payload: BallotPayload, title
 const Context = createContext<Delivery>({ entries: [], enqueue: () => { throw new Error("选票暂存尚未就绪，请稍后再试"); } });
 export function useBallotDelivery() { return useContext(Context); }
 
-export function BallotDelivery({ userId, children }: { userId?: string; children: ReactNode }) {
+export function BallotDelivery({ userId, children }: { userId: string | undefined; children: ReactNode }) {
   const submit = useServerFn(submitBallot);
   const queryClient = useQueryClient();
   const [entries, setEntries] = useState<QueueEntry[]>([]);

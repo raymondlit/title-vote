@@ -12,12 +12,14 @@ describe("confirmed offline ballot delivery", () => {
     const queue = new BallotQueue("judge-1", store, () => {});
     const input = structuredClone(payload);
     queue.enqueue(input, "第一轮");
-    input.choices[0].choice = "not_recommend";
+    const first = input.choices[0];
+    if (!first) throw new Error("Missing fixture");
+    first.choice = "not_recommend";
     const send = vi.fn(accepted);
     const restored = new BallotQueue("judge-1", store, () => {});
     await restored.flush(false, async () => "judge-1", send, () => {});
     expect(send).not.toHaveBeenCalled();
-    expect(restored.entries[0].choices[0].choice).toBe("recommend");
+    expect(restored.entries[0]?.choices[0]?.choice).toBe("recommend");
   });
   it("isolates accounts and never sends under another user's session", async () => {
     const store = storage();
@@ -33,8 +35,8 @@ describe("confirmed offline ballot delivery", () => {
     const queue = new BallotQueue("judge-1", storage(), () => {});
     queue.enqueue(payload, "第一轮");
     await queue.flush(true, async () => "judge-1", async () => { throw new TypeError("Failed to fetch"); }, () => {});
-    expect(queue.entries[0].state).toBe("waiting");
-    expect(queue.entries[0].attempts).toBe(1);
+    expect(queue.entries[0]?.state).toBe("waiting");
+    expect(queue.entries[0]?.attempts).toBe(1);
     const success = vi.fn();
     await queue.flush(true, async () => "judge-1", accepted, success, Date.now() + 100_000);
     expect(success).toHaveBeenCalledOnce();
@@ -47,7 +49,7 @@ describe("confirmed offline ballot delivery", () => {
     const send = vi.fn(accepted);
     await queue.flush(true, async () => "judge-1", send, () => {}, Date.now() + 100_000);
     expect(send).not.toHaveBeenCalled();
-    expect(queue.entries[0].state).toBe("rejected");
+    expect(queue.entries[0]?.state).toBe("rejected");
     queue.dismissRejected("round-1");
     expect(queue.entries).toHaveLength(0);
   });
@@ -74,12 +76,14 @@ describe("confirmed offline ballot delivery", () => {
     expect(send).toHaveBeenCalledOnce();
   });
   it("accepts only identical stored ballots regardless of order", () => {
-    const a = [{ candidateId: "a", choice: "recommend" as const }, { candidateId: "b", choice: "not_recommend" as const }];
+    const first = { candidateId: "a", choice: "recommend" as const };
+    const second = { candidateId: "b", choice: "not_recommend" as const };
+    const a = [first, second];
     expect(sameBallot(a, [...a].reverse())).toBe(true);
-    expect(sameBallot(a, [a[0]])).toBe(false);
-    expect(sameBallot(a, [a[0], { ...a[1], choice: "recommend" }])).toBe(false);
-    expect(sameBallot([a[0], a[0]], a)).toBe(false);
-    expect(sameBallot(a, [a[0], a[0]])).toBe(false);
+    expect(sameBallot(a, [first])).toBe(false);
+    expect(sameBallot(a, [first, { ...second, choice: "recommend" }])).toBe(false);
+    expect(sameBallot([first, first], a)).toBe(false);
+    expect(sameBallot(a, [first, first])).toBe(false);
   });
   it("serializes overlapping retries in a single page", async () => {
     const queue = new BallotQueue("judge-1", storage(), () => {});
@@ -96,8 +100,8 @@ describe("confirmed offline ballot delivery", () => {
       const task = queue.flush(true, async () => "judge-1", () => new Promise(() => {}), () => {});
       await vi.advanceTimersByTimeAsync(20_000);
       await task;
-      expect(queue.entries[0].state).toBe("waiting");
-      expect(queue.entries[0].choices).toEqual(payload.choices);
+      expect(queue.entries[0]?.state).toBe("waiting");
+      expect(queue.entries[0]?.choices).toEqual(payload.choices);
     } finally { vi.useRealTimers(); }
   });
 });
