@@ -311,7 +311,7 @@
 .vote-candidate-table { font-size: calc(var(--vote-reading-size) * var(--ui-font-multiplier, 1)); line-height: 1.6; table-layout: fixed; letter-spacing: 0; }
 .vote-candidate-table th, .vote-candidate-table td { padding: 16px 12px; }
 .vote-candidate-table th:last-child { width: 210px; }
-.vote-choice { font-size: inherit; letter-spacing: 0; }
+.vote-reading .vote-candidate-table .vote-choice { font-size: inherit; letter-spacing: 0; }
 .vote-candidate-row { scroll-margin-top: 230px; transition: background-color 120ms; }
 .vote-candidate-row:hover { background: var(--muted); }
 .vote-candidate-row[data-active="true"], .vote-candidate-row:focus-within { background: var(--accent); box-shadow: inset 3px 0 var(--primary); }
