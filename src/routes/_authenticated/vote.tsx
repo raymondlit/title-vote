@@ -2,6 +2,7 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Shell } from "@/components/Shell";
 import { JUDGE_NAV } from "@/components/judgeNav";
 import { useSession, useSchool } from "@/lib/session";
+import { BallotDelivery } from "@/components/BallotDelivery";
 
 export const Route = createFileRoute("/_authenticated/vote")({
   component: VoteLayout,
@@ -16,7 +17,7 @@ function VoteLayout() {
 
   return (
     <Shell nav={nav} judgeView>
-      <Outlet />
+      <BallotDelivery userId={session.data?.userId}><Outlet /></BallotDelivery>
     </Shell>
   );
 }
