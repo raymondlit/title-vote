@@ -11,7 +11,7 @@ export function retryDelay(attempt: number, random = Math.random()) {
   return Math.min(60_000, 2_000 * 2 ** Math.min(attempt, 5)) + Math.floor(random * 1000);
 }
 export function sameBallot(a: BallotChoice[], b: BallotChoice[]) {
-  if (a.length !== b.length || new Set(a.map(x => x.candidateId)).size !== a.length) return false;
+  if (a.length !== b.length || new Set(a.map(x => x.candidateId)).size !== a.length || new Set(b.map(x => x.candidateId)).size !== b.length) return false;
   const map = new Map(b.map(x => [x.candidateId, x.choice]));
   return a.every(x => map.get(x.candidateId) === x.choice);
 }
@@ -46,7 +46,7 @@ export class BallotQueue {
   retryNow(sessionId: string) {
     this.save(this.entries.map(e => e.sessionId === sessionId && e.state === "waiting" ? { ...e, nextAttemptAt: 0 } : e));
   }
-  async flush(online: boolean, currentUser: () => Promise<string | null>, send: (payload: BallotPayload) => Promise<DeliveryResult>, accepted: (entry: QueueEntry) => void, now = Date.now()) {
+  async flush(online: boolean, currentUser: () => Promise<string | null>, send: (payload: BallotPayload) => Promise<DeliveryResult>, accepted: (entry: QueueEntry) => void | Promise<void>, now = Date.now()) {
     if (this.busy || !online) return;
     const entry = this.entries.find(e => e.state === "waiting" && e.nextAttemptAt <= now);
     if (!entry) return;
@@ -65,12 +65,12 @@ export class BallotQueue {
         result = { status: "retry", message: "网络不稳定，选票已保留，稍后自动重试" };
       } finally { if (timer) clearTimeout(timer); }
       if (result.status === "accepted") {
+        await accepted(entry);
         this.save(this.entries.filter(e => e.sessionId !== entry.sessionId));
-        accepted(entry);
       } else {
         this.save(this.entries.map(e => e.sessionId === entry.sessionId ? {
           ...e, state: result.status === "rejected" ? "rejected" : "waiting", message: result.message,
-          attempts: entry.attempts + 1, nextAttemptAt: now + retryDelay(entry.attempts),
+          attempts: entry.attempts + 1, nextAttemptAt: Math.max(now, Date.now()) + retryDelay(entry.attempts),
         } : e));
       }
     } finally { this.busy = false; }

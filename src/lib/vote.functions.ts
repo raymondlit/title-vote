@@ -9,7 +9,7 @@ const choiceEnum = z.enum(["recommend", "not_recommend", "abstain"]);
 /**
  * 评委提交选票。
  * 全部校验（身份、场次状态、评委范围、参评名单、多轮名额、投票规则）与写入
- * 都在数据库函数 submit_ballot 中一次完成：只需一次往返，任一步失败整张票回滚，
+ * 都在数据库函数 submit_ballot 中一次完成，任一步失败整张票回滚，
  * 并发重复提交由唯一约束兜底。函数以评委自己的身份运行，行级权限照常生效。
  */
 export const submitBallot = createServerFn({ method: "POST" })
@@ -18,6 +18,7 @@ export const submitBallot = createServerFn({ method: "POST" })
     z
       .object({
         sessionId: z.string().uuid(),
+        expectedUserId: z.string().uuid(),
         choices: z
           .array(z.object({ candidateId: z.string().uuid(), choice: choiceEnum }))
           .max(500),
@@ -25,6 +26,7 @@ export const submitBallot = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }): Promise<DeliveryResult> => {
+    if (data.expectedUserId !== context.userId) return { status: "rejected", message: "登录账号已变化，请用原评委账号登录后核对选票" };
     // A lost response can mean the transaction committed. Always reconcile as
     // the caller, including after a concurrent duplicate or a closed session.
     async function existing(): Promise<DeliveryResult | null> {
@@ -43,8 +45,6 @@ export const submitBallot = createServerFn({ method: "POST" })
         : { status: "rejected", message: "服务器已有不同内容的选票；本次未覆盖，请查看表决确认单" };
     }
     try {
-    const previous = await existing();
-    if (previous) return previous;
     const { data: result, error } = await context.supabase.rpc("submit_ballot", {
       _session_id: data.sessionId,
       _choices: data.choices,
