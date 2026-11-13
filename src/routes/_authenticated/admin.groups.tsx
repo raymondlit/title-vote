@@ -16,6 +16,8 @@ export const Route = createFileRoute("/_authenticated/admin/groups")({
       { name: "description", content: "维护评审类别与学科小组，并设定组长产生方式。" },
       { property: "og:title", content: "类别与分组 — 职称评审推荐投票平台" },
       { property: "og:description", content: "维护评审类别与学科小组，并设定组长产生方式。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: GroupsPage,

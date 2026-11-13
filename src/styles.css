@@ -304,6 +304,48 @@
 
 .print-only { display: none; }
 
+/* Judge reading sizes compose with, rather than replace, the school's scale. */
+.vote-reading { --vote-reading-size: 14px; }
+.vote-reading[data-reading-size="standard"] { --vote-reading-size: 12px; }
+.vote-reading[data-reading-size="large"] { --vote-reading-size: 16px; }
+.vote-candidate-table { font-size: calc(var(--vote-reading-size) * var(--ui-font-multiplier, 1)); line-height: 1.6; table-layout: fixed; letter-spacing: 0; }
+.vote-candidate-table th, .vote-candidate-table td { padding: 16px 12px; }
+.vote-candidate-table th:last-child { width: 210px; }
+.vote-reading .vote-candidate-table .vote-choice { font-size: inherit; letter-spacing: 0; }
+.vote-candidate-row { scroll-margin-top: 230px; transition: background-color 120ms; }
+.vote-candidate-row:hover { background: var(--muted); }
+.vote-candidate-row[data-active="true"], .vote-candidate-row:focus-within { background: var(--accent); box-shadow: inset 3px 0 var(--primary); }
+.vote-mobile-label { display: none; }
+.vote-group-row td { padding-block: 10px; }
+
+@media (max-width: 1023px) {
+  .judge-shell .ui-shell { display: block; padding: 20px 16px; }
+  .judge-shell .ui-shell > nav { display: flex; gap: 16px; width: auto; margin-bottom: 24px; flex-wrap: wrap; }
+  .judge-shell .ui-shell > nav a { border-left: 0; padding: 12px 0; min-height: 44px; }
+  .judge-shell .ui-shell > nav a[aria-current="page"] { border-bottom: 1px solid var(--foreground); }
+  .vote-candidate-table, .vote-candidate-table tbody { display: block; }
+  .vote-candidate-table thead { display: none; }
+  .vote-candidate-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 16px 12px; gap: 8px 16px; }
+  .vote-candidate-table .vote-candidate-row td { padding: 0; min-width: 0; }
+  .vote-candidate-name, .vote-candidate-actions { grid-column: 1 / -1; }
+  .vote-candidate-actions { margin-top: 6px; }
+  .vote-mobile-label { display: inline; }
+  .vote-group-row { display: block; }
+  .vote-group-row td { display: block; }
+}
+
+@media (max-width: 479px) {
+  .vote-toolbar > div:first-child { grid-template-columns: minmax(0, 1fr); }
+  .vote-toolbar [aria-label="名单字号"] { justify-self: end; }
+  .vote-candidate-row { scroll-margin-top: 320px; }
+  .vote-candidate-detail { grid-column: 1 / -1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0ms !important; animation-duration: 0ms !important; }
+  button:not(:disabled):active { transform: none; }
+}
+
 @media print {
   .no-print { display: none !important; }
   .print-only { display: block !important; }

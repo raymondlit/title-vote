@@ -30,6 +30,8 @@ export const Route = createFileRoute("/_authenticated/admin/judges")({
       { name: "description", content: "导入评委名单、生成登录凭证、设置职务与学科小组。" },
       { property: "og:title", content: "评委管理 — 职称评审推荐投票平台" },
       { property: "og:description", content: "导入评委名单、生成登录凭证、设置职务与学科小组。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: JudgesPage,

@@ -10,6 +10,8 @@ export const Route = createFileRoute("/school/$slug")({
       { name: "description", content: "本校职称评审推荐投票的评委与管理员登录入口。" },
       { property: "og:title", content: "学校登录 — 职称评审推荐投票平台" },
       { property: "og:description", content: "本校职称评审推荐投票的评委与管理员登录入口。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: SchoolLogin,

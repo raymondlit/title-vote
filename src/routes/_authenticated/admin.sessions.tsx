@@ -24,6 +24,14 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/admin/sessions")({
+  head: () => ({ meta: [
+    { title: "投票场次 — 职称评审推荐投票平台" },
+    { name: "description", content: "管理评审投票场次、预览名单及归档场次。" },
+    { property: "og:title", content: "投票场次 — 职称评审推荐投票平台" },
+    { property: "og:description", content: "管理评审投票场次、预览名单及归档场次。" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: SessionsPage,
 });
 

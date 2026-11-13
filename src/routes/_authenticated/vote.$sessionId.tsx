@@ -13,7 +13,9 @@ import { effectiveRoundRule } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
 import { matchesFilter, nextPendingId, type VoteFilter } from "@/lib/voteNav";
 import { Button } from "@/components/ui/button";
-import { Crosshair } from "lucide-react";
+import { Crosshair, Type, Minus, Plus, CheckCircle2 } from "lucide-react";
+import { VoteCandidateList } from "@/components/VoteCandidateList";
+import { ListSkeleton } from "@/components/DataState";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,14 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/vote/$sessionId")({
+  head: () => ({ meta: [
+    { title: "评委表决 — 职称评审推荐投票平台" },
+    { name: "description", content: "按学科分组核对参评人员，完成本轮职称推荐表决与确认。" },
+    { property: "og:title", content: "评委表决 — 职称评审推荐投票平台" },
+    { property: "og:description", content: "按学科分组核对参评人员，完成本轮职称推荐表决与确认。" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: VotePage,
 });
 
@@ -53,7 +63,17 @@ function VotePage() {
   const [filterIds, setFilterIds] = useState<Set<string> | null>(null);
   const [locatedId, setLocatedId] = useState<string | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
-  const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+  const [readingSize, setReadingSize] = useState<"standard" | "comfortable" | "large">("comfortable");
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("vote-reading-size");
+      if (stored === "standard" || stored === "comfortable" || stored === "large") setReadingSize(stored);
+    } catch { /* Storage may be disabled. */ }
+  }, []);
+  function changeReadingSize(next: "standard" | "comfortable" | "large") {
+    setReadingSize(next);
+    try { localStorage.setItem("vote-reading-size", next); } catch { /* Optional preference. */ }
+  }
   const flashTimer = useRef<number | null>(null);
   useEffect(
     () => () => {
@@ -174,7 +194,7 @@ function VotePage() {
   }, [choices, draftKey, alreadySubmitted]);
 
 
-  if (isLoading || !data) return <div />;
+  if (isLoading || !data) return <ListSkeleton rows={6} />;
   if (!data.vs) {
     return (
       <>
@@ -329,6 +349,7 @@ function VotePage() {
   }
 
   function pick(candidateId: string, value: "recommend" | "not_recommend") {
+    setLocatedId(candidateId);
     if (choices[candidateId] === value) {
       // 再次点击已选项：撤销为未表态
       setChoices((p) => {
@@ -346,17 +367,20 @@ function VotePage() {
   }
 
   function applyFilter(next: VoteFilter) {
+    if (!data) return;
+    setLocatedId(null);
     setFilter(next);
     setFilterIds(
       next === "all"
         ? null
-        : new Set(data!.candidates.filter((c) => matchesFilter(choices[c.id], next)).map((c) => c.id)),
+        : new Set(data.candidates.filter((c) => matchesFilter(choices[c.id], next)).map((c) => c.id)),
     );
   }
 
   function locateNextPending() {
+    if (!data) return;
     const id = nextPendingId(
-      data!.candidates.map((c) => c.id),
+      data.candidates.map((c) => c.id),
       choices,
       locatedId,
     );
@@ -370,13 +394,7 @@ function VotePage() {
     setFlashId(id);
     if (flashTimer.current) window.clearTimeout(flashTimer.current);
     flashTimer.current = window.setTimeout(() => setFlashId(null), 1800);
-    window.requestAnimationFrame(() => {
-      const el = rowRefs.current.get(id);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      el?.querySelector<HTMLButtonElement>('button[data-choice="recommend"]')?.focus({
-        preventScroll: true,
-      });
-    });
+
   }
 
   const visibleCandidates = filterIds
@@ -438,49 +456,36 @@ function VotePage() {
         ) : null}
       </div>
 
-      <Panel className="mb-6 border-primary/40 bg-primary/5">
-        <div className="text-[12px] leading-loose tracking-[0.1em]">
-          <span className="mr-4 text-muted-foreground">投票规则提醒</span>
-          {rule ? (
-            <>
-              <span>
-                本轮{labels.recommend}名额 <span className="text-primary">{maxRecommend}</span> 人
-              </span>
-              <span className="ml-6 text-muted-foreground">
-                当前已{labels.recommend} {recommendCount} 人
-              </span>
-              {remaining !== null ? (
-                <span className={remaining < 0 ? "ml-6 text-destructive" : "ml-6 text-primary"}>
-                  {remaining < 0
-                    ? `已超出名额 ${-remaining} 人，无法提交`
-                    : `剩余${labels.recommend}名额 ${remaining} 人`}
-                </span>
-              ) : null}
-              {mustVoteAll ? (
-                <span className="ml-6 text-muted-foreground">
-                  {missing > 0 ? `尚有 ${missing} 人未表态` : "已全部表态"}
-                </span>
-              ) : null}
-            </>
-          ) : (
-            <span className="text-muted-foreground">
-              请对每位评审对象逐一表态，未全部表态无法提交
-            </span>
-          )}
-        </div>
-      </Panel>
-
       {/* 表态状态切换 + 未表态人员快速定位：常驻顶部，滚动时不消失 */}
-      <div className="sticky top-0 z-20 -mx-1 mb-3 flex flex-wrap items-center gap-2 bg-background/95 px-1 py-2 backdrop-blur">
-        <div role="tablist" aria-label="按表态状态筛选" className="flex flex-wrap border">
+      <div className="vote-toolbar sticky top-0 z-20 mb-3 border-y bg-background/95 py-3 backdrop-blur">
+        <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <div className="min-w-0 text-[14px]" role="status" aria-live="polite" aria-atomic="true">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+              <span>表态完成 {data.candidates.length - missing}/{data.candidates.length}</span>
+              <span className={overLimit ? "text-destructive" : "text-vote-recommend"}>已{labels.recommend} {recommendCount}{maxRecommend > 0 ? `/${maxRecommend}` : ""}</span>
+              {remaining !== null ? <span className={remaining < 0 ? "text-destructive" : "text-muted-foreground"}>{remaining < 0 ? `超额 ${-remaining} 人` : `剩余 ${remaining} 人`}</span> : null}
+            </div>
+            <div className={`mt-1 ${blockReason ? "text-muted-foreground" : "text-vote-recommend"}`}>
+              {blockReason ?? <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-4 w-4 shrink-0" />符合规则，可以提交</span>}
+            </div>
+          </div>
+          <div role="group" aria-label="名单字号" className="grid grid-cols-3 shrink-0 border">
+            <Button variant="ghost" size="icon" title="标准字号（12）" aria-label="标准字号" aria-pressed={readingSize === "standard"} onClick={() => changeReadingSize("standard")} className={`h-11 w-11 rounded-none ${readingSize === "standard" ? "bg-muted" : ""}`}><Minus /></Button>
+            <Button variant="ghost" size="icon" title="舒适字号（14）" aria-label="舒适字号" aria-pressed={readingSize === "comfortable"} onClick={() => changeReadingSize("comfortable")} className={`h-11 w-11 rounded-none border-x ${readingSize === "comfortable" ? "bg-muted" : ""}`}><Type /></Button>
+            <Button variant="ghost" size="icon" title="放大字号（16）" aria-label="放大字号" aria-pressed={readingSize === "large"} onClick={() => changeReadingSize("large")} className={`h-11 w-11 rounded-none ${readingSize === "large" ? "bg-muted" : ""}`}><Plus /></Button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+        <div role="tablist" aria-label="按表态状态筛选" className="grid w-full grid-cols-4 border sm:w-auto">
           {filterTabs.map((t) => (
-            <button
+            <Button
+              variant="ghost"
               key={t.key}
               type="button"
               role="tab"
               aria-selected={filter === t.key}
               onClick={() => applyFilter(t.key)}
-              className={`h-10 px-4 text-[12px] tracking-[0.12em] transition-colors [&+&]:border-l ${
+              className={`min-h-11 h-auto min-w-0 whitespace-normal rounded-none px-2 py-2 text-[12px] transition-colors [&+&]:border-l ${
                 filter === t.key
                   ? t.activeClass
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -488,7 +493,7 @@ function VotePage() {
             >
               {t.label}
               <span className="ml-1.5 tabular-nums">{t.count}</span>
-            </button>
+            </Button>
           ))}
         </div>
         <Button
@@ -496,7 +501,7 @@ function VotePage() {
           variant="outline"
           onClick={locateNextPending}
           disabled={missing === 0}
-          className="h-10 rounded-none text-[12px] tracking-[0.14em]"
+          className="min-h-11 h-auto whitespace-normal rounded-none text-[12px]"
         >
           <Crosshair className="mr-1.5 h-4 w-4" />
           {missing === 0 ? "已全部表态" : `定位下一个未表态（${missing}）`}
@@ -510,11 +515,12 @@ function VotePage() {
             刷新筛选结果
           </button>
         ) : null}
+        </div>
       </div>
 
-      <div
+      <div className="vote-reading" data-reading-size={readingSize}
         onMouseMove={(event) => {
-          if (!showFloatingRule) return;
+          if (!showFloatingRule || !window.matchMedia("(hover: hover) and (min-width: 1024px)").matches) return;
           const panelWidth = 310;
           const panelHeight = 126;
           const gap = 18;
@@ -524,118 +530,15 @@ function VotePage() {
         }}
         onMouseLeave={() => setRuleFloat(null)}
       >
-        <Panel className="overflow-x-auto p-0">
-          <table className="w-full min-w-[640px] text-[12px]">
-          <thead>
-            <tr className="hairline-b text-left tracking-[0.14em] text-muted-foreground">
-              <th className="px-8 py-4 font-normal">姓名</th>
-              <th className="py-4 font-normal">单位</th>
-              <th className="py-4 font-normal">现职称</th>
-              {hasGroupVotes ? <th className="py-4 font-normal">学科组推荐票</th> : null}
-              <th className="px-8 py-4 text-right font-normal">表决</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleCandidates.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={hasGroupVotes ? 5 : 4}
-                  className="px-8 py-10 text-center text-[12px] tracking-[0.12em] text-muted-foreground"
-                >
-                  {filter === "pending" ? "已全部表态" : "当前筛选下没有人员"}
-                  <button
-                    type="button"
-                    onClick={() => applyFilter("all")}
-                    className="ml-3 underline underline-offset-4 hover:text-foreground"
-                  >
-                    查看全部
-                  </button>
-                </td>
-              </tr>
-            ) : null}
-            {visibleCandidates.flatMap((c, idx) => {
-              const prev = idx > 0 ? visibleCandidates[idx - 1] : null;
-              const newGroup =
-                showGroupHeaders && (idx === 0 || (prev?.group_id ?? null) !== (c.group_id ?? null));
-              const groupHeader = newGroup ? (
-                <tr key={`group-${c.group_id ?? "none"}-${idx}`} className="bg-muted/40">
-                  <td
-                    colSpan={hasGroupVotes ? 5 : 4}
-                    className="px-8 py-2 text-[11px] tracking-[0.2em] text-muted-foreground"
-                  >
-                    {groupLabel(c.group_id)}
-                  </td>
-                </tr>
-              ) : null;
-              const current = choices[c.id];
-              const row = (
-              <tr
-                key={c.id}
-                ref={(el) => {
-                  if (el) rowRefs.current.set(c.id, el);
-                  else rowRefs.current.delete(c.id);
-                }}
-                className={`hairline-b scroll-mt-24 transition-colors duration-500 last:border-b-0 ${
-                  flashId === c.id ? "bg-primary/10" : ""
-                }`}
-              >
-                <td className="px-8 py-4 tracking-[0.1em]">
-                  {!current ? (
-                    <span
-                      aria-label="未表态"
-                      className="mr-2 inline-block h-1.5 w-1.5 -translate-y-0.5 rounded-full bg-primary"
-                    />
-                  ) : null}
-                  {c.full_name}
-                </td>
-                <td className="py-4 text-muted-foreground">{c.unit ?? "—"}</td>
-                <td className="py-4 text-muted-foreground">{c.current_title ?? "—"}</td>
-                {hasGroupVotes ? (
-                  <td className="py-4 tracking-[0.1em]">
-                    {c.agree_votes ?? 0}
-                    <span className="text-muted-foreground">
-                      {c.total_votes ? ` / ${c.total_votes}` : ""}
-                    </span>
-                  </td>
-                ) : null}
-                <td className="px-8 py-3 text-right">
-                  {/* 双态直选：一次点击完成表态，再次点击已选项可撤销 */}
-                  <div
-                    role="radiogroup"
-                    aria-label={`${c.full_name} 表决`}
-                    className="ml-auto inline-flex border"
-                  >
-                    {(["recommend", "not_recommend"] as const).map((opt) => {
-                      const active = current === opt;
-                      return (
-                        <button
-                          key={opt}
-                          type="button"
-                          role="radio"
-                          aria-checked={active}
-                          data-choice={opt}
-                          onClick={() => pick(c.id, opt)}
-                          className={`h-10 min-w-[4.5rem] px-3 text-[12px] tracking-[0.14em] transition-colors [&+&]:border-l ${
-                            active
-                              ? opt === "recommend"
-                                ? "bg-vote-recommend-bg text-vote-recommend ring-1 ring-inset ring-vote-recommend/50"
-                                : "bg-vote-reject-bg text-vote-reject ring-1 ring-inset ring-vote-reject/50"
-                              : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                          }`}
-                        >
-                          {labels[opt]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </td>
-              </tr>
-              );
-              return [groupHeader, row];
-            })}
-          </tbody>
-          </table>
-        </Panel>
+        <VoteCandidateList
+          candidates={visibleCandidates} choices={choices} groupNames={data.groupNames ?? {}}
+          showGroups={showGroupHeaders} showVotes={hasGroupVotes}
+          activeId={locatedId} flashId={flashId} labels={labels}
+          keyboardEnabled={!confirmOpen && !ruleOpen && !overPick && !saving}
+          onActivate={setLocatedId} onPick={pick} onPending={locateNextPending}
+          emptyText={filter === "pending" ? "已全部表态" : "当前筛选下没有人员"}
+          onShowAll={() => applyFilter("all")}
+        />
       </div>
 
       {showFloatingRule && ruleFloat ? (
@@ -688,7 +591,7 @@ function VotePage() {
             }
             setConfirmOpen(true);
           }}
-          className="h-10 rounded-none px-10 text-[12px] tracking-[0.3em]"
+          className={`min-h-11 h-auto whitespace-normal rounded-none px-10 py-3 text-[14px] ${!blockReason ? "ring-2 ring-vote-recommend/40 ring-offset-2 ring-offset-background" : ""}`}
         >
           提交表决
         </Button>
