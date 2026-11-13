@@ -1,6 +1,23 @@
 /** 评委投票页：表态状态筛选与「未表态人员快速定位」 */
 export type VoteFilter = "all" | "pending" | "recommend" | "not_recommend";
 
+/** Keyboard traversal stays within the currently visible, ordered list. */
+export function adjacentCandidateId(ids: string[], current: string | null, direction: 1 | -1) {
+  if (ids.length === 0) return null;
+  const index = current ? ids.indexOf(current) : -1;
+  if (index < 0) return direction === 1 ? ids[0] ?? null : ids[ids.length - 1] ?? null;
+  return ids[Math.max(0, Math.min(ids.length - 1, index + direction))] ?? null;
+}
+
+export function voteKeyboardAction(key: string) {
+  if (key === "1") return "recommend";
+  if (key === "2") return "not_recommend";
+  if (key === "ArrowDown" || key.toLowerCase() === "j") return "next";
+  if (key === "ArrowUp" || key.toLowerCase() === "k") return "previous";
+  if (key === " ") return "pending";
+  return null;
+}
+
 export function matchesFilter(choice: string | undefined, filter: VoteFilter): boolean {
   if (filter === "all") return true;
   if (filter === "pending") return !choice;

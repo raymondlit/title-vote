@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { matchesFilter, nextPendingId } from "./voteNav";
+import { adjacentCandidateId, matchesFilter, nextPendingId, voteKeyboardAction } from "./voteNav";
+
+describe("keyboard voting", () => {
+  it("1 recommends", () => expect(voteKeyboardAction("1")).toBe("recommend"));
+  it("2 rejects", () => expect(voteKeyboardAction("2")).toBe("not_recommend"));
+  it("down or J moves forward", () => {
+    expect(voteKeyboardAction("ArrowDown")).toBe("next");
+    expect(voteKeyboardAction("J")).toBe("next");
+  });
+  it("up or K moves backward", () => {
+    expect(voteKeyboardAction("ArrowUp")).toBe("previous");
+    expect(voteKeyboardAction("K")).toBe("previous");
+  });
+  it("space locates pending", () => expect(voteKeyboardAction(" ")).toBe("pending"));
+  it("does not wrap past visible boundaries", () => {
+    expect(adjacentCandidateId(["a", "c"], "a", -1)).toBe("a");
+    expect(adjacentCandidateId(["a", "c"], "a", 1)).toBe("c");
+    expect(adjacentCandidateId(["a", "c"], "c", 1)).toBe("c");
+    expect(adjacentCandidateId([], null, 1)).toBeNull();
+  });
+});
 
 describe("nextPendingId", () => {
   const ids = ["a", "b", "c", "d"];
