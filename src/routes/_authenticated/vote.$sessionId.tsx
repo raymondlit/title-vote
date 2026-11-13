@@ -367,6 +367,7 @@ function VotePage() {
   }
 
   function applyFilter(next: VoteFilter) {
+    if (!data) return;
     setLocatedId(null);
     setFilter(next);
     setFilterIds(
@@ -377,6 +378,7 @@ function VotePage() {
   }
 
   function locateNextPending() {
+    if (!data) return;
     const id = nextPendingId(
       data.candidates.map((c) => c.id),
       choices,
