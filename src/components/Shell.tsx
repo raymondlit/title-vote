@@ -4,10 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useSchool } from "@/lib/session";
 import { SchoolAppearance } from "@/components/SchoolAppearance";
+import { Button } from "@/components/ui/button";
 
 export type NavItem = { to: string; label: string; permission?: string };
 
-export function Shell({ nav, children }: { nav: NavItem[]; children: ReactNode }) {
+export function Shell({ nav, children, judgeView = false }: { nav: NavItem[]; children: ReactNode; judgeView?: boolean }) {
   const { data: session } = useSession();
   const { data: school } = useSchool(session?.schoolId);
   const navigate = useNavigate();
@@ -28,15 +29,15 @@ export function Shell({ nav, children }: { nav: NavItem[]; children: ReactNode }
   }
 
   return (
-    <SchoolAppearance settings={school}>
+    <SchoolAppearance settings={school} className={judgeView ? "judge-shell" : ""}>
       <header className="hairline-b bg-card">
-        <div className="ui-header mx-auto flex max-w-[1180px] items-center justify-between px-8 py-6">
-          <div className="flex items-center gap-4">
+        <div className="ui-header mx-auto grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-5 sm:flex sm:max-w-[1180px] sm:justify-between sm:px-8 sm:py-6">
+          <div className="flex min-w-0 items-center gap-4">
             {school?.logo_url ? (
-              <img src={school.logo_url} alt="校徽" className="h-8 w-auto object-contain" />
+              <img src={school.logo_url} alt="校徽" className="h-8 max-w-16 shrink-0 object-contain" />
             ) : null}
-            <div>
-              <div className="text-[14px] tracking-[0.16em] text-foreground">
+            <div className="min-w-0">
+              <div className="break-words text-[14px] text-foreground">
                 {school?.name ?? "职称评审推荐投票平台"}
               </div>
               <div className="mt-1 text-[11px] tracking-[0.18em] text-muted-foreground">
@@ -46,11 +47,11 @@ export function Shell({ nav, children }: { nav: NavItem[]; children: ReactNode }
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-6 text-[11px] tracking-[0.16em] text-muted-foreground">
-            <span>{session?.fullName}</span>
-            <button onClick={signOut} className="hover:text-foreground">
+          <div className="grid shrink-0 justify-items-end text-[11px] text-muted-foreground sm:flex sm:items-center sm:gap-4">
+            <span className="max-w-24 truncate">{session?.fullName}</span>
+            <Button variant="ghost" onClick={signOut} className="min-h-11 px-2 text-[12px] hover:text-foreground">
               退出
-            </button>
+            </Button>
           </div>
         </div>
       </header>

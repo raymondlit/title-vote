@@ -15,7 +15,7 @@ function VoteLayout() {
     : JUDGE_NAV;
 
   return (
-    <Shell nav={nav}>
+    <Shell nav={nav} judgeView>
       <Outlet />
     </Shell>
   );
