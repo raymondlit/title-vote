@@ -59,7 +59,7 @@ function VoteList() {
     data?.list.filter((s) => s.status === "open" && !data.submitted.has(s.id)) ?? [];
   const directId =
     autoTarget.length === 1 && data?.list.filter((s) => s.status === "open").length === 1
-      ? autoTarget[0].id
+      ? autoTarget[0]!.id
       : null;
   useEffect(() => {
     if (!directId) return;
