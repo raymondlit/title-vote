@@ -21,6 +21,8 @@ export const Route = createFileRoute("/_authenticated/admin/rules")({
         property: "og:description",
         content: "设定投票选项名称、每项评审的推荐上限与是否必须逐项表态。",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: RulesPage,

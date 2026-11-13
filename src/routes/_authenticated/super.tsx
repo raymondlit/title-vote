@@ -28,6 +28,8 @@ export const Route = createFileRoute("/_authenticated/super")({
       { name: "description", content: "管理高校与高校管理员账号、权限。" },
       { property: "og:title", content: "超级用户后台 — 职称评审推荐投票平台" },
       { property: "og:description", content: "管理高校与高校管理员账号、权限。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: SuperPage,

@@ -16,6 +16,8 @@ export const Route = createFileRoute("/_authenticated/vote/password")({
       { name: "description", content: "评委自助修改登录密码。" },
       { property: "og:title", content: "修改密码 — 职称评审推荐投票平台" },
       { property: "og:description", content: "评委自助修改登录密码。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: PasswordPage,

@@ -6,6 +6,14 @@ import { PageTitle, Panel } from "@/components/Shell";
 import { useSession } from "@/lib/session";
 
 export const Route = createFileRoute("/_authenticated/vote/")({
+  head: () => ({ meta: [
+    { title: "我的投票 — 职称评审推荐投票平台" },
+    { name: "description", content: "查看开放的职称评审场次及已提交的表决确认单。" },
+    { property: "og:title", content: "我的投票 — 职称评审推荐投票平台" },
+    { property: "og:description", content: "查看开放的职称评审场次及已提交的表决确认单。" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: VoteList,
 });
 

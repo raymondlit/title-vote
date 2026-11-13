@@ -33,6 +33,8 @@ export const Route = createFileRoute("/_authenticated/admin/candidates")({
         property: "og:description",
         content: "导入评审对象名单，按评审类别与学科自动归入对应小组。",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: CandidatesPage,

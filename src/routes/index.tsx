@@ -11,6 +11,8 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "高校职称评审推荐投票平台，管理员与评委统一登录入口。",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Index,
