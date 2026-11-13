@@ -12,7 +12,7 @@ type Delivery = { entries: QueueEntry[]; enqueue: (payload: BallotPayload, title
 const Context = createContext<Delivery>({ entries: [], enqueue: () => { throw new Error("选票暂存尚未就绪，请稍后再试"); } });
 export function useBallotDelivery() { return useContext(Context); }
 
-export function BallotDelivery({ userId, children }: { userId?: string; children: ReactNode }) {
+export function BallotDelivery({ userId, children }: { userId: string | undefined; children: ReactNode }) {
   const submit = useServerFn(submitBallot);
   const queryClient = useQueryClient();
   const [entries, setEntries] = useState<QueueEntry[]>([]);
@@ -38,11 +38,13 @@ export function BallotDelivery({ userId, children }: { userId?: string; children
         if (!active) return null;
         const { data } = await supabase.auth.getSession();
         return data.session?.user.id ?? null;
-      }, payload => submitRef.current({ data: payload }), entry => {
+      }, payload => submitRef.current({ data: { ...payload, expectedUserId: userId } }), async entry => {
         try { localStorage.removeItem(`vote-draft:${entry.sessionId}:${userId}`); } catch { /* Optional cleanup. */ }
         if (!active) return;
-        void queryClient.invalidateQueries({ queryKey: ["vote-session", entry.sessionId] });
-        void queryClient.invalidateQueries({ queryKey: ["judge-sessions"] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["vote-session", entry.sessionId] }),
+          queryClient.invalidateQueries({ queryKey: ["judge-sessions"] }),
+        ]);
         toast.success(`${entry.title}：服务器已确认提交`);
       }).catch(() => { if (active) setStorageError(true); });
     };
@@ -78,7 +80,12 @@ export function BallotDelivery({ userId, children }: { userId?: string; children
         <span className="font-medium">{entry.title}</span>
         <span className={entry.state === "rejected" ? "text-destructive" : "text-muted-foreground"}>{entry.message}。{entry.state !== "rejected" && "请勿清理浏览器数据；暂存不等于提交成功。"}</span>
         {entry.state === "waiting" && <Button variant="outline" size="sm" disabled={!online} onClick={() => queue.current?.retryNow(entry.sessionId)}>立即重试</Button>}
-        {entry.state === "rejected" && <Button variant="outline" size="sm" onClick={() => queue.current?.dismissRejected(entry.sessionId)}>保留草稿并解除锁定</Button>}
+        {entry.state === "rejected" && <Button variant="outline" size="sm" onClick={() => {
+          try {
+            localStorage.setItem(`vote-draft:${entry.sessionId}:${userId}`, JSON.stringify({ choices: Object.fromEntries(entry.choices.map(c => [c.candidateId, c.choice])), savedAt: entry.createdAt }));
+            queue.current?.dismissRejected(entry.sessionId);
+          } catch { setStorageError(true); }
+        }}>保留草稿并解除锁定</Button>}
       </div>)}
     </section>}
     {children}

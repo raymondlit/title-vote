@@ -8,7 +8,7 @@ import { useSession, useSchool } from "@/lib/session";
 import { useBallotDelivery } from "@/components/BallotDelivery";
 import { loadJudgeCandidates } from "@/lib/judgeOrder";
 import { pickVotingRule } from "@/lib/voteRules";
-import { effectiveRoundRule } from "@/lib/rounds";
+import { effectiveRoundRule, fetchAllBallotItems } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
 import { matchesFilter, nextPendingId, type VoteFilter } from "@/lib/voteNav";
 import { Button } from "@/components/ui/button";
@@ -149,24 +149,27 @@ function VotePage() {
 
   // 草稿：未提交的选择自动保存在本机，离开页面后可恢复
   const draftKey = session?.userId ? `vote-draft:${sessionId}:${session.userId}` : null;
-  const draftLoaded = useRef(false);
+  const draftLoaded = useRef<string | null>(null);
   const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const alreadySubmitted = !!data?.ballot;
 
   useEffect(() => {
-    if (pending) {
-      setChoices(Object.fromEntries(pending.choices.map(c => [c.candidateId, c.choice])));
-    }
-  }, [pending]);
-
-  useEffect(() => {
-    if (!draftKey || draftLoaded.current) return;
-    draftLoaded.current = true;
+    if (!draftKey) return;
     if (alreadySubmitted) {
-      window.localStorage.removeItem(draftKey);
+      try { window.localStorage.removeItem(draftKey); } catch { /* Best-effort cleanup. */ }
+      setDraftSavedAt(null);
+      setDraftRestoredAt(null);
       return;
     }
+    if (pending) {
+      draftLoaded.current = draftKey;
+      setChoices(Object.fromEntries(pending.choices.map(c => [c.candidateId, c.choice])));
+      return;
+    }
+    if (draftLoaded.current === draftKey) return;
+    draftLoaded.current = draftKey;
+    setChoices({});
     try {
       const raw = window.localStorage.getItem(draftKey);
       if (!raw) return;
@@ -177,12 +180,13 @@ function VotePage() {
         setDraftSavedAt(parsed.savedAt ?? null);
       }
     } catch {
-      window.localStorage.removeItem(draftKey);
+      toast.error("无法读取本机草稿，请检查浏览器存储设置");
     }
-  }, [draftKey, alreadySubmitted]);
+  }, [draftKey, alreadySubmitted, pending]);
 
   useEffect(() => {
-    if (!draftKey || !draftLoaded.current || alreadySubmitted) return;
+    if (!draftKey || draftLoaded.current !== draftKey || alreadySubmitted || pending) return;
+    try {
     if (Object.keys(choices).length === 0) {
       window.localStorage.removeItem(draftKey);
       setDraftSavedAt(null);
@@ -191,7 +195,8 @@ function VotePage() {
     const savedAt = new Date().toISOString();
     window.localStorage.setItem(draftKey, JSON.stringify({ choices, savedAt }));
     setDraftSavedAt(savedAt);
-  }, [choices, draftKey, alreadySubmitted]);
+    } catch { setDraftSavedAt(null); }
+  }, [choices, draftKey, alreadySubmitted, pending]);
 
 
   if (isLoading || !data) return <ListSkeleton rows={6} />;
@@ -321,34 +326,26 @@ function VotePage() {
     );
   }
 
-  async function doSubmit() {
-    setSaving(true);
+  function doSubmit() {
+    if (saving || blockReason) return;
     try {
-      await submit({
-        data: {
+      delivery.enqueue({
           sessionId,
           choices: Object.entries(choices).map(([candidateId, choice]) => ({
             candidateId,
             choice,
           })),
-        },
-      });
-      await queryClient.invalidateQueries({ queryKey: ["vote-session", sessionId] });
-      await queryClient.invalidateQueries({ queryKey: ["judge-sessions"] });
-      if (draftKey) window.localStorage.removeItem(draftKey);
-      setDraftSavedAt(null);
-      setDraftRestoredAt(null);
-      toast.success("表决已提交");
+      }, data?.vs?.title ?? "投票");
+      toast.info("选票已保存在本机，等待服务器确认，请勿清理浏览器数据");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "提交失败");
     } finally {
-      setSaving(false);
       setConfirmOpen(false);
-      await queryClient.refetchQueries({ queryKey: ["vote-session", sessionId] });
     }
   }
 
   function pick(candidateId: string, value: "recommend" | "not_recommend") {
+    if (saving) return;
     setLocatedId(candidateId);
     if (choices[candidateId] === value) {
       // 再次点击已选项：撤销为未表态
@@ -442,16 +439,17 @@ function VotePage() {
             <span className="text-foreground">
               已恢复 {new Date(draftRestoredAt).toLocaleString("zh-CN")} 的未提交选择
             </span>
-            <button
-              type="button"
-              className="underline underline-offset-4"
+            <Button
+              variant="link"
+              disabled={saving}
+              className="h-auto p-0 underline underline-offset-4"
               onClick={() => {
                 setChoices({});
                 setDraftRestoredAt(null);
               }}
             >
               清空重填
-            </button>
+            </Button>
           </>
         ) : null}
       </div>
@@ -593,7 +591,7 @@ function VotePage() {
           }}
           className={`min-h-11 h-auto whitespace-normal rounded-none px-10 py-3 text-[14px] ${!blockReason ? "ring-2 ring-vote-recommend/40 ring-offset-2 ring-offset-background" : ""}`}
         >
-          提交表决
+          {saving ? "已确认，等待服务器确认" : "提交表决"}
         </Button>
       </div>
 
@@ -625,6 +623,7 @@ function VotePage() {
               取消本次选择
             </AlertDialogCancel>
             <AlertDialogAction
+              disabled={saving}
               onClick={(e) => {
                 e.preventDefault();
                 if (overPick) {
