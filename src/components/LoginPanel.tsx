@@ -54,6 +54,7 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     const t = window.setTimeout(() => {
       void router.preloadRoute({ to: "/admin" }).catch(() => {});
       void router.preloadRoute({ to: "/vote" }).catch(() => {});
+      void import("@/routes/_authenticated/vote.$sessionId").catch(() => {});
     }, 300);
     return () => window.clearTimeout(t);
   }, [router]);
