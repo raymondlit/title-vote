@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession, useSchool } from "@/lib/session";
-import { submitBallot } from "@/lib/vote.functions";
+import { useBallotDelivery } from "@/components/BallotDelivery";
 import { loadJudgeCandidates } from "@/lib/judgeOrder";
 import { pickVotingRule } from "@/lib/voteRules";
 import { effectiveRoundRule } from "@/lib/rounds";
@@ -45,8 +44,8 @@ function VotePage() {
   const { sessionId } = Route.useParams();
   const { data: session } = useSession();
   const { data: school } = useSchool(session?.schoolId);
-  const queryClient = useQueryClient();
-  const submit = useServerFn(submitBallot);
+  const delivery = useBallotDelivery();
+  const pending = delivery.entries.find(entry => entry.sessionId === sessionId);
   const labels = voteLabels(school);
   const choiceLabel = (choice: Choice) => labels[choice];
 
@@ -56,7 +55,7 @@ function VotePage() {
   const [overPick, setOverPick] = useState<{ candidateId: string; nextCount: number } | null>(
     null,
   );
-  const [saving, setSaving] = useState(false);
+  const saving = !!pending;
   const [ruleFloat, setRuleFloat] = useState<{ x: number; y: number } | null>(null);
   // 表态状态筛选：切换筛选时记录名单快照，表态后的人员不会立即从当前列表消失，避免误点
   const [filter, setFilter] = useState<VoteFilter>("all");
@@ -129,12 +128,7 @@ function VotePage() {
             .maybeSingle()
         : { data: null };
 
-      const { data: items } = ballot
-        ? await supabase
-            .from("ballot_items")
-            .select("candidate_id, choice")
-            .eq("ballot_id", ballot.id)
-        : { data: [] as { candidate_id: string; choice: Choice }[] };
+      const items = ballot ? await fetchAllBallotItems(supabase, [ballot.id]) : [];
 
       return {
         judge,
@@ -159,6 +153,12 @@ function VotePage() {
   const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const alreadySubmitted = !!data?.ballot;
+
+  useEffect(() => {
+    if (pending) {
+      setChoices(Object.fromEntries(pending.choices.map(c => [c.candidateId, c.choice])));
+    }
+  }, [pending]);
 
   useEffect(() => {
     if (!draftKey || draftLoaded.current) return;
