@@ -21,11 +21,25 @@ function SchoolLogin() {
     queryKey: ["school-by-slug", slug],
     queryFn: async () => {
       const { data } = await supabase.rpc("get_school_branding", { _slug: slug });
-      return data?.[0] ?? null;
+      const row = data?.[0] ?? null;
+      try {
+        if (row) localStorage.setItem(`branding:${slug}`, JSON.stringify(row));
+      } catch {}
+      return row;
     },
+    // 有缓存时立即渲染，后台静默校准
+    placeholderData: () => {
+      if (typeof window === "undefined") return undefined;
+      try {
+        const raw = localStorage.getItem(`branding:${slug}`);
+        return raw ? JSON.parse(raw) : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    staleTime: 5 * 60_000,
   });
-
-  if (isLoading) return <div className="min-h-screen" />;
+  void isLoading;
 
   return (
     <LoginPanel

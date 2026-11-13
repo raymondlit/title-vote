@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageTitle, Panel } from "@/components/Shell";
@@ -27,8 +28,9 @@ function VoteList() {
         .eq("profile_id", session!.userId)
         .maybeSingle();
 
-      const { data: sessions } = judge
-        ? await supabase
+      const [{ data: sessions }, { data: ballots }] = judge
+        ? await Promise.all([
+            supabase
             .from("vote_sessions")
             .select(
               "id, title, status, opened_at, closed_at, category_id, group_id, voter_scope, round_number",
@@ -36,13 +38,10 @@ function VoteList() {
             .eq("school_id", judge.school_id)
             .in("status", ["open", "closed"])
             .is("archived_at", null)
-            .order("created_at", { ascending: false })
-        : { data: [] };
-
-
-      const { data: ballots } = judge
-        ? await supabase.from("ballots").select("session_id").eq("judge_id", judge.id)
-        : { data: [] as { session_id: string }[] };
+            .order("created_at", { ascending: false }),
+            supabase.from("ballots").select("session_id").eq("judge_id", judge.id),
+          ])
+        : [{ data: [] }, { data: [] as { session_id: string }[] }];
 
       const submitted = new Set((ballots ?? []).map((b) => b.session_id));
       const list = (sessions ?? []).filter((s) =>
@@ -55,7 +54,39 @@ function VoteList() {
     },
   });
 
-  if (isLoading) return <div />;
+  const navigate = useNavigate();
+  const autoTarget =
+    data?.list.filter((s) => s.status === "open" && !data.submitted.has(s.id)) ?? [];
+  const directId =
+    autoTarget.length === 1 && data?.list.filter((s) => s.status === "open").length === 1
+      ? autoTarget[0]!.id
+      : null;
+  useEffect(() => {
+    if (!directId) return;
+    const key = `vote-direct:${directId}`;
+    if (sessionStorage.getItem(key)) return; // 只直通一次，返回列表后不再跳
+    sessionStorage.setItem(key, "1");
+    navigate({ to: "/vote/$sessionId", params: { sessionId: directId }, replace: false });
+  }, [directId, navigate]);
+
+  if (isLoading || !session?.userId) {
+    return (
+      <>
+        <div className="mb-10 space-y-3">
+          <div className="h-5 w-32 animate-pulse bg-muted" />
+          <div className="h-3 w-64 animate-pulse bg-muted/70" />
+        </div>
+        <Panel className="p-0">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="hairline-b px-8 py-6 last:border-b-0">
+              <div className="h-3.5 w-56 animate-pulse bg-muted" />
+              <div className="mt-3 h-2.5 w-32 animate-pulse bg-muted/70" />
+            </div>
+          ))}
+        </Panel>
+      </>
+    );
+  }
 
   if (!data?.judge) {
     return (
