@@ -1,3 +1,4 @@
+import { categoriesQueryOptions, groupsQueryOptions } from "@/lib/metadata";
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -72,20 +73,8 @@ function RulesPage() {
     toast.success("投票选项名称已保存");
   }
 
-  const categories = useQuery({
-    queryKey: ["review_categories"],
-    queryFn: async () => {
-      const { data } = await supabase.from("review_categories").select("*").order("sort_order");
-      return data ?? [];
-    },
-  });
-  const groups = useQuery({
-    queryKey: ["subject_groups"],
-    queryFn: async () => {
-      const { data } = await supabase.from("subject_groups").select("*").order("sort_order");
-      return data ?? [];
-    },
-  });
+  const categories = useQuery({ ...categoriesQueryOptions(session?.schoolId), enabled: !!session?.schoolId });
+  const groups = useQuery({ ...groupsQueryOptions(session?.schoolId), enabled: !!session?.schoolId });
   const rules = useQuery({
     queryKey: ["voting_rules"],
     queryFn: async () => {

@@ -1,3 +1,4 @@
+import { categoriesQueryOptions, groupsQueryOptions } from "@/lib/metadata";
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,21 +30,9 @@ function GroupsPage() {
   const [categoryName, setCategoryName] = useState("");
   const [groupName, setGroupName] = useState("");
 
-  const categories = useQuery({
-    queryKey: ["review_categories"],
-    queryFn: async () => {
-      const { data } = await supabase.from("review_categories").select("*").order("sort_order");
-      return data ?? [];
-    },
-  });
+  const categories = useQuery({ ...categoriesQueryOptions(session?.schoolId), enabled: !!session?.schoolId });
 
-  const groups = useQuery({
-    queryKey: ["subject_groups"],
-    queryFn: async () => {
-      const { data } = await supabase.from("subject_groups").select("*").order("sort_order");
-      return data ?? [];
-    },
-  });
+  const groups = useQuery({ ...groupsQueryOptions(session?.schoolId), enabled: !!session?.schoolId });
 
   const judges = useQuery({
     queryKey: ["judges"],

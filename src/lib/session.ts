@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { METADATA_CACHE } from "@/lib/metadata";
 
 export type SessionInfo = {
   userId: string;
@@ -64,10 +65,11 @@ export function useSchool(schoolId: string | null | undefined) {
   return useQuery({
     queryKey: ["school", schoolId],
     enabled: !!schoolId,
-    staleTime: 5 * 60_000,
-    gcTime: 30 * 60_000,
+    ...METADATA_CACHE,
     queryFn: async () => {
-      const { data } = await supabase.from("schools").select("*").eq("id", schoolId!).maybeSingle();
+      if (!schoolId) return null;
+      const { data, error } = await supabase.from("schools").select("*").eq("id", schoolId).maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
