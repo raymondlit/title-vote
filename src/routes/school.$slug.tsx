@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useHydrated } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { LoginPanel } from "@/components/LoginPanel";
@@ -19,6 +19,7 @@ export const Route = createFileRoute("/school/$slug")({
 
 function SchoolLogin() {
   const { slug } = Route.useParams();
+  const hydrated = useHydrated();
   const { data: school, isLoading } = useQuery({
     queryKey: ["school-by-slug", slug],
     queryFn: async () => {
@@ -31,7 +32,7 @@ function SchoolLogin() {
     },
     // 有缓存时立即渲染，后台静默校准
     placeholderData: () => {
-      if (typeof window === "undefined") return undefined;
+      if (!hydrated) return undefined;
       try {
         const raw = localStorage.getItem(`branding:${slug}`);
         return raw ? JSON.parse(raw) : undefined;

@@ -64,6 +64,12 @@ describe("confirmed offline ballot delivery", () => {
     expect(() => queue.enqueue(payload, "第一轮")).toThrow("quota");
     expect(queue.entries).toHaveLength(0);
   });
+  it("never overwrites corrupted confirmed votes with an empty queue", () => {
+    const store = storage();
+    store.setItem("confirmed-ballots:v1:judge-1", '[{"sessionId":"round-1","choices":null}]');
+    expect(() => new BallotQueue("judge-1", store, () => {})).toThrow("无法安全读取");
+    expect(store.getItem("confirmed-ballots:v1:judge-1")).toContain('"choices":null');
+  });
   it("backs off WiFi errors instead of flooding the server", async () => {
     expect(retryDelay(0, 0)).toBe(2000);
     expect(retryDelay(1, 0)).toBe(4000);

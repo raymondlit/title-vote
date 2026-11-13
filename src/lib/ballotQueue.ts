@@ -7,6 +7,17 @@ export type QueueEntry = BallotPayload & {
   userId: string; title: string; createdAt: string; attempts: number;
   nextAttemptAt: number; state: "waiting" | "sending" | "rejected"; message: string;
 };
+function isQueueEntry(value: unknown, userId: string): value is QueueEntry {
+  if (!value || typeof value !== "object") return false;
+  const e = value as Partial<QueueEntry>;
+  return e.userId === userId && typeof e.sessionId === "string" && typeof e.title === "string" &&
+    typeof e.createdAt === "string" && typeof e.message === "string" &&
+    typeof e.attempts === "number" && Number.isFinite(e.attempts) && e.attempts >= 0 &&
+    typeof e.nextAttemptAt === "number" && Number.isFinite(e.nextAttemptAt) &&
+    ["waiting", "sending", "rejected"].includes(e.state ?? "") &&
+    Array.isArray(e.choices) && e.choices.every(c => c && typeof c.candidateId === "string" &&
+      ["recommend", "not_recommend", "abstain"].includes(c.choice));
+}
 export function retryDelay(attempt: number, random = Math.random()) {
   return Math.min(60_000, 2_000 * 2 ** Math.min(attempt, 5)) + Math.floor(random * 1000);
 }
@@ -26,9 +37,10 @@ export class BallotQueue {
     const raw = storage.getItem(this.key);
     if (raw) {
       try {
-        const entries = JSON.parse(raw) as QueueEntry[];
-        if (Array.isArray(entries)) this.entries = entries.filter(e => e.userId === userId && typeof e.sessionId === "string" && Array.isArray(e.choices)).map(e => ({ ...e, state: e.state === "rejected" ? "rejected" : "waiting", nextAttemptAt: 0 }));
-      } catch { /* A malformed queue must not trigger submissions. */ }
+        const entries: unknown = JSON.parse(raw);
+        if (!Array.isArray(entries) || !entries.every(e => isQueueEntry(e, userId))) throw new Error("暂存选票损坏");
+        this.entries = entries.map(e => ({ ...e, state: e.state === "rejected" ? "rejected" : "waiting", nextAttemptAt: 0 }));
+      } catch { throw new Error("无法安全读取暂存选票，请勿清理浏览器数据"); }
     }
   }
   private save(entries: QueueEntry[]) {
@@ -73,6 +85,12 @@ export class BallotQueue {
           attempts: entry.attempts + 1, nextAttemptAt: Math.max(now, Date.now()) + retryDelay(entry.attempts),
         } : e));
       }
+    } catch (error) {
+      // Leave durable data intact, but allow a later connection/storage recovery
+      // to retry rather than leaving the in-memory entry stuck in sending.
+      this.entries = this.entries.map(e => e.sessionId === entry.sessionId ? { ...e, state: "waiting", nextAttemptAt: Date.now() + retryDelay(entry.attempts) } : e);
+      this.changed();
+      throw error;
     } finally { this.busy = false; }
   }
 }
