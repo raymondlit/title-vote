@@ -47,6 +47,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { fetchRecommendedCandidateIds } from "@/lib/committee";
 import { effectiveRoundRule, fetchAllBallotItems, hasFixedPool } from "@/lib/rounds";
+import { applySessionCounts, sessionSummarySchema } from "@/lib/sessionSummary";
 import { pickVotingRule } from "@/lib/voteRules";
 import { RoundPanel } from "@/components/RoundPanel";
 import { PageTitle, Panel } from "@/components/Shell";
@@ -105,6 +106,8 @@ function ResultsPage() {
   const [savingConfig, setSavingConfig] = useState(false);
   const [previewJudgeId, setPreviewJudgeId] = useState("");
   const [archiving, setArchiving] = useState(false);
+  const [showSheets, setShowSheets] = useState(false);
+  useEffect(() => { setShowSheets(false); setShowPrintLayout(false); }, [sessionId]);
   const { confirm, dialog: confirmDialog } = useConfirm();
   const deleteArchiveFn = useServerFn(deleteVoteArchive);
   const [archiveDelete, setArchiveDelete] = useState<{ id: string; title: string } | null>(null);
@@ -220,7 +223,7 @@ function ResultsPage() {
         .select(
           "id, title, status, category_id, group_id, school_id, voter_scope, round_number, parent_session_id, candidate_ids, passed_candidate_ids, max_recommend",
         )
-        .eq("school_id", schoolId!)
+        .eq("school_id", schoolId ?? "")
         .is("archived_at", null)
         .order("created_at", { ascending: false });
       return data ?? [];
@@ -238,7 +241,7 @@ function ResultsPage() {
       const { data } = await supabase
         .from("ballots")
         .select("judge_id")
-        .eq("session_id", current!.id);
+        .eq("session_id", sessionId);
       return (data ?? []).map((b) => b.judge_id).join(",");
     },
   });
@@ -254,10 +257,12 @@ function ResultsPage() {
         () => {
           queryClient.invalidateQueries({ queryKey: ["result-submitted", sessionId] });
           queryClient.invalidateQueries({ queryKey: ["result"] });
+          queryClient.invalidateQueries({ queryKey: ["result-details", sessionId] });
         },
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "ballot_items" }, () => {
         queryClient.invalidateQueries({ queryKey: ["result"] });
+          queryClient.invalidateQueries({ queryKey: ["result-details", sessionId] });
       })
       .subscribe();
     return () => {
@@ -265,101 +270,76 @@ function ResultsPage() {
     };
   }, [sessionId, queryClient]);
 
-  const { data: result, isLoading: resultLoading } = useQuery({
+  const { data: result, isLoading: resultLoading, error: resultError } = useQuery({
     queryKey: ["result", sessionId, submittedIdsLive ?? ""],
     enabled: !!current,
     queryFn: async () => {
-      const fixedPool = hasFixedPool(current!);
+      if (!current) throw new Error("请选择投票场次");
+      const fixedPool = hasFixedPool(current);
       let cq = supabase
         .from("candidates")
         .select("id, full_name, unit, current_title, group_id")
-        .eq("school_id", current!.school_id);
+        .eq("school_id", current.school_id);
       if (fixedPool) {
-        cq = cq.in("id", current!.candidate_ids ?? []);
+        cq = cq.in("id", current.candidate_ids ?? []);
       } else {
-        if (current!.category_id) cq = cq.eq("category_id", current!.category_id);
-        if (current!.group_id) cq = cq.eq("group_id", current!.group_id);
+        if (current.category_id) cq = cq.eq("category_id", current.category_id);
+        if (current.group_id) cq = cq.eq("group_id", current.group_id);
       }
 
       const [
         { data: candidates },
-        { data: ballots },
+        summaryResponse,
         { data: judges },
         { data: groups },
         { data: rules },
       ] = await Promise.all([
         cq,
-        supabase
-          .from("ballots")
-          .select("id, judge_id, submitted_at")
-          .eq("session_id", current!.id),
+        supabase.rpc("get_session_summary", { _session_id: current.id }),
         supabase
           .from("judges")
           .select("id, full_name, unit, group_id, is_committee_member")
-          .eq("school_id", current!.school_id)
+          .eq("school_id", current.school_id)
           .order("full_name"),
         queryClient.fetchQuery(groupsQueryOptions(current?.school_id)).then((data) => ({ data })),
         supabase
           .from("voting_rules")
           .select("category_id, group_id, total_count, max_recommend, allow_abstain, require_all")
-          .eq("school_id", current!.school_id),
+          .eq("school_id", current.school_id),
       ]);
 
+      if (summaryResponse.error) throw summaryResponse.error;
+      const summaryData = sessionSummarySchema.parse(summaryResponse.data);
+      const ballots = summaryData.ballots;
+
       const scopedCandidates =
-        !fixedPool && current!.voter_scope === "committee"
+        !fixedPool && current.voter_scope === "committee"
           ? await (async () => {
               const recommended = await fetchRecommendedCandidateIds(
                 supabase,
-                current!.school_id,
-                current!.category_id,
+                current.school_id,
+                current.category_id,
               );
               return (candidates ?? []).filter((c) => recommended.has(c.id));
             })()
           : candidates ?? [];
       const rule = effectiveRoundRule(
-        pickVotingRule(rules, current!.category_id, current!.group_id),
-        current!,
+        pickVotingRule(rules, current.category_id, current.group_id),
+        current,
         scopedCandidates.length,
       );
 
       const eligibleJudges = (judges ?? []).filter((j) =>
-        current!.voter_scope === "committee"
+        current.voter_scope === "committee"
           ? !!(j as { is_committee_member?: boolean }).is_committee_member
-          : !current!.group_id ||
-            current!.voter_scope === "all" ||
-            j.group_id === current!.group_id,
+          : !current.group_id ||
+            current.voter_scope === "all" ||
+            j.group_id === current.group_id,
       );
 
-      const ballotIds = (ballots ?? []).map((b) => b.id);
-      const items = await fetchAllBallotItems(supabase, ballotIds);
-
-      const rows: ResultSheetRow[] = scopedCandidates.map((c) => ({
-        id: c.id,
-        name: c.full_name,
-        unit: c.unit,
-        title: c.current_title,
-        recommend: 0,
-        not_recommend: 0,
-        abstain: 0,
-      }));
-      const byId = new Map(rows.map((r) => [r.id, r]));
-      for (const it of items ?? []) {
-        const r = byId.get(it.candidate_id);
-        if (!r) continue;
-        if (it.choice === "recommend") r.recommend += 1;
-        else if (it.choice === "not_recommend") r.not_recommend += 1;
-        else r.abstain += 1;
-      }
-
-      const choiceByBallot = new Map<string, Map<string, string>>();
-      for (const it of items ?? []) {
-        let m = choiceByBallot.get(it.ballot_id);
-        if (!m) {
-          m = new Map();
-          choiceByBallot.set(it.ballot_id, m);
-        }
-        m.set(it.candidate_id, it.choice);
-      }
+      const rows: ResultSheetRow[] = applySessionCounts(scopedCandidates.map(c => ({
+        id: c.id, name: c.full_name, unit: c.unit, title: c.current_title,
+      })), summaryData);
       const judgeById = new Map(eligibleJudges.map((j) => [j.id, j]));
       const candidateOrder = scopedCandidates.map((c) => ({
         id: c.id,
@@ -367,26 +347,10 @@ function ResultsPage() {
         unit: c.unit,
         title: c.current_title,
       }));
-      const sheets: JudgeSheetData[] = (ballots ?? [])
-        .filter((b) => judgeById.has(b.judge_id))
-        .map((b) => {
-          const judge = judgeById.get(b.judge_id)!;
-          const choices = choiceByBallot.get(b.id);
-          return {
-            judgeId: judge.id,
-            judgeName: judge.full_name,
-            judgeUnit: judge.unit,
-            submittedAt: b.submitted_at,
-            rows: candidateOrder.map((c) => ({
-              id: c.id,
-              name: c.name,
-              unit: c.unit,
-              title: c.title,
-              choice: (choices?.get(c.id) as JudgeSheetRow["choice"]) ?? null,
-            })),
-          };
-        })
-        .sort((a, b) => a.judgeName.localeCompare(b.judgeName, "zh-Hans-CN"));
+      const submittedJudges = ballots.filter(b => judgeById.has(b.judge_id)).map(b => {
+        const judge = judgeById.get(b.judge_id);
+        return { judgeId: b.judge_id, judgeName: judge?.full_name ?? "", judgeUnit: judge?.unit ?? null, submittedAt: b.submitted_at, ballotId: b.id };
+      }).sort((a, b) => a.judgeName.localeCompare(b.judgeName, "zh-Hans-CN"));
 
       const submittedIds = new Set((ballots ?? []).map((b) => b.judge_id));
       const pendingJudges = eligibleJudges.filter((j) => !submittedIds.has(j.id));
@@ -409,15 +373,36 @@ function ResultsPage() {
       return {
         rows,
         summary,
-        submitted: sheets.length,
+        submitted: submittedJudges.length,
         judgeCount: eligibleJudges.length,
-        sheets,
+        submittedJudges,
+        candidateOrder,
         pendingJudges,
         quota: rule?.max_recommend ?? 0,
         poolIds: scopedCandidates.map((c) => c.id),
       };
     },
   });
+
+  const detailOptions = {
+    queryKey: ["result-details", sessionId, submittedIdsLive ?? ""],
+    queryFn: async (): Promise<JudgeSheetData[]> => {
+      if (!result) throw new Error("计票结果尚未加载");
+      const items = await fetchAllBallotItems(supabase, result.submittedJudges.map(j => j.ballotId));
+      const choices = new Map<string, Map<string, JudgeSheetRow["choice"]>>();
+      for (const item of items) {
+        let ballot = choices.get(item.ballot_id);
+        if (!ballot) { ballot = new Map(); choices.set(item.ballot_id, ballot); }
+        ballot.set(item.candidate_id, item.choice as JudgeSheetRow["choice"]);
+      }
+      return result.submittedJudges.map(j => ({
+        judgeId: j.judgeId, judgeName: j.judgeName, judgeUnit: j.judgeUnit, submittedAt: j.submittedAt,
+        rows: result.candidateOrder.map(c => ({ ...c, choice: choices.get(j.ballotId)?.get(c.id) ?? null })),
+      }));
+    },
+  };
+  const details = useQuery({ ...detailOptions, enabled: !!result && (showSheets || showPrintLayout) });
+  const sheets = details.data ?? [];
 
   async function saveConfig() {
     if (!schoolId) return;
@@ -524,6 +509,9 @@ function ResultsPage() {
         .maybeSingle();
       groupName = data?.name ?? undefined;
     }
+    setArchiving(true);
+    try {
+    const archiveSheets = await queryClient.fetchQuery(detailOptions);
     const snapshot: ArchiveSnapshot = {
       schoolName: school?.name ?? "",
       labels,
@@ -532,7 +520,7 @@ function ResultsPage() {
       categoryName,
       groupName,
       summary: result.summary,
-      sheets: result.sheets.map((s) => ({
+      sheets: archiveSheets.map((s) => ({
         judgeName: s.judgeName,
         judgeUnit: s.judgeUnit ?? null,
         submittedAt: s.submittedAt,
@@ -556,6 +544,8 @@ function ResultsPage() {
     }
     toast.success("已归档，可在页面底部「归档记录」随时查看");
     queryClient.invalidateQueries({ queryKey: ["vote-archives", schoolId ?? "all"] });
+    } catch { toast.error("确认单读取失败，未完成归档，请重试"); }
+    finally { setArchiving(false); }
   }
 
   function removeArchive(id: string, title: string) {
@@ -598,7 +588,7 @@ function ResultsPage() {
 
   const chartData = (result?.rows ?? []).map((r) => ({ name: r.name, 推荐: r.recommend }));
   const previewSheet =
-    result?.sheets.find((sheet) => sheet.judgeId === previewJudgeId) ?? result?.sheets[0] ?? null;
+    sheets.find((sheet) => sheet.judgeId === previewJudgeId) ?? sheets[0] ?? null;
 
   return (
     <>
@@ -652,6 +642,7 @@ function ResultsPage() {
         ) : null}
       </div>
 
+      {resultError && <p role="alert" className="text-destructive">计票读取失败，请重新选择场次或稍后重试；选票未受影响。</p>}
       {current && !result && resultLoading ? (
         <Panel>
           <ListSkeleton rows={6} />
@@ -755,10 +746,10 @@ function ResultsPage() {
                 )}
               </ul>
               <div className="mt-8 text-[11px] tracking-[0.14em] text-muted-foreground">
-                已提交 {result.sheets.length} 人
+                已提交 {result.submittedJudges.length} 人
               </div>
               <ul className="mt-3 space-y-2 text-[12px] text-muted-foreground">
-                {result.sheets.map((sheet) => (
+                {result.submittedJudges.map((sheet) => (
                   <li key={sheet.judgeId} className="tracking-[0.1em]">
                     {sheet.judgeName}
                   </li>
@@ -771,7 +762,7 @@ function ResultsPage() {
             <Panel>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="text-[12px] tracking-[0.16em]">
-                  评委投票情况确认单（{result.sheets.length} 份）
+                  评委投票情况确认单（{result.submittedJudges.length} 份）
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                   <Button type="button" variant="outline" className="rounded-none" onClick={() => setShowPrintLayout((open) => !open)}>
@@ -780,8 +771,17 @@ function ResultsPage() {
                   <Button
                     variant="outline"
                     className="rounded-none"
-                    disabled={result.sheets.length === 0}
-                    onClick={() => printJudgeSheets(result.sheets)}
+                    disabled={details.isFetching || result.submittedJudges.length === 0}
+                    onClick={async () => {
+                      const win = window.open("", "_blank", "width=900,height=700");
+                      if (!win) { toast.error("请允许弹出打印窗口"); return; }
+                      win.document.body.textContent = "正在读取确认单…";
+                      try {
+                        const loaded = await queryClient.fetchQuery(detailOptions);
+                        win.document.open(); win.document.write(judgeBallotSheetHtml(school?.name ?? "", current.title, loaded, voteLabels(school), config.judgeSheet));
+                        win.document.close(); win.focus(); win.print();
+                      } catch { win.close(); toast.error("读取确认单失败，请重试"); }
+                    }}
                   >
                     <Printer /> 打印全部评委确认单
                   </Button>
@@ -806,7 +806,7 @@ function ResultsPage() {
                       <Select value={previewSheet.judgeId} onValueChange={setPreviewJudgeId}>
                         <SelectTrigger className="w-48 rounded-none" aria-label="选择预览评委"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {result.sheets.map((sheet) => <SelectItem key={sheet.judgeId} value={sheet.judgeId}>{sheet.judgeName}</SelectItem>)}
+                          {sheets.map((sheet) => <SelectItem key={sheet.judgeId} value={sheet.judgeId}>{sheet.judgeName}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -820,11 +820,16 @@ function ResultsPage() {
                   </div>
                 </div>
               ) : null}
-              {result.sheets.length === 0 ? (
+              <Button variant="outline" className="mt-6" onClick={() => setShowSheets(v => !v)} disabled={result.submittedJudges.length === 0}>
+                <Eye /> {showSheets ? "收起评委确认单" : "查看评委确认单"}
+              </Button>
+              {(showSheets || showPrintLayout) && details.isLoading && <ListSkeleton rows={3} />}
+              {details.isError && <p role="alert" className="mt-4 text-sm text-destructive">确认单读取失败，请重新展开或重试。</p>}
+              {result.submittedJudges.length === 0 ? (
                 <p className="mt-6 text-[12px] text-muted-foreground">暂无评委提交。</p>
               ) : (
                 <div className="mt-8 space-y-8">
-                  {result.sheets.map((sheet) => (
+                  {showSheets && sheets.map((sheet) => (
                     <div key={sheet.judgeId}>
                       <JudgeBallotSheet
                         schoolName={school?.name ?? ""}
