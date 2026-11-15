@@ -238,10 +238,11 @@ function ResultsPage() {
     enabled: !!current,
     refetchInterval: () => (document.visibilityState === "visible" ? 10000 : false),
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("ballots")
         .select("judge_id")
         .eq("session_id", sessionId);
+      if (error) throw error;
       return (data ?? []).map((b) => b.judge_id).join(",");
     },
   });
@@ -288,11 +289,11 @@ function ResultsPage() {
       }
 
       const [
-        { data: candidates },
+        { data: candidates, error: candidateError },
         summaryResponse,
-        { data: judges },
+        { data: judges, error: judgeError },
         { data: groups },
-        { data: rules },
+        { data: rules, error: ruleError },
       ] = await Promise.all([
         cq,
         supabase.rpc("get_session_summary", { _session_id: current.id }),
@@ -309,6 +310,9 @@ function ResultsPage() {
       ]);
 
       if (summaryResponse.error) throw summaryResponse.error;
+      if (candidateError) throw candidateError;
+      if (judgeError) throw judgeError;
+      if (ruleError) throw ruleError;
       const summaryData = sessionSummarySchema.parse(summaryResponse.data);
       const ballots = summaryData.ballots;
 
