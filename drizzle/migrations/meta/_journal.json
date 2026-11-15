@@ -127,6 +127,13 @@
       "when": 1793340013160,
       "tag": "0017_candidates_sort_order",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794723082171,
+      "tag": "0018_session_summary_aggregation",
+      "breakpoints": true
     }
   ]
 }

@@ -17,7 +17,7 @@ function VoteLayout() {
 
   return (
     <Shell nav={nav} judgeView>
-      <BallotDelivery userId={session.data?.userId}><Outlet /></BallotDelivery>
+      <BallotDelivery userId={session.data?.userId} email={session.data?.email}><Outlet /></BallotDelivery>
     </Shell>
   );
 }
