@@ -14,7 +14,7 @@ type Delivery = { entries: QueueEntry[]; enqueue: (payload: BallotPayload, title
 const Context = createContext<Delivery>({ entries: [], enqueue: () => { throw new Error("选票暂存尚未就绪，请稍后再试"); } });
 export function useBallotDelivery() { return useContext(Context); }
 
-export function BallotDelivery({ userId, email, children }: { userId: string | undefined; email?: string | null; children: ReactNode }) {
+export function BallotDelivery({ userId, email, children }: { userId: string | undefined; email?: string | null | undefined; children: ReactNode }) {
   const submit = useServerFn(submitBallot);
   const queryClient = useQueryClient();
   const [entries, setEntries] = useState<QueueEntry[]>([]);
@@ -28,15 +28,18 @@ export function BallotDelivery({ userId, email, children }: { userId: string | u
   submitRef.current = submit;
   useEffect(() => {
     setEntries([]);
+    setHealth("ready"); setReauthOpen(false);
     if (!userId) return;
     let active = true;
     const ensureSession = createSessionGuard(supabase.auth, userId);
     let lastCheck = 0;
+    let authPrompted = false;
     const check = async () => {
       const next = await ensureSession();
       if (active) {
         setHealth(next);
-        if (next === "reauth") setReauthOpen(true);
+        if (next === "reauth" && !authPrompted) { authPrompted = true; setReauthOpen(true); }
+        if (next === "ready") authPrompted = false;
       }
       return next;
     };

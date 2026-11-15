@@ -1,5 +1,5 @@
-type AuthSession = { user: { id: string }; expires_at?: number };
-type AuthResult = { data: { session: AuthSession | null }; error?: { status?: number; message: string } | null };
+type AuthSession = { user: { id: string }; expires_at?: number | undefined };
+type AuthResult = { data: { session: AuthSession | null }; error?: { status?: number | undefined; message: string } | null | undefined };
 type AuthClient = { getSession: () => Promise<AuthResult>; refreshSession: () => Promise<AuthResult> };
 export type SessionHealth = "ready" | "offline" | "reauth" | "changed";
 export const RENEW_BEFORE_MS = 5 * 60_000;
@@ -11,7 +11,7 @@ export function createSessionGuard(auth: AuthClient, expectedUserId: string, onl
     if (!online()) return "offline";
     try {
       const initial = await auth.getSession();
-      if (initial.error) return initial.error.status && initial.error.status < 500 ? "reauth" : "offline";
+      if (initial.error) return initial.error.status && initial.error.status >= 400 && initial.error.status < 500 && initial.error.status !== 429 ? "reauth" : "offline";
       const session = initial.data.session;
       if (!session) return "reauth";
       if (session.user.id !== expectedUserId) return "changed";
