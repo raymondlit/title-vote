@@ -71,9 +71,11 @@ describe("confirmed offline ballot delivery", () => {
     expect(store.getItem("confirmed-ballots:v1:judge-1")).toContain('"choices":null');
   });
   it("backs off WiFi errors instead of flooding the server", async () => {
-    expect(retryDelay(0, 0)).toBe(2000);
-    expect(retryDelay(1, 0)).toBe(4000);
-    expect(retryDelay(20, 0)).toBe(60000);
+    expect(retryDelay(0, 0)).toBe(1000);
+    expect(retryDelay(0, 0.999)).toBeLessThan(2000);
+    expect(retryDelay(1, 0)).toBe(2000);
+    expect(retryDelay(20, 0)).toBe(30000);
+    expect(retryDelay(20, 0.9999)).toBeLessThanOrEqual(60000);
     const queue = new BallotQueue("judge-1", storage(), () => {});
     queue.enqueue(payload, "第一轮");
     const send = vi.fn(async () => ({ status: "retry" as const, message: "弱网" }));

@@ -18,8 +18,15 @@ function isQueueEntry(value: unknown, userId: string): value is QueueEntry {
     Array.isArray(e.choices) && e.choices.every(c => c && typeof c.candidateId === "string" &&
       ["recommend", "not_recommend", "abstain"].includes(c.choice));
 }
+/** Equal-jitter exponential backoff: half fixed, half random, capped at 60s,
+ * so dozens of judges on one Wi-Fi do not retry in lockstep. */
 export function retryDelay(attempt: number, random = Math.random()) {
-  return Math.min(60_000, 2_000 * 2 ** Math.min(attempt, 5)) + Math.floor(random * 1000);
+  const base = Math.min(60_000, 2_000 * 2 ** Math.min(Math.max(attempt, 0), 5));
+  return Math.floor(base / 2 + random * (base / 2));
+}
+/** Spread first retry after reconnect over 0–windowMs to avoid a thundering herd. */
+export function reconnectStagger(random = Math.random(), windowMs = 4_000) {
+  return Math.floor(random * windowMs);
 }
 export function sameBallot(a: BallotChoice[], b: BallotChoice[]) {
   if (a.length !== b.length || new Set(a.map(x => x.candidateId)).size !== a.length || new Set(b.map(x => x.candidateId)).size !== b.length) return false;
@@ -54,6 +61,11 @@ export class BallotQueue {
   }
   dismissRejected(sessionId: string) {
     this.save(this.entries.filter(e => e.sessionId !== sessionId || e.state !== "rejected"));
+  }
+  /** Network came back: reschedule waiting entries with a random spread. */
+  staggerOnReconnect(now = Date.now(), random = Math.random) {
+    if (!this.entries.some(e => e.state === "waiting")) return;
+    this.save(this.entries.map(e => e.state === "waiting" ? { ...e, nextAttemptAt: now + reconnectStagger(random()) } : e));
   }
   retryNow(sessionId: string) {
     this.save(this.entries.map(e => e.sessionId === sessionId && e.state === "waiting" ? { ...e, nextAttemptAt: 0 } : e));

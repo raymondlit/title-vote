@@ -79,7 +79,11 @@ export function BallotDelivery({ userId, email, children }: { userId: string | u
     const interval = window.setInterval(pump, 1000);
     const heartbeatInterval = window.setInterval(heartbeat, 30_000);
     document.addEventListener("visibilitychange", resume);
-    window.addEventListener("online", pump);
+    const reconnect = () => {
+      try { engine.staggerOnReconnect(); } catch { setStorageError(true); }
+      pump();
+    };
+    window.addEventListener("online", reconnect);
     window.addEventListener("offline", pump);
     window.addEventListener("focus", resume);
     const warn = (event: BeforeUnloadEvent) => {
@@ -92,7 +96,7 @@ export function BallotDelivery({ userId, email, children }: { userId: string | u
       window.clearInterval(interval);
       window.clearInterval(heartbeatInterval);
       document.removeEventListener("visibilitychange", resume);
-      window.removeEventListener("online", pump);
+      window.removeEventListener("online", reconnect);
       window.removeEventListener("offline", pump);
       window.removeEventListener("focus", resume);
       window.removeEventListener("beforeunload", warn);
