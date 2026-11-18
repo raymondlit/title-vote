@@ -295,50 +295,66 @@ export const importJudges = createServerFn({ method: "POST" })
     const accounts: { full_name: string; username: string; password: string }[] = [];
     const policy = await getPasswordPolicy(supabaseAdmin, schoolId);
 
-    for (const row of data.rows) {
-      const username = `${slug}_p${randomSuffix(5)}`;
-      const password = policyPassword(policy);
+    const failures: { row: number; full_name: string; reason: string }[] = [];
 
-      const email = `${username}@${ACCOUNT_EMAIL_DOMAIN}`;
-      const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name: row.full_name, username },
-      });
-      if (error || !created.user) continue;
-      const uid = created.user.id;
-      await supabaseAdmin
-        .from("profiles")
-        .insert({ id: uid, school_id: schoolId, full_name: row.full_name, username });
-      await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: "judge" });
-      const { data: judge, error: judgeError } = await supabaseAdmin.from("judges").insert({
-        school_id: schoolId,
-        profile_id: uid,
-        full_name: row.full_name,
-        staff_no: row.staff_no ?? null,
-        unit: row.unit ?? null,
-        title: row.title ?? null,
-        phone: row.phone ?? null,
-        username,
-      }).select("id").single();
-      if (judgeError || !judge) {
-        await supabaseAdmin.auth.admin.deleteUser(uid);
-        continue;
+    async function createOne(row: z.infer<typeof judgeRow>): Promise<string | null> {
+      let lastError = "未知错误";
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const username = `${slug}_p${randomSuffix(5)}`;
+        const password = policyPassword(policy);
+        const email = `${username}@${ACCOUNT_EMAIL_DOMAIN}`;
+        const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: row.full_name, username },
+        });
+        if (error || !created.user) {
+          lastError = error?.message ?? "账号创建失败";
+          continue;
+        }
+        const uid = created.user.id;
+        await supabaseAdmin
+          .from("profiles")
+          .insert({ id: uid, school_id: schoolId, full_name: row.full_name, username });
+        await supabaseAdmin.from("user_roles").insert({ user_id: uid, role: "judge" });
+        const { data: judge, error: judgeError } = await supabaseAdmin.from("judges").insert({
+          school_id: schoolId,
+          profile_id: uid,
+          full_name: row.full_name,
+          staff_no: row.staff_no ?? null,
+          unit: row.unit ?? null,
+          title: row.title ?? null,
+          phone: row.phone ?? null,
+          username,
+        }).select("id").single();
+        if (judgeError || !judge) {
+          await supabaseAdmin.auth.admin.deleteUser(uid);
+          lastError = judgeError?.message ?? "评委记录写入失败";
+          continue;
+        }
+        const { error: credentialError } = await supabaseAdmin.from("judge_credentials").insert({
+          judge_id: judge.id,
+          current_password: password,
+        });
+        if (credentialError) {
+          await supabaseAdmin.from("judges").delete().eq("id", judge.id);
+          await supabaseAdmin.auth.admin.deleteUser(uid);
+          lastError = credentialError.message;
+          continue;
+        }
+        accounts.push({ full_name: row.full_name, username, password });
+        return null;
       }
-      const { error: credentialError } = await supabaseAdmin.from("judge_credentials").insert({
-        judge_id: judge.id,
-        current_password: password,
-      });
-      if (credentialError) {
-        await supabaseAdmin.from("judges").delete().eq("id", judge.id);
-        await supabaseAdmin.auth.admin.deleteUser(uid);
-        continue;
-      }
-      accounts.push({ full_name: row.full_name, username, password });
+      return lastError;
     }
 
-    return { accounts, imported: accounts.length };
+    for (const [index, row] of data.rows.entries()) {
+      const reason = await createOne(row);
+      if (reason) failures.push({ row: index + 1, full_name: row.full_name, reason });
+    }
+
+    return { accounts, imported: accounts.length, failures };
   });
 
 export const createJudge = createServerFn({ method: "POST" })

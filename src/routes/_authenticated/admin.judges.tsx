@@ -271,7 +271,15 @@ function JudgesPage() {
       });
       setAccounts(res.accounts);
       setPreview([]);
-      toast.success(`已导入 ${res.imported} 位评委`);
+      if (res.failures.length) {
+        toast.error(
+          `成功 ${res.imported} 位，失败 ${res.failures.length} 位：` +
+            res.failures.map((f) => `第${f.row}行 ${f.full_name}`).join("、"),
+          { duration: 15000 },
+        );
+      } else {
+        toast.success(`已导入 ${res.imported} 位评委，全部成功`);
+      }
       queryClient.invalidateQueries({ queryKey: ["judges"] });
     } catch (e) {
       toast.error((e as Error).message);
