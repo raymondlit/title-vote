@@ -39,8 +39,16 @@ async function getPasswordPolicy(admin: any, schoolId: string): Promise<Password
   return { length, charset };
 }
 
-function policyPassword(policy: PasswordPolicy) {
-  return pick(CHARSETS[policy.charset] ?? PASSWORD_CHARS, policy.length);
+/** 评委密码统一为 8 位"数字+小写字母"，且至少含 2 个字母和 2 个数字，避免落入弱密码黑名单 */
+export function policyPassword(_policy?: PasswordPolicy) {
+  const letters = CHARSETS.letters!;
+  const digits = CHARSETS.digits!;
+  for (;;) {
+    const pw = pick(CHARSETS.alnum!, 8);
+    const l = [...pw].filter((c) => letters.includes(c)).length;
+    const d = [...pw].filter((c) => digits.includes(c)).length;
+    if (l >= 2 && d >= 2) return pw;
+  }
 }
 
 function randomSuffix(len = 4) {
