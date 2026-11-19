@@ -46,7 +46,7 @@ function VotePage() {
   const { data: school } = useSchool(session?.schoolId);
   const delivery = useBallotDelivery();
   const pending = delivery.entries.find(entry => entry.sessionId === sessionId);
-  const labels = voteLabels(school);
+  const labels = useMemo(() => voteLabels(school), [school]);
   const choiceLabel = (choice: Choice) => labels[choice];
 
   const [choices, setChoices] = useState<Record<string, Choice>>({});
