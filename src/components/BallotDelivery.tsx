@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { createSessionGuard, type SessionHealth } from "@/lib/sessionGuard";
 import { JudgeReauthDialog } from "@/components/JudgeReauthDialog";
 
-type Delivery = { entries: QueueEntry[]; enqueue: (payload: BallotPayload, title: string) => void };
-const Context = createContext<Delivery>({ entries: [], enqueue: () => { throw new Error("选票暂存尚未就绪，请稍后再试"); } });
+type Delivery = { online: boolean; entries: QueueEntry[]; enqueue: (payload: BallotPayload, title: string) => void };
+const Context = createContext<Delivery>({ online: true, entries: [], enqueue: () => { throw new Error("选票暂存尚未就绪，请稍后再试"); } });
 export function useBallotDelivery() { return useContext(Context); }
 
 export function BallotDelivery({ userId, email, children }: { userId: string | undefined; email?: string | null | undefined; children: ReactNode }) {
@@ -102,7 +102,7 @@ export function BallotDelivery({ userId, email, children }: { userId: string | u
       window.removeEventListener("beforeunload", warn);
     };
   }, [userId, queryClient]);
-  return <Context.Provider value={{ entries, enqueue: (payload, title) => {
+  return <Context.Provider value={{ online, entries, enqueue: (payload, title) => {
     const engine = queue.current;
     if (!engine || storageError) throw new Error("无法安全保存选票，请允许浏览器存储后再提交；当前选择未清除");
     engine.enqueue(payload, title);

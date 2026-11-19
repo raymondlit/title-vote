@@ -56,6 +56,18 @@ function VotePage() {
     null,
   );
   const saving = !!pending;
+  // Connection transitions: keep choices in memory/local draft, flag a brief "reconnected" state.
+  const [reconnectedAt, setReconnectedAt] = useState<number | null>(null);
+  const wasOnline = useRef(delivery.online);
+  useEffect(() => {
+    if (wasOnline.current === delivery.online) return;
+    wasOnline.current = delivery.online;
+    if (!delivery.online) { setReconnectedAt(null); toast.warning("网络已断开，您的选择已保存在本机，恢复后可继续"); return; }
+    setReconnectedAt(Date.now());
+    toast.success("网络已恢复，未提交的选择已完整保留");
+    const timer = window.setTimeout(() => setReconnectedAt(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [delivery.online]);
   const [ruleFloat, setRuleFloat] = useState<{ x: number; y: number } | null>(null);
   // 表态状态筛选：切换筛选时记录名单快照，表态后的人员不会立即从当前列表消失，避免误点
   const [filter, setFilter] = useState<VoteFilter>("all");
@@ -197,6 +209,17 @@ function VotePage() {
     setDraftSavedAt(savedAt);
     } catch { setDraftSavedAt(null); }
   }, [choices, draftKey, alreadySubmitted, pending]);
+
+  // Safe recovery: a restored draft may name people no longer in this round's pool; drop only those.
+  useEffect(() => {
+    const pool = data?.candidates;
+    if (!pool) return;
+    const ids = new Set(pool.map((c) => c.id));
+    const stale = Object.keys(choices).filter((id) => !ids.has(id));
+    if (stale.length === 0) return;
+    setChoices((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => ids.has(id))));
+    toast.info(`名单已更新，${stale.length} 项不在本轮名单中的选择已移除，其余选择保持不变`);
+  }, [data?.candidates, choices]);
 
 
   if (isLoading || !data) return <ListSkeleton rows={6} />;
@@ -428,7 +451,11 @@ function VotePage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3 text-[12px] tracking-[0.1em] text-muted-foreground">
+      <div role="status" aria-live="polite" className="mb-4 flex flex-wrap items-center gap-3 text-[12px] tracking-[0.1em] text-muted-foreground">
+        <span className={`inline-flex items-center gap-1.5 border px-2 py-0.5 ${delivery.online ? "border-border" : "border-destructive text-destructive"}`}>
+          <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${delivery.online ? (reconnectedAt ? "bg-primary" : "bg-vote-recommend") : "bg-destructive"}`} />
+          {delivery.online ? (reconnectedAt ? "已恢复连接，选择完好" : "网络连接正常") : "网络已断开 · 选择仍保存在本机"}
+        </span>
         <span>
           {draftSavedAt
             ? `未提交的选择已自动保存（${new Date(draftSavedAt).toLocaleTimeString("zh-CN")}），离开页面后可继续填写`
