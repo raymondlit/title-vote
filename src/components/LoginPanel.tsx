@@ -49,12 +49,13 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
   const queryClient = useQueryClient();
   const loading = stage !== "idle";
 
-  // 进入登录页即在后台预加载后台与投票页代码，点击登录后无需再等待下载
+  // Warm component chunks only: route preloading runs auth guards while signed out.
   useEffect(() => {
     const t = window.setTimeout(() => {
-      void router.preloadRoute({ to: "/admin" }).catch(() => {});
-      void router.preloadRoute({ to: "/vote" }).catch(() => {});
-      void import("@/routes/_authenticated/vote.$sessionId").catch(() => {});
+      for (const id of ["/_authenticated/admin/", "/_authenticated/vote/", "/_authenticated/super"] as const) {
+        const route = router.routesById[id];
+        if (route) void router.loadRouteChunk(route)?.catch(() => {});
+      }
     }, 300);
     return () => window.clearTimeout(t);
   }, [router]);
@@ -91,11 +92,17 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     // 多人同时登录时可能被登录频次限制挡下，自动错峰重试。
     const email = accountToEmail(cleanAccount);
     let result: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> | null = null;
-    for (let attempt = 0; attempt < 4; attempt++) {
-      result = await supabase.auth.signInWithPassword({ email, password });
-      if (!result.error || !isBusyError(result.error)) break;
-      setStage("retrying");
-      await new Promise((r) => setTimeout(r, 700 * (attempt + 1) + Math.random() * 600));
+    try {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        result = await supabase.auth.signInWithPassword({ email, password });
+        if (!result.error || !isBusyError(result.error) || attempt === 3) break;
+        setStage("retrying");
+        await new Promise((r) => setTimeout(r, 700 * (attempt + 1) + Math.random() * 600));
+      }
+    } catch {
+      setStage("idle");
+      toast.error("网络连接异常，请检查网络后重试");
+      return;
     }
 
     const error = result?.error ?? null;
@@ -117,8 +124,13 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     // 切换账号：清空上一个账号留下的缓存，避免数据串号
     await queryClient.cancelQueries();
     queryClient.clear();
-    // 复用登录返回的用户，直接并行读取角色与权限
+    // Reuse authenticated user; a failed permission read must not cache null for five minutes.
     const session = await fetchSession(user).catch(() => null);
+    if (!session) {
+      setStage("idle");
+      toast.error("读取账号信息失败，请重试");
+      return;
+    }
     queryClient.setQueryData(["session"], session);
     if (session?.isSuper) navigate({ to: "/super" });
     else if (session?.isAdmin) navigate({ to: "/admin" });

@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Project rules
+- Login reads the caller-only SECURITY INVOKER get_current_account snapshot and validates its account ID; warm component chunks without protected route guards to reduce requests without weakening RLS.
 - Multi-round voting: a session's fixed candidate pool (`vote_sessions.candidate_ids`) and per-round quota (`max_recommend`) take precedence over category/group/committee scoping and voting rules; client pages resolve them via `src/lib/rounds.ts`/`voteRules.ts` helpers, and ballot submission validates and writes in the single-transaction SQL function `public.submit_ballot` (SECURITY INVOKER, called by `submitBallot`) — any rule change must update both so judges, server validation and results stay consistent.
 - Read ballot_items through `fetchAllBallotItems` (paged) — single queries cap at 1000 rows and would silently drop votes.
 - Tests: `bunx vitest run --root . --dir src/lib`.

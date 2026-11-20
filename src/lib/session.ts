@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { METADATA_CACHE } from "@/lib/metadata";
+import { parseAccountSnapshot } from "@/lib/accountSnapshot";
 
 export type SessionInfo = {
   userId: string;
@@ -27,29 +28,10 @@ export async function fetchSession(
   }
   if (!user) return null;
 
-  const [{ data: profile }, { data: roles }, { data: perms }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("full_name, username, school_id")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase.from("user_roles").select("role").eq("user_id", user.id),
-    supabase.from("admin_permissions").select("permission").eq("user_id", user.id),
-  ]);
-
-  const roleList = (roles ?? []).map((r) => r.role as string);
-  return {
-    userId: user.id,
-    email: user.email ?? null,
-    fullName: profile?.full_name ?? "",
-    username: profile?.username ?? null,
-    schoolId: profile?.school_id ?? null,
-    roles: roleList,
-    permissions: (perms ?? []).map((p) => p.permission as string),
-    isSuper: roleList.includes("superadmin"),
-    isAdmin: roleList.includes("admin"),
-    isJudge: roleList.includes("judge"),
-  };
+  // Single caller-scoped read; SQL runs as this user and preserves existing RLS.
+  const { data, error } = await supabase.rpc("get_current_account");
+  if (error) throw error;
+  return parseAccountSnapshot(data, user);
 }
 
 export function useSession() {

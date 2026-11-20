@@ -811,6 +811,7 @@ export type Database = {
       ballot_school_id: { Args: { _ballot_id: string }; Returns: string }
       candidate_school_id: { Args: { _candidate_id: string }; Returns: string }
       current_school_id: { Args: never; Returns: string }
+      get_current_account: { Args: never; Returns: Json }
       get_school_branding: {
         Args: { _slug: string }
         Returns: {

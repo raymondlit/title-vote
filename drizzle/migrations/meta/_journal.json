@@ -134,6 +134,13 @@
       "when": 1794723082171,
       "tag": "0018_session_summary_aggregation",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795141220741,
+      "tag": "0019_current_account_snapshot",
+      "breakpoints": true
     }
   ]
 }
