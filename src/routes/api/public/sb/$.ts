@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { relayResponseHasBody } from "@/lib/relayResponse";
 
 // 同源转发：浏览器 → 本站 /api/public/sb/* → 后台。
 // 不附加任何额外权限，原样转发调用方自己的 apikey / 登录令牌，
@@ -71,7 +72,7 @@ async function forward(request: Request): Promise<Response> {
   });
   if (!out.has("cache-control")) out.set("cache-control", "no-store");
 
-  return new Response(method === "HEAD" ? null : await upstream.arrayBuffer(), {
+  return new Response(relayResponseHasBody(method, upstream.status) ? await upstream.arrayBuffer() : null, {
     status: upstream.status,
     statusText: upstream.statusText,
     headers: out,

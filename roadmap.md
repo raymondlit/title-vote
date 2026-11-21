@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] 端到端阶段二：独立高校页面上传5位参评人、3位评委全数成功；两学科分组、排序刷新、混合密码、三账号登录、密码本/PDF通过；修复中继204空响应误报500，85项测试通过，测试账号与高校无残留；报告见 .lovable/reviews/roster-stage2-test.md。
+
 - [x] 管理员登录专项：独立测试高校真实页面3次基线/5次复测，中位1.334秒→0.855秒；身份读取3→1次，错误密码、匿名拒绝、跨校隔离、临时故障恢复与刷新通过，80项测试通过，测试高校及账号无残留；详细报告见 .lovable/reviews/admin-login-test.md。
 
 - [x] Add configurable system font, font size, color scheme, display mode, and layout style to school interface settings.
