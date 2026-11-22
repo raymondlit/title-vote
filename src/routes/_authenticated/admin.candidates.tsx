@@ -201,7 +201,10 @@ function CandidatesPage() {
   }
 
   async function doImport() {
-    if (!session?.schoolId) return;
+    if (!session?.schoolId) {
+      toast.error("正在确认管理员身份，请稍后再导入");
+      return;
+    }
     setBusy(true);
     const cats = [...(categories.data ?? [])].map((c) => ({ id: c.id, name: c.name }));
     const grps = [...(groups.data ?? [])].map((g) => ({ id: g.id, name: g.name }));
@@ -522,10 +525,10 @@ function CandidatesPage() {
               </div>
               <Button
                 onClick={doImport}
-                disabled={busy}
+                disabled={busy || !session?.schoolId}
                 className="mt-6 h-10 rounded-none px-8 text-[12px] tracking-[0.2em]"
               >
-                确认导入
+                {!session?.schoolId ? "正在确认身份…" : busy ? "正在导入…" : "确认导入"}
               </Button>
             </div>
           ) : null}

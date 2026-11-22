@@ -19,6 +19,7 @@
 - Browser traffic to the backend (auth/rest/storage) is rewritten by `src/lib/backendProxy.ts` to the same-origin relay `src/routes/api/public/sb/$.ts` — users in mainland China cannot reach the backend host directly; the relay only forwards the caller's own key/token so RLS still applies. Realtime websockets stay direct, so every live-updating view must also poll.
 - The same-origin relay must forward HEAD and HTTP 204/205/304 with a null body; otherwise successful mutations become false 500 errors.
 - Roster E2E tests create uniquely named disposable schools through the real UI, keep credentials in memory, and clean only their own fixture in finally; this avoids contaminating live reviews.
+- Validate rule person counts through `ruleInput.ts` before writing database integer fields, so fractional or blank input receives a clear local error instead of a failed request.
 - Emergency paper ballots: grouping/pagination live in pure `src/lib/paperBallot.ts` and one canvas renderer (`paperBallotPdf.ts`) feeds preview, PDF and print, so all three stay identical; candidate order comes from `judgeOrder.ts` so paper matches the judge screen.
 - Judge ballots use one responsive candidate DOM in `VoteCandidateList`; keyboard actions go through the same pick handler and pause in dialogs, so touch, mouse and keyboard preserve identical rules.
 - Static school metadata uses the shared five-minute SWR policy and school-scoped category/group query options in `metadata.ts`; keep mutation prefix invalidations and do not apply this policy to ballots or live results.

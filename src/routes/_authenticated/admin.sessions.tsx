@@ -463,9 +463,9 @@ function SessionsPage() {
             {visible.map((s) => (
               <li
                 key={s.id}
-                className="hairline-b flex items-center justify-between gap-6 px-8 py-6 last:border-b-0"
+                className="hairline-b flex flex-col items-stretch justify-between gap-6 px-8 py-6 last:border-b-0 md:flex-row md:items-center"
               >
-                <div>
+                <div className="min-w-0 flex-1 break-words">
                   <div className="text-[13px] tracking-[0.12em]">{s.title}</div>
                   <div className="mt-2 text-[11px] tracking-[0.16em] text-muted-foreground">
                     第 {s.round_number ?? 1} 轮 · {STATUS_LABEL[s.status]} · 类别{" "}
@@ -490,7 +490,7 @@ function SessionsPage() {
                       : ""}
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-5 text-[11px] tracking-[0.16em]">
+                <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-3 text-[11px] tracking-[0.16em]">
                   <button onClick={() => setPreviewId(s.id)} className="hover:underline">
                     预览名单
                   </button>

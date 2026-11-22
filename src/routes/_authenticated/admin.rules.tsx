@@ -8,6 +8,7 @@ import { Shell, PageTitle, Panel } from "@/components/Shell";
 import { ADMIN_NAV } from "@/components/adminNav";
 import { useSession, useSchool } from "@/lib/session";
 import { voteLabels } from "@/lib/voteLabels";
+import { validRuleCounts } from "@/lib/ruleInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,8 +88,8 @@ function RulesPage() {
     if (!session?.schoolId) return;
     const totalCount = Number(total);
     const max = Number(maxRecommend);
-    if (!Number.isFinite(totalCount) || !Number.isFinite(max) || max < 1 || max > totalCount) {
-      toast.error("推荐上限需为 1 至参评总数之间的整数");
+    if (!validRuleCounts(total, maxRecommend)) {
+      toast.error("参评总数须为正整数，推荐上限须为 1 至参评总数之间的整数");
       return;
     }
     const { error } = await supabase.from("voting_rules").insert({
