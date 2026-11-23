@@ -10,6 +10,7 @@ import { loadJudgeCandidates } from "@/lib/judgeOrder";
 import { pickVotingRule } from "@/lib/voteRules";
 import { effectiveRoundRule, fetchAllBallotItems } from "@/lib/rounds";
 import { voteLabels } from "@/lib/voteLabels";
+import { saveVoteDraft } from "@/lib/voteDraft";
 import { matchesFilter, nextPendingId, type VoteFilter } from "@/lib/voteNav";
 import { Button } from "@/components/ui/button";
 import { Crosshair, Type, Minus, Plus, CheckCircle2 } from "lucide-react";
@@ -62,7 +63,7 @@ function VotePage() {
   useEffect(() => {
     if (wasOnline.current === delivery.online) return;
     wasOnline.current = delivery.online;
-    if (!delivery.online) { setReconnectedAt(null); toast.warning("网络已断开，您的选择已保存在本机，恢复后可继续"); return; }
+    if (!delivery.online) { setReconnectedAt(null); toast.warning("网络已断开，请留在当前页面并查看选择保存状态"); return; }
     setReconnectedAt(Date.now());
     toast.success("网络已恢复，未提交的选择已完整保留");
     const timer = window.setTimeout(() => setReconnectedAt(null), 6000);
@@ -164,6 +165,8 @@ function VotePage() {
   const draftLoaded = useRef<string | null>(null);
   const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [draftSaveError, setDraftSaveError] = useState(false);
+  const [draftRetry, setDraftRetry] = useState(0);
   const alreadySubmitted = !!data?.ballot;
 
   useEffect(() => {
@@ -199,27 +202,25 @@ function VotePage() {
   useEffect(() => {
     if (!draftKey || draftLoaded.current !== draftKey || alreadySubmitted || pending) return;
     try {
-    if (Object.keys(choices).length === 0) {
-      window.localStorage.removeItem(draftKey);
+      const result = saveVoteDraft(window.localStorage, draftKey, choices);
+      setDraftSavedAt(result.status === "saved" ? result.savedAt : null);
+      setDraftSaveError(result.status === "error");
+    } catch {
       setDraftSavedAt(null);
-      return;
+      setDraftSaveError(true);
     }
-    const savedAt = new Date().toISOString();
-    window.localStorage.setItem(draftKey, JSON.stringify({ choices, savedAt }));
-    setDraftSavedAt(savedAt);
-    } catch { setDraftSavedAt(null); }
-  }, [choices, draftKey, alreadySubmitted, pending]);
+  }, [choices, draftKey, alreadySubmitted, pending, draftRetry]);
 
   // Safe recovery: a restored draft may name people no longer in this round's pool; drop only those.
   useEffect(() => {
     const pool = data?.candidates;
-    if (!pool) return;
+    if (!pool || pending || alreadySubmitted) return;
     const ids = new Set(pool.map((c) => c.id));
     const stale = Object.keys(choices).filter((id) => !ids.has(id));
     if (stale.length === 0) return;
     setChoices((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => ids.has(id))));
     toast.info(`名单已更新，${stale.length} 项不在本轮名单中的选择已移除，其余选择保持不变`);
-  }, [data?.candidates, choices]);
+  }, [data?.candidates, choices, pending, alreadySubmitted]);
 
 
   if (isLoading || !data) return <ListSkeleton rows={6} />;
@@ -454,13 +455,16 @@ function VotePage() {
       <div role="status" aria-live="polite" className="mb-4 flex flex-wrap items-center gap-3 text-[12px] tracking-[0.1em] text-muted-foreground">
         <span className={`inline-flex items-center gap-1.5 border px-2 py-0.5 ${delivery.online ? "border-border" : "border-destructive text-destructive"}`}>
           <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${delivery.online ? (reconnectedAt ? "bg-primary" : "bg-vote-recommend") : "bg-destructive"}`} />
-          {delivery.online ? (reconnectedAt ? "已恢复连接，选择完好" : "网络连接正常") : "网络已断开 · 选择仍保存在本机"}
+          {delivery.online ? (reconnectedAt ? "已恢复连接，选择完好" : "网络连接正常") : draftSaveError ? "网络已断开 · 选择仅保留在当前页面" : "网络已断开 · 选择仍保存在本机"}
         </span>
         <span>
-          {draftSavedAt
+          {draftSaveError
+            ? "本机保存失败；请勿刷新、关闭页面或清理数据，当前选择仍保留"
+            : draftSavedAt
             ? `未提交的选择已自动保存（${new Date(draftSavedAt).toLocaleTimeString("zh-CN")}），离开页面后可继续填写`
             : "未提交的选择会自动保存在本机，离开页面后可继续填写"}
         </span>
+        {draftSaveError && <Button variant="outline" size="sm" disabled={saving} onClick={() => setDraftRetry(n => n + 1)}>重试保存</Button>}
         {draftRestoredAt ? (
           <>
             <span className="text-foreground">
