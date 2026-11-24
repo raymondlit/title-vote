@@ -33,6 +33,15 @@ export function VoteCandidateList(props: Props) {
     row?.focus({ preventScroll: true });
   }, [activeId, candidates]);
 
+  // Latest props behind refs keep row callbacks stable, so memoized rows skip re-rendering.
+  const latest = useRef(props);
+  latest.current = props;
+  const advanceFrom = useRef<string | null>(null);
+  const activate = useCallback((id: string) => latest.current.onActivate(id), []);
+  const pick = useCallback((id: string, value: "recommend" | "not_recommend") => {
+    if (!latest.current.choices[id]) advanceFrom.current = id;
+    latest.current.onPick(id, value);
+  }, []);
   useEffect(() => {
     if (!props.keyboardEnabled) return;
     const onKey = (event: KeyboardEvent) => {
@@ -54,21 +63,13 @@ export function VoteCandidateList(props: Props) {
       const id = activeId && ids.includes(activeId) ? activeId : ids[0];
       if (!id) return;
       props.onActivate(id);
-      props.onPick(id, action);
+      // Same handler as clicks/taps, so keyboard decisions also auto-advance.
+      pick(id, action);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [props, activeId, candidates]);
+  }, [props, activeId, candidates, pick]);
 
-  // Latest props behind refs keep row callbacks stable, so memoized rows skip re-rendering.
-  const latest = useRef(props);
-  latest.current = props;
-  const advanceFrom = useRef<string | null>(null);
-  const activate = useCallback((id: string) => latest.current.onActivate(id), []);
-  const pick = useCallback((id: string, value: "recommend" | "not_recommend") => {
-    if (!latest.current.choices[id]) advanceFrom.current = id;
-    latest.current.onPick(id, value);
-  }, []);
   const registerRow = useCallback((id: string, element: HTMLTableRowElement | null) => {
     if (element) rows.current.set(id, element); else rows.current.delete(id);
   }, []);

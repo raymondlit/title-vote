@@ -1,0 +1,277 @@
+import asyncio, csv, io, json, os, re, time
+from pathlib import Path
+from playwright.async_api import async_playwright, expect
+ROOT=Path('/tmp/browser/vote-stage5')
+BASE='http://localhost:8080'
+SLUG='e2e_pick_'+str(int(time.time()))
+NAME='E2E表态演练大学 '+SLUG
+report={'school_slug':SLUG,'timings_ms':{},'checks':[],'http_errors':[],'page_errors':[], 'phase':'flow'}
+
+def csv_file(name, rows):
+    path=ROOT/name
+    with path.open('w',encoding='utf-8-sig',newline='') as f: csv.writer(f).writerows(rows)
+    return str(path)
+
+async def login(page, username,password):
+    await page.goto(BASE+'/school/'+SLUG)
+    await page.wait_for_function("()=>{const f=document.querySelector('form');return f && Object.keys(f).some(k=>k.startsWith('__reactProps') && typeof f[k].onSubmit==='function')}")
+    await page.locator('#account').fill(username)
+    await page.locator('#password').fill(password)
+    await page.locator('button[type=submit]').click()
+
+async def snap(page,name):
+    await page.wait_for_timeout(300)
+    await page.screenshot(path=str(ROOT/(name+'.png')))
+
+async def main():
+    minted=json.loads(Path.home().joinpath('.cache/lovable-auth/session.json').read_text())
+    async with async_playwright() as p:
+        browser=await p.chromium.launch(headless=True)
+        context=await browser.new_context(viewport={'width':1280,'height':1800})
+        superpage=await context.new_page()
+        await superpage.goto(BASE)
+        await superpage.evaluate('([k,v])=>localStorage.setItem(k,v)',[minted['storage_key'],json.dumps(minted['session'])])
+        await superpage.goto(BASE+'/super')
+        await expect(superpage.get_by_role('heading',name='高校与管理员',exact=True)).to_be_visible()
+        await superpage.get_by_label('学校名称',exact=True).fill(NAME)
+        await superpage.get_by_label('标识（登录页地址，可留空自动生成）').fill(SLUG)
+        await superpage.get_by_role('button',name='添加',exact=True).click()
+        await expect(superpage.get_by_text('高校已添加',exact=True)).to_be_visible()
+        created=True
+        try:
+            await superpage.reload()
+            await expect(superpage.get_by_role('heading',name='高校与管理员',exact=True)).to_be_visible()
+            await superpage.get_by_role('button',name=re.compile(r'^管理员（')).click()
+            await superpage.locator('select').first.select_option(label=NAME)
+            await superpage.get_by_label('管理员姓名',exact=True).fill('阶段五演练管理员')
+            await superpage.get_by_role('button',name='生成账号',exact=True).click()
+            cred=superpage.locator('p').filter(has_text='请立即复制保存，仅显示一次')
+            await expect(cred).to_be_visible(timeout=30000)
+            text=await cred.inner_text()
+            username=re.search('管理员「([^」]+)」',text).group(1)
+            password=await cred.locator('span').inner_text()
+            admin_context=await browser.new_context(viewport={'width':1280,'height':1800})
+            page=await admin_context.new_page()
+            async def record_candidate_error(response):
+                if response.status>=400 and '/rpc/get_session_summary' in response.url:
+                    report.setdefault('summary_errors',[]).append({'phase':report['phase'],'message':(await response.json()).get('message'),'page':page.url})
+                if response.status>=400 and '/rest/v1/candidates' in response.url:
+                    report['checks'].append('参评人请求异常')
+            page.on('response',record_candidate_error)
+            page.on('pageerror',lambda e: report['page_errors'].append(str(e)))
+            page.on('response',lambda r: report['http_errors'].append({'path':r.url.split(BASE)[-1].split('?')[0],'status':r.status,'phase':report['phase']}) if r.status>=400 and r.url.startswith(BASE) else None)
+            await login(page,username,password)
+            await page.wait_for_url(re.compile(r'.*/admin(?:/.*)?$'),timeout=30000)
+            await page.goto(BASE+'/admin/candidates')
+            await expect(page.get_by_role('heading',name='评审对象',exact=True)).to_be_visible()
+            async with page.expect_download() as dl:
+                await page.get_by_role('button',name='下载名单模板 XLSX',exact=True).click()
+            template=await dl.value
+            await template.save_as(ROOT/'candidate_template.xlsx')
+            report['checks'].append('参评人XLSX模板下载成功')
+            candidates=csv_file('candidates.csv',[
+                ['姓名','单位','现职称','评审类别','学科小组'],
+                ['张候选','计算机学院','副教授','正高级','计算机科学'],
+                ['李候选','计算机学院','副教授','正高级','计算机科学'],
+                ['王候选','机械学院','副教授','正高级','机械工程'],
+                ['赵候选','机械学院','副教授','正高级','机械工程'],
+                ['孙候选','机械学院','副教授','正高级','机械工程']])
+            t=time.perf_counter()
+            await page.set_input_files('input[type=file]',candidates)
+            await expect(page.get_by_text('待导入 5 人',exact=True)).to_be_visible()
+            report['timings_ms']['candidate_parse']=round((time.perf_counter()-t)*1000,1)
+            await snap(page,'1_candidate_preview')
+            t=time.perf_counter()
+            await page.get_by_role('button',name='确认导入',exact=True).click()
+            await expect(page.get_by_text('已导入 5 位评审对象并自动分组',exact=True)).to_be_visible(timeout=30000)
+            await expect(page.get_by_role('heading',name='评审对象（共 5 人）',exact=True)).to_be_visible()
+            report['timings_ms']['candidate_import']=round((time.perf_counter()-t)*1000,1)
+            await page.get_by_label('按参评类型筛选').select_option(label='正高级')
+            await expect(page.get_by_role('button',name='置顶',exact=True)).to_have_count(5)
+            row=page.locator('div.hairline-t').filter(has=page.get_by_text('孙候选',exact=True))
+            await row.get_by_role('button',name='置顶',exact=True).click()
+            await expect(page.get_by_text('顺序已更新',exact=True)).to_be_visible()
+            await page.reload()
+            await page.get_by_label('按参评类型筛选').select_option(label='正高级')
+            await expect(page.get_by_label('孙候选的序号')).to_have_value('1')
+            rows=page.locator('div.hairline-t').filter(has=page.get_by_role('button',name='置顶',exact=True))
+            assert await rows.count()==5
+            groups=[await r.inner_text() for r in await rows.all()]
+            assert sum('计算机科学' in s for s in groups)==2 and sum('机械工程' in s for s in groups)==3
+            report['checks'].append('参评人5/5、正高级类别、2+3分组、置顶并刷新持久化通过')
+            await snap(page,'2_candidates_saved')
+            await page.goto(BASE+'/admin/judges')
+            await expect(page.get_by_role('heading',name='评委管理',exact=True)).to_be_visible()
+            async with page.expect_download() as dl:
+                await page.get_by_role('button',name='下载名单模板 CSV',exact=True).click()
+            await (await dl.value).save_as(ROOT/'judge_template.csv')
+            judges=csv_file('judges.csv',[['姓名','工号','单位','职称','电话'],['评委A','E2E001','计算机学院','教授',''],['评委B','E2E002','机械学院','教授',''],['评委C','E2E003','机械学院','教授','']])
+            t=time.perf_counter()
+            await page.set_input_files('input[type=file]',judges)
+            await expect(page.get_by_text('待导入 3 人',exact=True)).to_be_visible()
+            report['timings_ms']['judge_parse']=round((time.perf_counter()-t)*1000,1)
+            await snap(page,'3_judge_preview')
+            t=time.perf_counter()
+            await page.get_by_role('button',name='确认导入',exact=True).click()
+            await expect(page.get_by_text('已导入 3 位评委，全部成功',exact=True)).to_be_visible(timeout=60000)
+            await expect(page.get_by_role('heading',name='评委名单（3）',exact=True)).to_be_visible()
+            report['timings_ms']['judge_import']=round((time.perf_counter()-t)*1000,1)
+            account_table=page.locator('div.print-area table')
+            creds=[]
+            for tr in await account_table.locator('tbody tr').all():
+                vals=await tr.locator('td').all_inner_texts()
+                pw=vals[3]
+                assert len(pw)==8 and pw.isalnum() and sum(c.isdigit() for c in pw)>=2 and sum(c.isalpha() for c in pw)>=2
+                creds.append((vals[1],vals[2],pw))
+            assert len(creds)==3 and len({v[1] for v in creds})==3
+            await page.get_by_role('button',name='我已保存',exact=True).click()
+            await page.goto(BASE+'/admin/rules')
+            await expect(page.get_by_role('heading',name='投票规则',exact=True)).to_be_visible()
+            await page.locator('select').nth(0).select_option(label='正高级')
+            inputs=page.locator('input[inputmode=numeric]')
+            await inputs.nth(0).fill('5')
+            await inputs.nth(1).fill('1.5')
+            t=time.perf_counter()
+            await page.get_by_role('button',name='保存规则',exact=True).click()
+            await page.wait_for_timeout(1200)
+            report['decimal_probe']=await page.locator('[data-sonner-toast]').all_inner_texts()
+            assert any('参评总数须为正整数' in s for s in report['decimal_probe'])
+            await snap(page,'6_decimal_rule')
+            await inputs.nth(1).fill('2')
+            t=time.perf_counter()
+            await page.get_by_role('button',name='保存规则',exact=True).click()
+            await expect(page.get_by_text('规则已保存',exact=True)).to_be_visible(timeout=30000)
+            await expect(page.get_by_text('参评 5 人 · 最多推荐 2 人',exact=True)).to_be_visible()
+            report['timings_ms']['save_rule']=round((time.perf_counter()-t)*1000,1)
+            await page.reload()
+            await expect(page.get_by_text('参评 5 人 · 最多推荐 2 人',exact=True)).to_be_visible()
+            await page.goto(BASE+'/admin/sessions')
+            await expect(page.get_by_role('heading',name='投票场次',exact=True)).to_be_visible()
+            await page.get_by_label('投票名称',exact=True).fill('阶段五表态交互')
+            await page.get_by_role('combobox').nth(0).click()
+            await page.get_by_role('option',name='正高级',exact=True).click()
+            t=time.perf_counter()
+            await page.get_by_role('button',name='创建投票',exact=True).click()
+            row=page.locator('li').filter(has=page.get_by_text('阶段五表态交互',exact=True))
+            await expect(row.get_by_text('阶段五表态交互',exact=True)).to_be_visible()
+            await expect(row).to_contain_text('未开始')
+            report['timings_ms']['create_session']=round((time.perf_counter()-t)*1000,1)
+            await row.get_by_role('button',name='预览名单',exact=True).click()
+            await expect(page.get_by_role('dialog')).to_be_visible()
+            await expect(page.get_by_role('dialog').get_by_text('孙候选',exact=True)).to_be_visible()
+            await snap(page,'7_preview')
+            preview=await page.get_by_role('dialog').inner_text()
+            assert all(n in preview for n in ['张候选','李候选','王候选','赵候选','孙候选','计算机科学','机械工程'])
+            await page.keyboard.press('Escape')
+            await row.get_by_role('button',name='开启投票',exact=True).click()
+            await expect(row.get_by_role('button',name='结束投票',exact=True)).to_be_visible()
+            judge_pages=[]
+            for i,(name,user,pw) in enumerate(creds[:2]):
+                jc=await browser.new_context(viewport={'width':1280,'height':1800} if i==0 else {'width':820,'height':1180},has_touch=i>0)
+                jp=await jc.new_page()
+                jp.on('pageerror',lambda e: report['page_errors'].append(str(e)))
+                await login(jp,user,pw)
+                await jp.wait_for_url(re.compile(r'.*/vote/[a-f0-9-]+$'),timeout=30000)
+                await expect(jp.get_by_role('row',name='孙候选，未表态',exact=True)).to_be_visible(timeout=30000)
+                judge_pages.append((jc,jp))
+            async def order(jp):
+                return [re.sub(r'，.*','',n) for n in await jp.locator('tr.vote-candidate-row').evaluate_all('rs=>rs.map(r=>r.getAttribute("aria-label"))')]
+            async def active(jp):
+                return await jp.locator('tr.vote-candidate-row[data-active=true]').evaluate_all('rs=>rs.map(r=>r.getAttribute("aria-label").split("，")[0])')
+            def row(jp,n): return jp.get_by_role('row',name=re.compile('^'+n+'，'))
+            async def tap(jp,n,label,touch=False):
+                b=row(jp,n).get_by_role('button',name=label,exact=True)
+                await (b.tap() if touch else b.click())
+            jc,jp=judge_pages[0]
+            seq=await order(jp); report['judge_order']=seq
+            assert seq[0]=='孙候选' and len(seq)==5
+            t=time.perf_counter()
+            await tap(jp,seq[0],'推荐')
+            await expect(jp.locator('tr.vote-candidate-row[data-active=true]')).to_have_attribute('aria-label',seq[1]+'，未表态')
+            report['timings_ms']['auto_advance']=round((time.perf_counter()-t)*1000,1)
+            report['checks'].append('首次表态后自动定位到下一位未表态')
+            await jp.keyboard.press('2')
+            await expect(row(jp,seq[1])).to_have_attribute('aria-label',seq[1]+'，不推荐')
+            await expect(jp.locator('tr.vote-candidate-row[data-active=true]')).to_have_attribute('aria-label',seq[2]+'，未表态')
+            await jp.keyboard.press('k')
+            assert (await active(jp))==[seq[1]]
+            await jp.keyboard.press('1')
+            await expect(row(jp,seq[1])).to_have_attribute('aria-label',seq[1]+'，推荐')
+            await jp.wait_for_timeout(500)
+            assert (await active(jp))==[seq[1]], await active(jp)
+            report['checks'].append('键盘1/2表态、k上移；修改已表态人员不跳转')
+            # over quota: 2 recommended already
+            await tap(jp,seq[2],'推荐')
+            await expect(jp.get_by_role('alertdialog')).to_contain_text('超出名额')
+            await jp.keyboard.press('1')
+            await expect(jp.locator('tr.vote-candidate-row[aria-label^="'+seq[3]+'，"]')).to_have_attribute('aria-label',seq[3]+'，未表态')
+            report['checks'].append('超额推荐弹出拦截，弹窗期间快捷键暂停')
+            await snap(jp,'1_over_quota')
+            await jp.get_by_role('button',name='继续投票（保留选择，稍后调整）',exact=True).click()
+            await expect(jp.get_by_text(re.compile('超出名额 1 人，无法提交'))).to_be_visible()
+            await tap(jp,seq[2],'推荐')
+            await expect(row(jp,seq[2])).to_have_attribute('aria-label',seq[2]+'，未表态')
+            report['checks'].append('再次点击已选项撤销为未表态，超额提示消失')
+            await expect(jp.get_by_text(re.compile('超出名额 1 人，无法提交'))).to_have_count(0)
+            await jp.locator('body').click(position={'x':5,'y':5})
+            await jp.keyboard.press(' ')
+            await expect(jp.locator('tr.vote-candidate-row[data-active=true]')).to_have_attribute('aria-label',re.compile('未表态$'))
+            report['checks'].append('空格定位未表态人员')
+            await jp.get_by_role('tab',name=re.compile('^未表态')).click()
+            await expect(jp.locator('tr.vote-candidate-row')).to_have_count(3)
+            await jp.get_by_role('tab',name=re.compile('^全部')).click()
+            await expect(jp.locator('tr.vote-candidate-row')).to_have_count(5)
+            report['checks'].append('未表态筛选显示3人，切回全部5人')
+            await snap(jp,'2_desktop_state')
+            jc,jp=judge_pages[1]
+            seq2=await order(jp); assert seq2==seq
+            for n,l in [(seq[0],'推荐'),(seq[1],'不推荐'),(seq[2],'不推荐'),(seq[3],'推荐')]:
+                await tap(jp,n,l,True)
+            await expect(jp.locator('tr.vote-candidate-row[data-active=true]')).to_have_attribute('aria-label',seq[4]+'，未表态')
+            await tap(jp,seq[4],'推荐',True)
+            await expect(jp.get_by_role('alertdialog')).to_contain_text('超出名额')
+            await jp.get_by_role('button',name='继续投票（保留选择，稍后调整）',exact=True).click()
+            await tap(jp,seq[4],'推荐',True)
+            await tap(jp,seq[4],'不推荐',True)
+            await expect(jp.get_by_text('表态完成 5/5',exact=True)).to_be_visible()
+            assert not await jp.evaluate('document.documentElement.scrollWidth>innerWidth')
+            await snap(jp,'3_ipad_done')
+            report['checks'].append('iPad触控逐一表态自动推进、超额拦截、撤销改选完成5/5')
+            report['flow_http_errors']=list(report['http_errors'])
+            assert not report['flow_http_errors'] and not report['page_errors']
+            report['passed']=True
+        except Exception as e:
+            report['failure']=type(e).__name__
+            if 'page' in locals():
+                print('CURRENT PAGE:',page.url)
+                print('HEADINGS:',await page.get_by_role('heading').all_inner_texts())
+                print('NOTICES:',await page.locator('[data-sonner-toast]').all_inner_texts())
+                if '/admin/judges' not in page.url:
+                    await snap(page,'failure')
+            print('FAILED STEP:',type(e).__name__)
+            raise
+        finally:
+            report['phase']='cleanup'
+            for jc,jp in judge_pages: await jc.close()
+            await admin_context.close()
+            # Destructive cleanup is scoped only to the unique school created above.
+            await superpage.reload()
+            await superpage.get_by_role('button',name=re.compile(r'^高校（')).click()
+            await superpage.locator('select').first.select_option('100')
+            schoolrow=superpage.locator('div.hairline-t').filter(has=superpage.get_by_text(NAME,exact=True))
+            await expect(schoolrow).to_have_count(1)
+            await schoolrow.get_by_role('button',name='删除',exact=True).click()
+            await superpage.get_by_role('button',name='确认删除',exact=True).click()
+            await superpage.wait_for_function("()=>document.body.innerText.includes('该校仍有评审数据') || document.body.innerText.includes('高校已删除')")
+            if '高校已删除' not in await superpage.locator('body').inner_text():
+                await expect(superpage.get_by_role('button',name='一并永久删除',exact=True)).to_be_visible(timeout=30000)
+                await superpage.get_by_role('button',name='一并永久删除',exact=True).click()
+            await expect(superpage.get_by_text('高校已删除',exact=True)).to_be_visible(timeout=60000)
+            await expect(superpage.get_by_text(NAME,exact=True)).to_have_count(0)
+            report['cleanup_ui']=True
+            (ROOT/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+            print(json.dumps(report,ensure_ascii=False,indent=2))
+            await browser.close()
+
+ROOT.mkdir(parents=True,exist_ok=True)
+asyncio.run(main())
