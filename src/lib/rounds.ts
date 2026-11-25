@@ -112,12 +112,12 @@ export async function fetchAllBallotItems(
   for (let i = 0; i < ballotIds.length; i += CHUNK) {
     const ids = ballotIds.slice(i, i + CHUNK);
     for (let from = 0; ; from += PAGE) {
-      const { data, error } = await client
-        .from("ballot_items")
-        .select("id, ballot_id, candidate_id, choice")
-        .in("ballot_id", ids)
-        .order("id")
-        .range(from, from + PAGE - 1);
+      // The RPC preserves caller RLS and confines nested policy evaluation to
+      // these visible ballots, rather than scanning unrelated election items.
+      const { data, error } = await client.rpc("get_ballot_items_page", {
+        _ballot_ids: ids,
+        _offset: from,
+      });
       if (error) throw error;
       const rows = (data ?? []) as { ballot_id: string; candidate_id: string; choice: string }[];
       out.push(...rows);

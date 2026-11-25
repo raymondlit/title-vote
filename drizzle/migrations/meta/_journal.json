@@ -148,6 +148,13 @@
       "when": 1795393174563,
       "tag": "0020_session_summary_scoped_item_scan",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795590356194,
+      "tag": "0021_scoped_ballot_item_pages",
+      "breakpoints": true
     }
   ]
 }

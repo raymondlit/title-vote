@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultPassedIds,
   effectiveRoundRule,
+  fetchAllBallotItems,
   nextRoundTitle,
   remainingAfterRound,
   roundChain,
@@ -74,5 +75,36 @@ describe("多轮差额遴选", () => {
     });
     const list = [s("r3", "r2"), s("r1", null), s("r2", "r1"), s("other", null)];
     expect(roundChain(list, "r2").map((x) => x.id)).toEqual(["r1", "r2", "r3"]);
+  });
+});
+
+describe("选票明细分页", () => {
+  it("完整读取超过1000条明细，并按最多50张选票分批", async () => {
+    const calls: { ids: string[]; offset: number }[] = [];
+    const row = (n: number) => ({ ballot_id: "b0", candidate_id: `c${n}`, choice: "recommend" });
+    const client = { rpc: async (name: string, args: { _ballot_ids: string[]; _offset: number }) => {
+      expect(name).toBe("get_ballot_items_page");
+      calls.push({ ids: args._ballot_ids, offset: args._offset });
+      return { data: args._ballot_ids.length === 1
+        ? [row(1001)]
+        : args._offset === 0 ? Array.from({ length: 1000 }, (_, n) => row(n)) : [row(1000)], error: null };
+    } };
+    const rows = await fetchAllBallotItems(client, Array.from({ length: 51 }, (_, n) => `b${n}`));
+    expect(rows).toHaveLength(1002);
+    expect(rows.at(-1)?.candidate_id).toBe("c1001");
+    expect(calls.map(c => [c.ids.length, c.offset])).toEqual([[50, 0], [50, 1000], [1, 0]]);
+  });
+
+  it("读取失败必须抛错，不能把半张选票当作完整内容", async () => {
+    const error = new Error("unavailable");
+    const client = { rpc: async () => ({ data: null, error }) };
+    await expect(fetchAllBallotItems(client, ["b1"])).rejects.toBe(error);
+  });
+
+  it("空选票列表不请求其他场次的明细", async () => {
+    let calls = 0;
+    const client = { rpc: async () => { calls++; return { data: [], error: null }; } };
+    expect(await fetchAllBallotItems(client, [])).toEqual([]);
+    expect(calls).toBe(0);
   });
 });
