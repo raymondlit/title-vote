@@ -42,10 +42,12 @@ function AdminHome() {
   const stats = useQuery({
     queryKey: ["admin-stats", schoolId],
     enabled: !!schoolId,
+    refetchInterval: () => (document.visibilityState === "visible" ? 10000 : false),
     queryFn: async () => {
+      if (!schoolId) throw new Error("高校身份尚未加载");
       // 一次请求取回全部统计（原为 10 次并发请求），RLS 仍按本校生效
       const { data, error } = await supabase.rpc("admin_dashboard_stats", {
-        _school_id: schoolId!,
+        _school_id: schoolId,
       });
       if (error) throw error;
       const d = (data ?? {}) as Record<string, number>;
