@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { directSessionId, fetchJudgeSessions } from "@/lib/judgeSessions";
 import { PageTitle, Panel } from "@/components/Shell";
 import { useSession } from "@/lib/session";
 
@@ -29,46 +29,11 @@ function VoteList() {
   const { data, isLoading } = useQuery({
     queryKey: ["judge-sessions", session?.userId],
     enabled: !!session?.userId,
-    queryFn: async () => {
-      const { data: judge } = await supabase
-        .from("judges")
-        .select("id, full_name, committee_role, group_id, school_id, is_committee_member")
-        .eq("profile_id", session!.userId)
-        .maybeSingle();
-
-      const [{ data: sessions }, { data: ballots }] = judge
-        ? await Promise.all([
-            supabase
-            .from("vote_sessions")
-            .select(
-              "id, title, status, opened_at, closed_at, category_id, group_id, voter_scope, round_number",
-            )
-            .eq("school_id", judge.school_id)
-            .in("status", ["open", "closed"])
-            .is("archived_at", null)
-            .order("created_at", { ascending: false }),
-            supabase.from("ballots").select("session_id").eq("judge_id", judge.id),
-          ])
-        : [{ data: [] }, { data: [] as { session_id: string }[] }];
-
-      const submitted = new Set((ballots ?? []).map((b) => b.session_id));
-      const list = (sessions ?? []).filter((s) =>
-        s.voter_scope === "committee"
-          ? !!(judge as { is_committee_member?: boolean } | null)?.is_committee_member
-          : !s.group_id || s.voter_scope === "all" || s.group_id === judge?.group_id,
-      );
-
-      return { judge, list, submitted };
-    },
+    queryFn: () => fetchJudgeSessions(session!.userId),
   });
 
   const navigate = useNavigate();
-  const autoTarget =
-    data?.list.filter((s) => s.status === "open" && !data.submitted.has(s.id)) ?? [];
-  const directId =
-    autoTarget.length === 1 && data?.list.filter((s) => s.status === "open").length === 1
-      ? autoTarget[0]!.id
-      : null;
+  const directId = data ? directSessionId(data.list, data.submitted) : null;
   useEffect(() => {
     if (!directId) return;
     const key = `vote-direct:${directId}`;

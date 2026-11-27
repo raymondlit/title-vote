@@ -5,6 +5,8 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { accountToEmail, normalizeAccount } from "@/lib/account";
+import { normalizePassword, isTransientLoginError } from "@/lib/loginInput";
+import { directSessionId, fetchJudgeSessions } from "@/lib/judgeSessions";
 import { fetchSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +27,7 @@ type Stage = "idle" | "verifying" | "retrying" | "entering";
 const STAGE_LABEL: Record<Stage, string> = {
   idle: "登 录",
   verifying: "正在验证身份",
-  retrying: "登录人数较多，正在重试",
+  retrying: "网络波动或人数较多，正在重试",
   entering: "验证通过，正在进入",
 };
 
@@ -52,7 +54,7 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
   // Warm component chunks only: route preloading runs auth guards while signed out.
   useEffect(() => {
     const t = window.setTimeout(() => {
-      for (const id of ["/_authenticated/admin/", "/_authenticated/vote/", "/_authenticated/super"] as const) {
+      for (const id of ["/_authenticated/admin/", "/_authenticated/vote/", "/_authenticated/vote/$sessionId", "/_authenticated/super"] as const) {
         const route = router.routesById[id];
         if (route) void router.loadRouteChunk(route)?.catch(() => {});
       }
@@ -80,7 +82,9 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
       accountRef.current?.focus();
       return;
     }
-    if (!password) {
+    const cleanPassword = normalizePassword(password);
+    if (cleanPassword !== password) setPassword(cleanPassword);
+    if (!cleanPassword) {
       setFieldError({ field: "password", text: "请输入密码" });
       passwordRef.current?.focus();
       return;
@@ -94,8 +98,17 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     let result: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>> | null = null;
     try {
       for (let attempt = 0; attempt < 4; attempt++) {
-        result = await supabase.auth.signInWithPassword({ email, password });
-        if (!result.error || !isBusyError(result.error) || attempt === 3) break;
+        try {
+          result = await supabase.auth.signInWithPassword({ email, password: cleanPassword });
+        } catch (err) {
+          // Venue Wi-Fi blips throw before a response; retry like a busy server.
+          if (attempt === 3) throw err;
+          setStage("retrying");
+          await new Promise((r) => setTimeout(r, 700 * (attempt + 1) + Math.random() * 600));
+          continue;
+        }
+        const retryable = result.error && (isBusyError(result.error) || isTransientLoginError(result.error));
+        if (!retryable || attempt === 3) break;
         setStage("retrying");
         await new Promise((r) => setTimeout(r, 700 * (attempt + 1) + Math.random() * 600));
       }
@@ -134,7 +147,16 @@ export function LoginPanel({ title, subtitle, logoUrl, accent, hint, appearance 
     queryClient.setQueryData(["session"], session);
     if (session?.isSuper) navigate({ to: "/super" });
     else if (session?.isAdmin) navigate({ to: "/admin" });
-    else if (session?.isJudge) navigate({ to: "/vote" });
+    else if (session?.isJudge) {
+      // Resolve the judge's sessions now so a single open session opens directly.
+      const judgeData = await fetchJudgeSessions(session.userId).catch(() => null);
+      if (judgeData) queryClient.setQueryData(["judge-sessions", session.userId], judgeData);
+      const directId = judgeData ? directSessionId(judgeData.list, judgeData.submitted) : null;
+      if (directId) {
+        sessionStorage.setItem(`vote-direct:${directId}`, "1");
+        navigate({ to: "/vote/$sessionId", params: { sessionId: directId } });
+      } else navigate({ to: "/vote" });
+    }
     else {
       setStage("idle");
       toast.error(session ? "该账号尚未分配权限，请联系管理员" : "读取账号信息失败，请重试");
